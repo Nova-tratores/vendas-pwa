@@ -1,44 +1,55 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getProdutoById } from '../data/catalogo'
-import { getEstoqueProduto, formatBRL, frescorEstoque } from '../lib/catalogoSupabase'
+import { getEstoqueProduto, getEstoqueAtualById, formatBRL, frescorEstoque } from '../lib/catalogoSupabase'
 
 export default function CatalogoDetalhe() {
   const { id } = useParams()
-  const produto = getProdutoById(id)
-  const [estoque, setEstoque] = useState(null)
+  const isSupabase = id?.startsWith('sb-')
+  const codigoProduto = isSupabase ? id.slice(3) : null
+  const produtoCurado = !isSupabase ? getProdutoById(id) : null
+
+  const [estoqueCurado, setEstoqueCurado] = useState(null) // pra portfolio Mahindra
+  const [supItem, setSupItem] = useState(null)             // pra estoque atual
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!produto) {
-      setLoading(false)
-      return
-    }
     let alive = true
-    getEstoqueProduto(produto).then((data) => {
-      if (alive) {
-        setEstoque(data)
-        setLoading(false)
-      }
-    })
+    if (isSupabase) {
+      getEstoqueAtualById(codigoProduto).then((d) => {
+        if (alive) { setSupItem(d); setLoading(false) }
+      })
+    } else if (produtoCurado) {
+      getEstoqueProduto(produtoCurado).then((d) => {
+        if (alive) { setEstoqueCurado(d); setLoading(false) }
+      })
+    } else {
+      setLoading(false)
+    }
     return () => { alive = false }
-  }, [produto?.id])
+  }, [id])
 
-  if (!produto) {
+  if (!isSupabase && !produtoCurado) {
     return (
       <div className="text-center py-12">
         <p className="text-4xl mb-3">❓</p>
         <p className="text-slate-400">Produto não encontrado</p>
-        <Link to="/catalogo" className="text-blue-700 text-sm mt-3 inline-block">← Voltar ao catálogo</Link>
+        <Link to=".." className="text-blue-700 text-sm mt-3 inline-block">← Voltar ao catálogo</Link>
       </div>
     )
   }
 
+  if (isSupabase) return <DetalheEstoque item={supItem} loading={loading} />
+  return <DetalhePortfolio produto={produtoCurado} estoque={estoqueCurado} loading={loading} />
+}
+
+// =============== Portfólio curado (Mahindra) ===============
+function DetalhePortfolio({ produto, estoque, loading }) {
   const fotoPrincipal = `/catalogo/fotos/${produto.id}/foto-principal.webp`
 
   return (
     <div className="pb-4">
-      <Link to="/catalogo" className="text-blue-700 text-sm inline-block mb-2">← Catálogo</Link>
+      <Link to=".." className="text-blue-700 text-sm inline-block mb-2">← Catálogo</Link>
 
       <div className="bg-white rounded-xl shadow overflow-hidden mb-3 animate-fade-in">
         <div className="aspect-video bg-slate-100 flex items-center justify-center">
@@ -63,7 +74,7 @@ export default function CatalogoDetalhe() {
         </div>
       </div>
 
-      {/* Estoque e preco do Supabase */}
+      {/* Estoque e preço do Supabase */}
       <div className="bg-white rounded-xl shadow p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.05s' }}>
         {loading ? (
           <p className="text-sm text-slate-400">Consultando estoque...</p>
@@ -141,7 +152,6 @@ export default function CatalogoDetalhe() {
         </div>
       )}
 
-      {/* Folheto / ficha tecnica */}
       {produto.ficha_tecnica?.url_storage && (
         <a
           href={produto.ficha_tecnica.url_storage}
@@ -154,7 +164,6 @@ export default function CatalogoDetalhe() {
         </a>
       )}
 
-      {/* Link pro site oficial */}
       {produto.url_site && (
         <a
           href={produto.url_site}
@@ -165,6 +174,87 @@ export default function CatalogoDetalhe() {
         >
           Ver no site Mahindra ↗
         </a>
+      )}
+    </div>
+  )
+}
+
+// =============== Estoque atual (Supabase produtos) ===============
+function DetalheEstoque({ item, loading }) {
+  if (loading) {
+    return <p className="text-sm text-slate-500 text-center py-8">Carregando...</p>
+  }
+  if (!item) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-4xl mb-3">❓</p>
+        <p className="text-slate-400">Produto não encontrado no estoque</p>
+        <Link to=".." className="text-blue-700 text-sm mt-3 inline-block">← Voltar ao catálogo</Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pb-4">
+      <Link to=".." className="text-blue-700 text-sm inline-block mb-2">← Catálogo</Link>
+
+      <div className="bg-white rounded-xl shadow overflow-hidden mb-3 animate-fade-in">
+        <div className="aspect-video bg-slate-100 flex items-center justify-center">
+          {item.imagem_url ? (
+            <img
+              src={item.imagem_url}
+              alt={item.descricao}
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.parentElement.innerHTML = '<span class="text-6xl">📷</span>'
+              }}
+            />
+          ) : (
+            <span className="text-6xl">📷</span>
+          )}
+        </div>
+        <div className="p-4">
+          <h2 className="text-xl font-bold leading-tight">{item.modelo || item.descricao?.slice(0, 60)}</h2>
+          <p className="text-sm text-slate-500 mt-0.5">{item.marca || '—'} · {item.familia_nome}</p>
+          <span className="inline-block mt-2 text-[10px] uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+            {item.codigo}
+          </span>
+          {item.tem_override && (
+            <span className="inline-block mt-2 ml-2 text-[10px] uppercase tracking-wider bg-purple-50 text-purple-700 px-2 py-0.5 rounded">
+              ajustado pelo admin
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.05s' }}>
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-2xl font-bold text-green-700">{item.estoque_efetivo}</span>
+          <span className="text-xs text-slate-500">em estoque</span>
+        </div>
+        {item.preco_efetivo > 0 ? (
+          <p className="text-lg text-slate-800 font-semibold">{formatBRL(item.preco_efetivo)}</p>
+        ) : (
+          <p className="text-sm text-amber-700 font-medium">Consulte o preço</p>
+        )}
+        <p className={`text-xs mt-1 ${frescorEstoque(item.atualizado_em).color}`}>
+          {frescorEstoque(item.atualizado_em).label}
+        </p>
+      </div>
+
+      {item.descricao && (
+        <div className="bg-white rounded-xl shadow p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Descrição completa</h3>
+          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{item.descricao}</p>
+        </div>
+      )}
+
+      {item.override?.notas && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.15s' }}>
+          <p className="text-xs font-bold uppercase tracking-wider text-purple-700 mb-1">Nota do admin</p>
+          <p className="text-sm text-purple-900">{item.override.notas}</p>
+        </div>
       )}
     </div>
   )

@@ -4,6 +4,8 @@ import { supabase } from '../lib/sync'
 const navItems = [
   { to: '/supervisor', label: 'Geral', end: true },
   { to: '/supervisor/vendedores', label: 'Vendedores' },
+  { to: '/supervisor/catalogo', label: 'Catálogo' },
+  { to: '/supervisor/produtos', label: 'Produtos' },
   { to: '/supervisor/visitas', label: 'Visitas' },
   { to: '/supervisor/pos-vendas', label: 'Pós Vendas' },
   { to: '/supervisor/alertas', label: 'Alertas' },

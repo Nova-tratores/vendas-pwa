@@ -95,3 +95,119 @@ export function frescorEstoque(atualizado_em) {
   if (dias < 30) return { label: `Atualizado ${dias}d atrás`, color: 'text-amber-600' }
   return { label: `Atualizado ${dias}d atrás`, color: 'text-red-600' }
 }
+
+// ====================================================================
+// ESTOQUE ATUAL: produtos diretos do Supabase (ambiente=patio)
+// + overrides de admin (preço/estoque manual + visibilidade)
+// ====================================================================
+
+let estoqueAtualCache = null
+let overridesCache = null
+
+/**
+ * Busca produtos do "Estoque atual" — ambiente=patio, ativos, não arquivados,
+ * não-peças. Faz merge com a tabela catalogo_overrides para preço/estoque
+ * sobrescritos manualmente pelo admin.
+ */
+export async function getEstoqueAtual({ force = false } = {}) {
+  if (!force && estoqueAtualCache) return estoqueAtualCache
+
+  const [produtosRes, overridesRes] = await Promise.all([
+    supabase
+      .from('produtos')
+      .select('codigo_produto, codigo, descricao, marca, modelo, familia_nome, estoque, valor_unitario, imagem_url, ambiente, atualizado_em')
+      .eq('ambiente', 'patio')
+      .eq('inativo', false)
+      .eq('arquivado', false)
+      .neq('familia_nome', 'Peças')
+      .order('familia_nome', { ascending: true })
+      .order('descricao', { ascending: true }),
+    supabase
+      .from('catalogo_overrides')
+      .select('*'),
+  ])
+
+  if (produtosRes.error) {
+    console.error('[Estoque atual]', produtosRes.error.message)
+    return []
+  }
+
+  const overrides = {}
+  if (!overridesRes.error && overridesRes.data) {
+    for (const o of overridesRes.data) overrides[o.codigo_produto] = o
+  }
+  overridesCache = overrides
+
+  const merged = (produtosRes.data || []).map((p) => {
+    const ov = overrides[p.codigo_produto]
+    return {
+      ...p,
+      preco_efetivo: ov?.preco_override != null ? Number(ov.preco_override) : Number(p.valor_unitario) || 0,
+      estoque_efetivo: ov?.estoque_override != null ? Number(ov.estoque_override) : Number(p.estoque) || 0,
+      visivel: ov?.visivel !== false,
+      tem_override: !!ov,
+      override: ov || null,
+    }
+  })
+
+  estoqueAtualCache = merged.filter((p) => p.visivel)
+  return estoqueAtualCache
+}
+
+/**
+ * Busca 1 produto do Estoque atual por codigo_produto.
+ * Aceita string ou number.
+ */
+export async function getEstoqueAtualById(codigoProduto) {
+  const id = Number(codigoProduto)
+  const lista = await getEstoqueAtual()
+  return lista.find((p) => p.codigo_produto === id) || null
+}
+
+/**
+ * Lista TODOS produtos do escopo (inclui invisíveis) — pra tela admin.
+ */
+export async function getProdutosAdmin() {
+  const { data, error } = await supabase
+    .from('produtos')
+    .select('codigo_produto, codigo, descricao, marca, modelo, familia_nome, estoque, valor_unitario, imagem_url, atualizado_em')
+    .eq('ambiente', 'patio')
+    .eq('inativo', false)
+    .eq('arquivado', false)
+    .neq('familia_nome', 'Peças')
+    .order('descricao', { ascending: true })
+  if (error) throw error
+
+  const { data: overridesData } = await supabase.from('catalogo_overrides').select('*')
+  const overrides = {}
+  for (const o of (overridesData || [])) overrides[o.codigo_produto] = o
+
+  return (data || []).map((p) => ({
+    ...p,
+    override: overrides[p.codigo_produto] || null,
+  }))
+}
+
+/**
+ * Upsert de override (admin).
+ */
+export async function salvarOverride(codigoProduto, fields, supervisorId) {
+  const payload = {
+    codigo_produto: codigoProduto,
+    ...fields,
+    updated_at: new Date().toISOString(),
+    updated_by: supervisorId,
+  }
+  const { error } = await supabase
+    .from('catalogo_overrides')
+    .upsert(payload, { onConflict: 'codigo_produto' })
+  if (error) throw error
+  // Limpa cache pra próximas leituras pegarem o valor novo
+  estoqueAtualCache = null
+  overridesCache = null
+}
+
+export function clearEstoqueCache() {
+  estoqueAtualCache = null
+  overridesCache = null
+}
