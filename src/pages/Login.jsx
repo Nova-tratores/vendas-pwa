@@ -1,6 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/sync'
+import { clearAll } from '../lib/db'
+
+/**
+ * Garante isolamento: se vendedor diferente loga no mesmo celular, limpa IDB
+ * antes de qualquer pull pra nao misturar dados.
+ */
+async function clearIfDifferentVendedor(novoId) {
+  const cache = JSON.parse(localStorage.getItem('vendedor') || 'null')
+  if (cache && cache.id !== novoId) {
+    try { await clearAll() } catch (e) { console.error('[Login] clearAll:', e) }
+  }
+}
 
 export default function Login() {
   const navigate = useNavigate()
@@ -47,6 +59,7 @@ export default function Login() {
             .update({ auth_uid: authData.user.id })
             .eq('id', vendByEmail.id)
 
+          await clearIfDifferentVendedor(vendByEmail.id)
           localStorage.setItem('vendedor', JSON.stringify({
             id: vendByEmail.id,
             nome: vendByEmail.nome,
@@ -61,6 +74,7 @@ export default function Login() {
       }
 
       // 3. Salvar dados do vendedor no localStorage
+      await clearIfDifferentVendedor(vendedor.id)
       localStorage.setItem('vendedor', JSON.stringify({
         id: vendedor.id,
         nome: vendedor.nome,
@@ -117,7 +131,8 @@ export default function Login() {
 
         <div className="mt-4 pt-4 border-t border-slate-200">
           <button
-            onClick={() => {
+            onClick={async () => {
+              await clearIfDifferentVendedor(1)
               localStorage.setItem('vendedor', JSON.stringify({
                 id: 1,
                 nome: 'Vendedor Teste',

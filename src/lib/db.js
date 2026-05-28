@@ -201,3 +201,28 @@ export async function getLogs() {
     req.onerror = () => rej(req.error)
   })
 }
+
+/**
+ * Limpa TODOS os stores do IndexedDB.
+ * Usado no logout e ao detectar vendedor diferente do que esta em cache.
+ * Garante isolamento: vendedor B nao acessa dados que vendedor A baixou no celular.
+ */
+export async function clearAll() {
+  const db = await openDB()
+  const allStores = [...STORES, 'logs', 'fotos_pendentes']
+  return new Promise((res, rej) => {
+    const tx = db.transaction(allStores, 'readwrite')
+    let pending = allStores.length
+    let erro = null
+    allStores.forEach((name) => {
+      const req = tx.objectStore(name).clear()
+      req.onsuccess = () => {
+        if (--pending === 0) erro ? rej(erro) : res()
+      }
+      req.onerror = () => {
+        erro = req.error
+        if (--pending === 0) rej(erro)
+      }
+    })
+  })
+}

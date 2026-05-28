@@ -170,36 +170,88 @@ function mapForPull(store, record) {
   return { ...record, status_sync: 'synced' }
 }
 
+/**
+ * Pull com isolamento por vendedor:
+ *   - clientes_vendas / negocios / visitas: filtro direto por vendedor_id
+ *   - Clientes (propriedades): filtro via cliente_dono_id IN (ids dos clientes do vendedor)
+ *   - pessoas / maquinas: filtro via propriedade_id IN (ids das propriedades do vendedor)
+ *
+ * Cada celular so baixa os dados do vendedor logado.
+ * Sem vendedor_id (modo teste sem id real), pula tudo (zero pull).
+ */
 async function pullRecords() {
   let totalPulled = 0
 
-  for (const store of SYNC_ORDER) {
-    const supaTable = TABLE_MAP[store]
-    notify('pulling', `Baixando ${store}...`)
-
-    try {
-      const { data, error } = await supabase
-        .from(supaTable)
-        .select('*')
-
-      if (error) {
-        console.error(`[Pull] ${store}:`, error.message)
-        continue
-      }
-
-      if (!data || data.length === 0) continue
-
-      // Salvar cada registro no IndexedDB (com status synced)
-      for (const record of data) {
-        const mapped = mapForPull(store, record)
-        await saveRecord(store, mapped)
-      }
-
-      totalPulled += data.length
-    } catch (err) {
-      console.error(`[Pull] ${store}:`, err)
-    }
+  const vendedor = JSON.parse(localStorage.getItem('vendedor') || '{}')
+  const vendedorId = vendedor.id
+  if (!vendedorId) {
+    console.warn('[Pull] sem vendedor logado, pulando pull')
+    return 0
   }
+
+  async function pullStore(store, query, mapFn = (r) => r) {
+    notify('pulling', `Baixando ${store}...`)
+    const { data, error } = await query
+    if (error) {
+      console.error(`[Pull] ${store}:`, error.message)
+      return []
+    }
+    if (!data || data.length === 0) return []
+    for (const record of data) {
+      const mapped = mapFn(record)
+      await saveRecord(store, mapped)
+    }
+    totalPulled += data.length
+    return data
+  }
+
+  // 1. clientes (donos) do vendedor
+  const clientesData = await pullStore(
+    'clientes',
+    supabase.from('clientes_vendas').select('*').eq('vendedor_id', vendedorId),
+    (r) => mapForPull('clientes', r)
+  )
+  const clientesIds = clientesData.map((c) => c.id)
+
+  // 2. propriedades (Supabase "Clientes") cujos donos sao do vendedor
+  let propriedadesIds = []
+  if (clientesIds.length > 0) {
+    const propsData = await pullStore(
+      'propriedades',
+      supabase.from('Clientes').select('*').in('cliente_dono_id', clientesIds),
+      (r) => mapForPull('propriedades', r)
+    )
+    propriedadesIds = propsData.map((p) => p.id)
+  }
+
+  // 3. pessoas dessas propriedades
+  if (propriedadesIds.length > 0) {
+    await pullStore(
+      'pessoas',
+      supabase.from('pessoas').select('*').in('propriedade_id', propriedadesIds),
+      (r) => mapForPull('pessoas', r)
+    )
+    // 4. maquinas dessas propriedades
+    await pullStore(
+      'maquinas',
+      supabase.from('maquinas').select('*').in('propriedade_id', propriedadesIds),
+      (r) => mapForPull('maquinas', r)
+    )
+  }
+
+  // 5. negocios do vendedor
+  await pullStore(
+    'negocios',
+    supabase.from('negocios').select('*').eq('vendedor_id', vendedorId),
+    (r) => mapForPull('negocios', r)
+  )
+
+  // 6. visitas do vendedor
+  await pullStore(
+    'visitas',
+    supabase.from('visitas').select('*').eq('vendedor_id', vendedorId),
+    (r) => mapForPull('visitas', r)
+  )
 
   return totalPulled
 }

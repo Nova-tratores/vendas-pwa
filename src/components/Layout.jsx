@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { setSyncCallback, syncAll, countPending, supabase } from '../lib/sync'
+import { clearAll } from '../lib/db'
 
 const navItems = [
   { to: '/dashboard', label: 'Início', icon: '🏠' },
@@ -47,6 +48,9 @@ export default function Layout() {
   }, [updatePending])
 
   async function handleLogout() {
+    // Limpa IDB ANTES de fazer signOut/clear pra evitar deixar dados do
+    // vendedor logado expostos caso outro vendedor logue no mesmo celular.
+    try { await clearAll() } catch (e) { console.error('[Logout] clearAll:', e) }
     await supabase.auth.signOut()
     localStorage.removeItem('vendedor')
     localStorage.removeItem('token')
