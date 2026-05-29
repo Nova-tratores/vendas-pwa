@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import Clientes from './pages/Clientes'
 import Propriedades from './pages/Propriedades'
 import Pessoas from './pages/Pessoas'
@@ -39,6 +40,7 @@ export default function App() {
     <Routes>
       {/* Vendedor */}
       <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/"
         element={

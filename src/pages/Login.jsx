@@ -21,6 +21,32 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
 
+  // Estado do fluxo "Esqueci minha senha"
+  const [mostrarReset, setMostrarReset] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMsg, setResetMsg] = useState('')
+
+  async function enviarReset(e) {
+    e.preventDefault()
+    setResetMsg('')
+    if (!email) {
+      setResetMsg('Digite seu email no campo acima primeiro.')
+      return
+    }
+    setResetLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      setResetMsg('Email de recuperação enviado. Confira sua caixa de entrada.')
+    } catch (err) {
+      setResetMsg(`Erro: ${err.message || 'não foi possível enviar'}`)
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
@@ -128,6 +154,46 @@ export default function Login() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
+
+        {/* Esqueci minha senha */}
+        <div className="mt-3 text-center">
+          {!mostrarReset ? (
+            <button
+              type="button"
+              onClick={() => { setMostrarReset(true); setResetMsg('') }}
+              className="text-sm text-blue-700 active:text-blue-900"
+            >
+              Esqueci minha senha
+            </button>
+          ) : (
+            <form onSubmit={enviarReset} className="bg-slate-50 rounded-lg p-3 text-left animate-slide-up">
+              <p className="text-xs text-slate-600 mb-2">
+                Digite seu email no campo acima e clique abaixo. Vamos te enviar um link pra criar uma nova senha.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="flex-1 bg-blue-700 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  {resetLoading ? 'Enviando...' : 'Enviar link'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMostrarReset(false); setResetMsg('') }}
+                  className="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg text-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+              {resetMsg && (
+                <p className={`text-xs mt-2 ${resetMsg.startsWith('Erro') ? 'text-red-600' : 'text-green-700'}`}>
+                  {resetMsg}
+                </p>
+              )}
+            </form>
+          )}
+        </div>
 
         <div className="mt-4 pt-4 border-t border-slate-200">
           <button
