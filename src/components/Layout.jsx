@@ -68,6 +68,7 @@ export default function Layout() {
       <header className="bg-blue-800 text-white px-4 py-3 flex items-center justify-between safe-top">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-bold">Vendas App</h1>
+          <span className="text-base leading-none" aria-label="Brasil" title="Brasil">🇧🇷</span>
           <span className={`w-2 h-2 rounded-full ${online ? 'bg-green-400' : 'bg-red-400'}`} />
         </div>
         <div className="flex items-center gap-3">
