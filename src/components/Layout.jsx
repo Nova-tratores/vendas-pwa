@@ -5,6 +5,7 @@ import { clearAll } from '../lib/db'
 
 const navItems = [
   { to: '/dashboard', label: 'Início', icon: '🏠' },
+  { to: '/agenda', label: 'Agenda', icon: '📅' },
   { to: '/clientes', label: 'Clientes', icon: '👤' },
   { to: '/catalogo', label: 'Catálogo', icon: '📦' },
   { to: '/visitas', label: 'Visitas', icon: '📍' },

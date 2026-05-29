@@ -11,6 +11,7 @@ import Negocios from './pages/Negocios'
 import Dashboard from './pages/Dashboard'
 import Catalogo from './pages/Catalogo'
 import CatalogoDetalhe from './pages/CatalogoDetalhe'
+import Agenda from './pages/Agenda'
 
 // Supervisor
 import SupervisorLogin from './supervisor/SupervisorLogin'
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="negocios" element={<Negocios />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
+        <Route path="agenda" element={<Agenda />} />
       </Route>
 
       {/* Supervisor */}
