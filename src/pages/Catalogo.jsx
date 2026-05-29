@@ -93,7 +93,7 @@ export default function Catalogo() {
             {portfolioFiltrado.length === 0 ? (
               <EmptyState />
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {portfolioFiltrado.map((p, i) => (
                   <CardPortfolio key={p.id} produto={p} index={i} />
                 ))}
@@ -109,7 +109,7 @@ export default function Catalogo() {
             ) : estoqueFiltrado.length === 0 ? (
               <EmptyState texto="Nenhum produto em estoque" />
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {estoqueFiltrado.map((p, i) => (
                   <CardEstoque key={p.codigo_produto} produto={p} index={i} />
                 ))}
@@ -179,10 +179,10 @@ function CardPortfolio({ produto, index }) {
           }}
         />
       </div>
-      <div className="p-3">
-        <p className="font-bold text-xs leading-tight">{produto.titulo}</p>
+      <div className="p-2">
+        <p className="font-bold text-sm leading-tight">{produto.titulo}</p>
         {produto.subtitulo && (
-          <p className="text-[11px] text-slate-500 mt-0.5">{produto.subtitulo}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{produto.subtitulo}</p>
         )}
         {!produto.filtro_supabase && (
           <p className="text-[10px] text-amber-600 mt-1">Consultar estoque</p>
@@ -216,9 +216,9 @@ function CardEstoque({ produto, index }) {
           <span className="text-4xl">📷</span>
         )}
       </div>
-      <div className="p-3">
-        <p className="font-bold text-xs leading-tight">{produto.modelo || titulo}</p>
-        <p className="text-[11px] text-slate-500 mt-0.5">{produto.marca || '—'}</p>
+      <div className="p-2">
+        <p className="font-bold text-sm leading-tight">{produto.modelo || titulo}</p>
+        <p className="text-xs text-slate-500 mt-0.5">{produto.marca || '—'}</p>
         <div className="flex items-center justify-between mt-1">
           <span className="text-[10px] text-green-700 font-semibold">{produto.estoque_efetivo} un</span>
           {produto.preco_efetivo > 0 ? (

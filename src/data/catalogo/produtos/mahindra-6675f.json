@@ -1,10 +1,10 @@
 {
   "id": "mahindra-6675f",
   "titulo": "MAHINDRA 6675F",
-  "subtitulo": "75 CV",
+  "subtitulo": "80 CV",
   "categoria": "tratores",
   "url_site": "https://www.mahindrabrasil.com.br/trator-mahindra-6675f/",
-  "descricao": "O Trator Mahindra 6675F de 75 cv foi eleito Trator do Ano 23/24 na Categoria Especiais, sendo ideal para produtores de frutas de caroço e maçã. Equipado com motor Perkins de injeção mecânica, oferece transmissão mecânica sincronizada, sistema hidráulico potente e cabine inovadora que proporciona conforto e produtividade nas operações agrícolas especializadas.",
+  "descricao": "O Trator Mahindra 6675F de 80 cv foi eleito Trator do Ano 23/24 na Categoria Especiais, sendo ideal para produtores de frutas de caroço e maçã. Equipado com motor Perkins de injeção mecânica, oferece transmissão mecânica sincronizada, sistema hidráulico potente e cabine inovadora que proporciona conforto e produtividade nas operações agrícolas especializadas.",
   "argumentos_de_venda": [
     "Trator do Ano 23/24 em categoria especiais",
     "Motor Perkins 1104D-44T com baixo consumo",
@@ -25,7 +25,7 @@
     "url_storage": "https://citrhumdkfivdzbmayde.supabase.co/storage/v1/object/public/catalogo-pdfs/AF_Folheto_6675F_A4.pdf"
   },
   "especificacoes": {
-    "potencia": "75 cv",
+    "potencia": "80 cv",
     "motor": "Perkins 1104D-44T injeção mecânica",
     "transmissao": "Mecânica sincronizada 16 marchas à frente, 8 à ré",
     "sistema_hidraulico": "3 pontos com capacidade de levante 2.800 kg",

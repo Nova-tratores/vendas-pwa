@@ -6,11 +6,23 @@ const modules = import.meta.glob('./produtos/*.json', { eager: true })
 
 const produtos = Object.values(modules).map((mod) => mod.default || mod)
 
+// Posicoes fixas pra produtos que precisam furar a ordem alfabetica.
+// Ids sem entrada caem pro 999 e ordenam por titulo.
+const ORDEM_CUSTOM = {
+  'mahindra-2025': 1,
+  'oja-3140': 2,
+}
+
 produtos.sort((a, b) => {
   const ord = { tratores: 1, implementos: 2, pulverizadores: 3 }
   const da = ord[a.categoria] ?? 99
   const db = ord[b.categoria] ?? 99
   if (da !== db) return da - db
+
+  const oa = ORDEM_CUSTOM[a.id] ?? 999
+  const ob = ORDEM_CUSTOM[b.id] ?? 999
+  if (oa !== ob) return oa - ob
+
   return a.titulo.localeCompare(b.titulo)
 })
 
