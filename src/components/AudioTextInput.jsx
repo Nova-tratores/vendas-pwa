@@ -2,22 +2,33 @@ import { useState, useRef, useEffect } from 'react'
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
+/**
+ * Por que essa estrategia (continuous=true, sem restart automatico):
+ *
+ * O bug "gago" (texto duplicado) acontecia porque usavamos continuous=false
+ * + restart em onend. Quando a sessao terminava (silencio + timeout natural),
+ * abriamos nova sessao -- e alguns navegadores re-emitem o final da sessao
+ * anterior como contexto inicial da nova, gerando duplicacao.
+ *
+ * Com continuous=true a sessao mantem o event.results completo ao longo de
+ * toda a gravacao. event.results e SEMPRE o estado total - reconstruimos o
+ * texto da sessao a partir dele em cada onresult, sem precisar acumular nada
+ * nos. Zero risco de duplicacao.
+ *
+ * Tradeoff: em alguns mobiles a sessao pode encerrar sozinha apos longo
+ * silencio. O usuario apenas aperta 🎤 de novo. Preferivel a duplicacao.
+ */
 export default function AudioTextInput({ value, onChange, placeholder, rows = 3 }) {
   const [gravando, setGravando] = useState(false)
   const [suportaAudio, setSupportaAudio] = useState(false)
 
-  // Refs (nao gatilham re-render e sao confiaveis contra double-start)
   const recognitionRef = useRef(null)
-  const querendoGravarRef = useRef(false)   // intencao do usuario (true entre start e stop)
-  const baseValueRef = useRef('')           // texto que ja estava no campo antes de gravar
-  const committedRef = useRef('')           // finais ja confirmados nesta sessao
-  const interimRef = useRef('')             // ultimo parcial mostrado
+  const baseValueRef = useRef('')   // texto que ja estava antes de iniciar
 
   useEffect(() => {
     setSupportaAudio(!!SpeechRecognition)
     return () => {
-      // Limpa qualquer sessao orfa ao desmontar o componente
-      querendoGravarRef.current = false
+      // Limpa sessao orfa se o componente desmontar durante gravacao
       if (recognitionRef.current) {
         try { recognitionRef.current.stop() } catch { /* ignora */ }
         recognitionRef.current = null
@@ -25,114 +36,75 @@ export default function AudioTextInput({ value, onChange, placeholder, rows = 3 
     }
   }, [])
 
-  function atualizarTexto() {
-    const partes = [
-      baseValueRef.current.trim(),
-      committedRef.current.trim(),
-      interimRef.current.trim(),
-    ].filter(Boolean)
-    onChange(partes.join(' '))
-  }
-
-  function novaSessao() {
-    // continuous=false e mais confiavel em mobile. Para gravar continuo,
-    // reiniciamos uma nova sessao em onend enquanto querendoGravarRef for true.
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'pt-BR'
-    recognition.continuous = false
-    recognition.interimResults = true
-    recognition.maxAlternatives = 1
-
-    recognition.onresult = (event) => {
-      let interim = ''
-      let finalNovo = ''
-      // Iteramos so o que mudou neste evento (event.resultIndex em diante).
-      // Cada final aparece UMA unica vez, evitando duplicacao.
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript
-        if (event.results[i].isFinal) {
-          finalNovo += t
-        } else {
-          interim += t
-        }
-      }
-
-      if (finalNovo.trim()) {
-        committedRef.current = committedRef.current
-          ? `${committedRef.current} ${finalNovo.trim()}`
-          : finalNovo.trim()
-        interimRef.current = ''
-      } else {
-        interimRef.current = interim
-      }
-      atualizarTexto()
-    }
-
-    recognition.onerror = (event) => {
-      // 'no-speech' e 'aborted' sao normais (silencio ou parada) — apenas seguimos
-      if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        console.warn('[Speech]', event.error)
-        querendoGravarRef.current = false
-        setGravando(false)
-      }
-    }
-
-    recognition.onend = () => {
-      // Se o usuario ainda quer gravar, abrimos nova sessao (simula continuous)
-      if (querendoGravarRef.current) {
-        // Pequeno delay evita InvalidStateError em alguns navegadores
-        setTimeout(() => {
-          if (querendoGravarRef.current) novaSessao()
-        }, 50)
-      } else {
-        recognitionRef.current = null
-        setGravando(false)
-      }
-    }
-
-    recognitionRef.current = recognition
-    try {
-      recognition.start()
-    } catch (e) {
-      // Geralmente InvalidStateError quando ja esta iniciada — ignora
-      console.warn('[Speech] start error', e)
-    }
-  }
-
   function iniciarGravacao() {
     if (!SpeechRecognition) return
-    // Guarda contra double-tap: se ja esta gravando, nao reinicia
-    if (querendoGravarRef.current) return
+    if (recognitionRef.current) return  // ja gravando
 
-    querendoGravarRef.current = true
     baseValueRef.current = value || ''
-    committedRef.current = ''
-    interimRef.current = ''
-    setGravando(true)
-    novaSessao()
+
+    const rec = new SpeechRecognition()
+    rec.lang = 'pt-BR'
+    rec.continuous = true
+    rec.interimResults = true
+    rec.maxAlternatives = 1
+
+    rec.onresult = (event) => {
+      // event.results e cumulativo: reconstroi o texto inteiro da sessao.
+      // Cada slot aparece UMA vez aqui, sem duplicacao possivel.
+      let texto = ''
+      for (let i = 0; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript
+        texto += (i > 0 ? ' ' : '') + t
+      }
+      const base = baseValueRef.current.trim()
+      const sess = texto.trim()
+      onChange(base && sess ? `${base} ${sess}` : (base || sess))
+    }
+
+    rec.onerror = (event) => {
+      // no-speech e aborted sao normais; outros logamos
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        console.warn('[Speech]', event.error)
+      }
+      // Em qualquer erro, encerra o estado de gravacao
+      recognitionRef.current = null
+      setGravando(false)
+    }
+
+    rec.onend = () => {
+      // Sessao terminou (por stop manual, ou pelo browser apos silencio em mobile).
+      // NAO reiniciamos automaticamente -- vendedor aperta de novo se quiser continuar.
+      // Isso elimina a duplicacao causada por restart em loop.
+      recognitionRef.current = null
+      setGravando(false)
+    }
+
+    recognitionRef.current = rec
+    try {
+      rec.start()
+      setGravando(true)
+    } catch (e) {
+      console.warn('[Speech] start error', e)
+      recognitionRef.current = null
+      setGravando(false)
+    }
   }
 
   function pararGravacao() {
-    querendoGravarRef.current = false
     if (recognitionRef.current) {
       try { recognitionRef.current.stop() } catch { /* ignora */ }
+      // onend vai disparar e setar setGravando(false)
     }
-    setGravando(false)
   }
 
   function toggleGravacao() {
-    if (querendoGravarRef.current) {
-      pararGravacao()
-    } else {
-      iniciarGravacao()
-    }
+    if (recognitionRef.current) pararGravacao()
+    else iniciarGravacao()
   }
 
   function limparCampo() {
-    if (querendoGravarRef.current) pararGravacao()
+    if (recognitionRef.current) pararGravacao()
     baseValueRef.current = ''
-    committedRef.current = ''
-    interimRef.current = ''
     onChange('')
   }
 

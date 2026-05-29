@@ -408,12 +408,19 @@ export default function Visitas() {
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                   />
                   <div className="grid grid-cols-2 gap-2">
-                    <input
+                    <select
                       value={novaPessoa.cargo}
                       onChange={(e) => setNovaPessoa({ ...novaPessoa, cargo: e.target.value })}
-                      placeholder="Cargo"
                       className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
-                    />
+                    >
+                      <option value="">Cargo</option>
+                      <option value="PROPRIETARIO">Proprietário</option>
+                      <option value="FAMILIAR">Familiar</option>
+                      <option value="GERENTE">Gerente</option>
+                      <option value="TRATORISTA">Tratorista</option>
+                      <option value="SECRETARIA">Secretária</option>
+                      <option value="OUTROS">Outros</option>
+                    </select>
                     <input
                       value={novaPessoa.telefone}
                       onChange={(e) => setNovaPessoa({ ...novaPessoa, telefone: e.target.value })}
