@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard'
 import Catalogo from './pages/Catalogo'
 import CatalogoDetalhe from './pages/CatalogoDetalhe'
 import Agenda from './pages/Agenda'
+import MapaClientes from './pages/MapaClientes'
 
 // Supervisor
 import SupervisorLogin from './supervisor/SupervisorLogin'
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
         <Route path="agenda" element={<Agenda />} />
+        <Route path="mapa" element={<MapaClientes />} />
       </Route>
 
       {/* Supervisor */}

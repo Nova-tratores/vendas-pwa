@@ -59,6 +59,25 @@ input, textarea, select {
   transform: scale(0.98);
 }
 
+/* Etiqueta fixa do nome do cliente no mapa */
+.leaflet-tooltip.cliente-label {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  color: #1e293b;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leaflet-tooltip.cliente-label::before {
+  display: none; /* remove a setinha padrao */
+}
+
 /* Status bar PWA */
 @media (display-mode: standalone) {
   body {
