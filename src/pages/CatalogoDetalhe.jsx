@@ -52,6 +52,24 @@ function formatTelefoneBR(digits) {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
 }
 
+// Detecta se o browser/PWA suporta Web Share API com arquivos.
+// Android Chrome/Edge: sim. iOS Safari: parcial. Desktop: limitado.
+function podeCompartilharArquivos() {
+  return typeof navigator !== 'undefined'
+    && typeof navigator.canShare === 'function'
+    && typeof navigator.share === 'function'
+}
+
+// Pega o nome de arquivo decente a partir da URL (último segmento, sem query)
+function nomeDaUrl(url, fallback) {
+  try {
+    const u = new URL(url)
+    const base = u.pathname.split('/').pop()
+    if (base && base.includes('.')) return base
+  } catch { /* ignora */ }
+  return fallback
+}
+
 function CompartilharWhatsApp({ partes }) {
   // partes: { titulo, cv, descricao, fotoUrl, folhetoUrl, valor }
   // Cada campo so vira opcao de checkbox se vier preenchido em partes
@@ -76,12 +94,18 @@ function CompartilharWhatsApp({ partes }) {
     setSelecoes((s) => ({ ...s, [k]: !s[k] }))
   }
 
-  function montarMensagem() {
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState('')
+  const shareNativo = podeCompartilharArquivos()
+
+  // Constrói a mensagem de texto. Quando enviarComoArquivo=true, omite
+  // as URLs de foto/folheto (vão como anexo).
+  function montarMensagem({ enviarComoArquivo = false } = {}) {
     const linhas = []
     if (selecoes.titulo) {
       linhas.push(partes.cv ? `*${partes.titulo}* — ${partes.cv}` : `*${partes.titulo}*`)
     }
-    if (selecoes.foto && partes.fotoUrl) {
+    if (selecoes.foto && partes.fotoUrl && !enviarComoArquivo) {
       linhas.push('', partes.fotoUrl)
     }
     if (selecoes.descricao && partes.descricao) {
@@ -90,25 +114,89 @@ function CompartilharWhatsApp({ partes }) {
     if (selecoes.valor && partes.valor > 0) {
       linhas.push('', `💰 ${formatBRL(partes.valor)}`)
     }
-    if (selecoes.folheto && partes.folhetoUrl) {
+    if (selecoes.folheto && partes.folhetoUrl && !enviarComoArquivo) {
       linhas.push('', `📄 Folheto técnico: ${partes.folhetoUrl}`)
     }
     linhas.push('', '— Nova Tratores')
     return linhas.join('\n').replace(/^\n+/, '')
   }
 
-  function abrir(e) {
+  async function baixarComoArquivo(url, nomePadrao, mimePadrao) {
+    const r = await fetch(url)
+    if (!r.ok) throw new Error(`Falha baixando ${url}: HTTP ${r.status}`)
+    const blob = await r.blob()
+    const nome = nomeDaUrl(url, nomePadrao)
+    return new File([blob], nome, { type: blob.type || mimePadrao })
+  }
+
+  async function abrir(e) {
     e?.preventDefault()
-    if (telefone.length < 10) return
-    const numero = telefone.startsWith('55') ? telefone : `55${telefone}`
-    const texto = encodeURIComponent(montarMensagem())
-    localStorage.setItem('wa_share_last', telefone)
-    window.open(`https://wa.me/${numero}?text=${texto}`, '_blank', 'noopener')
-    setOpen(false)
+    setErro('')
+    if (enviando) return
+
+    const semTelefone = telefone.length < 10
+    const queriaFotoOuFolheto =
+      (selecoes.foto && partes.fotoUrl) || (selecoes.folheto && partes.folhetoUrl)
+
+    // Sem telefone só vale se vamos usar Web Share (que pega contato pelo share sheet do SO)
+    if (semTelefone && !shareNativo) {
+      setErro('Digite o telefone com DDD')
+      return
+    }
+
+    setEnviando(true)
+    try {
+      // Caminho 1: Web Share API com arquivos anexados (Android/iOS modernos)
+      if (shareNativo && queriaFotoOuFolheto) {
+        const files = []
+        try {
+          if (selecoes.foto && partes.fotoUrl) {
+            files.push(await baixarComoArquivo(partes.fotoUrl, 'foto.webp', 'image/webp'))
+          }
+          if (selecoes.folheto && partes.folhetoUrl) {
+            files.push(await baixarComoArquivo(partes.folhetoUrl, 'folheto.pdf', 'application/pdf'))
+          }
+        } catch (err) {
+          console.warn('[share] download dos arquivos falhou:', err)
+        }
+
+        if (files.length > 0 && navigator.canShare({ files })) {
+          try {
+            await navigator.share({
+              text: montarMensagem({ enviarComoArquivo: true }),
+              files,
+            })
+            if (telefone) localStorage.setItem('wa_share_last', telefone)
+            setOpen(false)
+            return
+          } catch (err) {
+            if (err.name === 'AbortError') {
+              // Usuário cancelou no share sheet, não cai pro fallback
+              return
+            }
+            console.warn('[share] navigator.share falhou:', err)
+            // continua pra fallback abaixo
+          }
+        }
+      }
+
+      // Caminho 2: fallback wa.me (texto puro com URLs)
+      if (semTelefone) {
+        setErro('Digite o telefone pra enviar via wa.me (anexo não disponível neste navegador).')
+        return
+      }
+      const numero = telefone.startsWith('55') ? telefone : `55${telefone}`
+      const texto = encodeURIComponent(montarMensagem({ enviarComoArquivo: false }))
+      localStorage.setItem('wa_share_last', telefone)
+      window.open(`https://wa.me/${numero}?text=${texto}`, '_blank', 'noopener')
+      setOpen(false)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const algumSelecionado = Object.values(selecoes).some(Boolean)
-  const valido = telefone.length >= 10 && algumSelecionado
+  const valido = algumSelecionado && (telefone.length >= 10 || shareNativo)
 
   return (
     <>
@@ -147,30 +235,48 @@ function CompartilharWhatsApp({ partes }) {
               ))}
             </div>
 
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Telefone (com DDD)</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+              Telefone (com DDD)
+              {shareNativo && <span className="ml-1 normal-case text-slate-400">— opcional se compartilhar com anexo</span>}
+            </p>
             <input
               type="tel"
               inputMode="numeric"
               value={formatTelefoneBR(telefone)}
               onChange={(e) => setTelefone(e.target.value.replace(/\D/g, '').slice(0, 11))}
               placeholder="(14) 99999-9999"
-              className="w-full border border-slate-300 rounded-lg px-3 py-3 text-base mb-4"
+              className="w-full border border-slate-300 rounded-lg px-3 py-3 text-base mb-2"
             />
+
+            {shareNativo ? (
+              <p className="text-[11px] text-slate-500 mb-3">
+                Se você marcou foto ou folheto, o sistema vai abrir o seletor de apps do celular pra você escolher o contato — a foto e o PDF vão como anexo do WhatsApp.
+              </p>
+            ) : (
+              <p className="text-[11px] text-amber-600 mb-3">
+                Esse navegador não suporta anexar arquivo. O link da foto e do folheto vai como texto na mensagem.
+              </p>
+            )}
+
+            {erro && (
+              <p className="text-xs text-red-600 mb-3 bg-red-50 rounded p-2">{erro}</p>
+            )}
 
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-medium text-sm active:bg-slate-200"
+                disabled={enviando}
+                className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-medium text-sm active:bg-slate-200 disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                disabled={!valido}
+                disabled={!valido || enviando}
                 className="flex-1 bg-green-600 text-white py-3 rounded-xl font-medium text-sm active:bg-green-700 disabled:opacity-40"
               >
-                Abrir WhatsApp
+                {enviando ? 'Preparando...' : 'Compartilhar'}
               </button>
             </div>
           </form>
