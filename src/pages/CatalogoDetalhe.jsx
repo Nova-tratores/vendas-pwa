@@ -43,6 +43,143 @@ export default function CatalogoDetalhe() {
   return <DetalhePortfolio produto={produtoCurado} estoque={estoqueCurado} loading={loading} />
 }
 
+// =============== Compartilhar no WhatsApp ===============
+function formatTelefoneBR(digits) {
+  const d = digits.slice(0, 11)
+  if (d.length <= 2) return d
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
+
+function CompartilharWhatsApp({ partes }) {
+  // partes: { titulo, cv, descricao, fotoUrl, folhetoUrl, valor }
+  // Cada campo so vira opcao de checkbox se vier preenchido em partes
+  const [open, setOpen] = useState(false)
+  const [telefone, setTelefone] = useState(() =>
+    (localStorage.getItem('wa_share_last') || '').replace(/\D/g, '')
+  )
+
+  const opcoesDisponiveis = [
+    { key: 'titulo', label: 'Título', tem: !!partes.titulo },
+    { key: 'descricao', label: 'Descrição', tem: !!partes.descricao },
+    { key: 'foto', label: 'Foto', tem: !!partes.fotoUrl },
+    { key: 'valor', label: 'Valor', tem: !!(partes.valor && partes.valor > 0) },
+    { key: 'folheto', label: 'Folheto técnico (PDF)', tem: !!partes.folhetoUrl },
+  ].filter((o) => o.tem)
+
+  const [selecoes, setSelecoes] = useState(() =>
+    Object.fromEntries(opcoesDisponiveis.map((o) => [o.key, true]))
+  )
+
+  function toggleSelecao(k) {
+    setSelecoes((s) => ({ ...s, [k]: !s[k] }))
+  }
+
+  function montarMensagem() {
+    const linhas = []
+    if (selecoes.titulo) {
+      linhas.push(partes.cv ? `*${partes.titulo}* — ${partes.cv}` : `*${partes.titulo}*`)
+    }
+    if (selecoes.foto && partes.fotoUrl) {
+      linhas.push('', partes.fotoUrl)
+    }
+    if (selecoes.descricao && partes.descricao) {
+      linhas.push('', partes.descricao.trim())
+    }
+    if (selecoes.valor && partes.valor > 0) {
+      linhas.push('', `💰 ${formatBRL(partes.valor)}`)
+    }
+    if (selecoes.folheto && partes.folhetoUrl) {
+      linhas.push('', `📄 Folheto técnico: ${partes.folhetoUrl}`)
+    }
+    linhas.push('', '— Nova Tratores')
+    return linhas.join('\n').replace(/^\n+/, '')
+  }
+
+  function abrir(e) {
+    e?.preventDefault()
+    if (telefone.length < 10) return
+    const numero = telefone.startsWith('55') ? telefone : `55${telefone}`
+    const texto = encodeURIComponent(montarMensagem())
+    localStorage.setItem('wa_share_last', telefone)
+    window.open(`https://wa.me/${numero}?text=${texto}`, '_blank', 'noopener')
+    setOpen(false)
+  }
+
+  const algumSelecionado = Object.values(selecoes).some(Boolean)
+  const valido = telefone.length >= 10 && algumSelecionado
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="block w-full bg-green-600 text-white text-center py-3 rounded-xl font-medium text-sm active:bg-green-700 animate-fade-in mb-2"
+      >
+        💬 Enviar no WhatsApp
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setOpen(false)}
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={abrir}
+            className="bg-white rounded-2xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto"
+          >
+            <h3 className="text-lg font-bold mb-3">Enviar pelo WhatsApp</h3>
+
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">O que enviar</p>
+            <div className="space-y-1.5 mb-4">
+              {opcoesDisponiveis.map((o) => (
+                <label key={o.key} className="flex items-center gap-2 cursor-pointer py-1">
+                  <input
+                    type="checkbox"
+                    checked={!!selecoes[o.key]}
+                    onChange={() => toggleSelecao(o.key)}
+                    className="w-5 h-5 accent-green-600"
+                  />
+                  <span className="text-sm">{o.label}</span>
+                </label>
+              ))}
+            </div>
+
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Telefone (com DDD)</p>
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={formatTelefoneBR(telefone)}
+              onChange={(e) => setTelefone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              placeholder="(14) 99999-9999"
+              className="w-full border border-slate-300 rounded-lg px-3 py-3 text-base mb-4"
+            />
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-medium text-sm active:bg-slate-200"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={!valido}
+                className="flex-1 bg-green-600 text-white py-3 rounded-xl font-medium text-sm active:bg-green-700 disabled:opacity-40"
+              >
+                Abrir WhatsApp
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
+  )
+}
+
 // =============== Portfólio curado (Mahindra) ===============
 function DetalhePortfolio({ produto, estoque, loading }) {
   const fotoPrincipal = `/catalogo/fotos/${produto.id}/foto-principal.webp`
@@ -152,6 +289,17 @@ function DetalhePortfolio({ produto, estoque, loading }) {
         </div>
       )}
 
+      <CompartilharWhatsApp
+        partes={{
+          titulo: produto.titulo,
+          cv: produto.subtitulo || null,
+          descricao: produto.descricao,
+          valor: estoque?.matched && estoque?.valor_medio > 0 ? estoque.valor_medio : null,
+          fotoUrl: `https://novatratores.com/catalogo/fotos/${produto.id}/foto-principal.webp`,
+          folhetoUrl: produto.ficha_tecnica?.url_storage || null,
+        }}
+      />
+
       {produto.ficha_tecnica?.url_storage && (
         <a
           href={produto.ficha_tecnica.url_storage}
@@ -249,6 +397,18 @@ function DetalheEstoque({ item, loading }) {
           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{item.descricao}</p>
         </div>
       )}
+
+      <CompartilharWhatsApp
+        partes={{
+          titulo: item.modelo || item.descricao?.slice(0, 60) || `Código ${item.codigo}`,
+          cv: null,
+          descricao: item.descricao,
+          valor: item.preco_efetivo > 0 ? item.preco_efetivo : null,
+          fotoUrl: item.imagem_url || null,
+          folhetoUrl: null,
+        }}
+      />
+
 
       {item.override?.notas && (
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.15s' }}>
