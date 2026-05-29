@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getProdutoById } from '../data/catalogo'
-import { getEstoqueProduto, getEstoqueAtualById, formatBRL, frescorEstoque } from '../lib/catalogoSupabase'
+import { getEstoqueProduto, getEstoqueAtualById, formatBRL, frescorEstoque, getMidiasProduto } from '../lib/catalogoSupabase'
 
 export default function CatalogoDetalhe() {
   const { id } = useParams()
@@ -329,6 +329,17 @@ function DetalhePortfolio({ produto, estoque, loading }) {
 
 // =============== Estoque atual (Supabase produtos) ===============
 function DetalheEstoque({ item, loading }) {
+  const [midias, setMidias] = useState([])
+
+  useEffect(() => {
+    if (!item?.codigo_produto) return
+    let alive = true
+    getMidiasProduto(item.codigo_produto).then((m) => {
+      if (alive) setMidias(m)
+    })
+    return () => { alive = false }
+  }, [item?.codigo_produto])
+
   if (loading) {
     return <p className="text-sm text-slate-500 text-center py-8">Carregando...</p>
   }
@@ -341,6 +352,10 @@ function DetalheEstoque({ item, loading }) {
       </div>
     )
   }
+
+  const fotosExtras = midias.filter((m) => m.tipo === 'foto')
+  const videos = midias.filter((m) => m.tipo === 'video')
+  const pdfs = midias.filter((m) => m.tipo === 'pdf')
 
   return (
     <div className="pb-4">
@@ -397,6 +412,59 @@ function DetalheEstoque({ item, loading }) {
           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{item.descricao}</p>
         </div>
       )}
+
+      {/* Fotos extras (carrossel horizontal scroll) */}
+      {fotosExtras.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-3 mb-3 animate-fade-in" style={{ animationDelay: '0.12s' }}>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Mais fotos ({fotosExtras.length})</h3>
+          <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+            {fotosExtras.map((f) => (
+              <a
+                key={f.id}
+                href={f.url_publica}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 w-32 aspect-square bg-slate-100 rounded overflow-hidden"
+              >
+                <img src={f.url_publica} alt={f.titulo || ''} className="w-full h-full object-cover" loading="lazy" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Videos */}
+      {videos.map((v) => (
+        <div key={v.id} className="bg-white rounded-xl shadow p-3 mb-3 animate-fade-in">
+          {v.titulo && <p className="text-xs text-slate-500 mb-2">{v.titulo}</p>}
+          <video
+            src={v.url_publica}
+            controls
+            preload="metadata"
+            className="w-full rounded bg-black"
+          />
+        </div>
+      ))}
+
+      {/* PDFs */}
+      {pdfs.map((p) => (
+        <a
+          key={p.id}
+          href={p.url_publica}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block bg-white rounded-xl shadow p-3 mb-3 active:bg-slate-50 animate-fade-in"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📄</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-700 truncate">{p.titulo || 'Documento PDF'}</p>
+              <p className="text-xs text-slate-500">Abrir em nova aba</p>
+            </div>
+            <span className="text-blue-700 text-lg">↗</span>
+          </div>
+        </a>
+      ))}
 
       <CompartilharWhatsApp
         partes={{

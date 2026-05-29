@@ -244,3 +244,129 @@ export function clearEstoqueCache() {
   estoqueAtualCache = null
   overridesCache = null
 }
+
+// ====================================================================
+// MÍDIA POR PRODUTO (foto/video/pdf adicionados pelo admin)
+// ====================================================================
+
+const MIDIA_BUCKET = 'catalogo-midia'
+
+/**
+ * Lista todas as mídias de um produto, ordenadas (foto antes, depois video, depois pdf).
+ */
+export async function getMidiasProduto(codigoProduto) {
+  const { data, error } = await supabase
+    .from('catalogo_midia')
+    .select('*')
+    .eq('codigo_produto', codigoProduto)
+    .order('ordem', { ascending: true })
+    .order('created_at', { ascending: true })
+  if (error) {
+    console.error('[Midia list]', error.message)
+    return []
+  }
+  return (data || []).map((m) => ({
+    ...m,
+    url_publica: `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${m.storage_path}`,
+  }))
+}
+
+/**
+ * Upload de arquivo + insert em catalogo_midia.
+ * Retorna o registro criado (com url_publica).
+ */
+export async function uploadMidia({ codigoProduto, file, tipo, titulo, supervisorId, onProgress }) {
+  if (!file) throw new Error('Arquivo é obrigatório')
+  if (!['foto', 'video', 'pdf'].includes(tipo)) throw new Error(`Tipo inválido: ${tipo}`)
+
+  // path único: {codigo}/{timestamp}-{slug do nome}
+  const ts = Date.now()
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
+  const slug = file.name
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .toLowerCase()
+    .slice(0, 40) || 'arquivo'
+  const storagePath = `${codigoProduto}/${ts}-${slug}.${ext}`
+
+  // Upload
+  const { error: upErr } = await supabase.storage
+    .from(MIDIA_BUCKET)
+    .upload(storagePath, file, {
+      contentType: file.type || (tipo === 'pdf' ? 'application/pdf' : undefined),
+      upsert: false,
+    })
+  if (upErr) throw new Error(`Upload falhou: ${upErr.message}`)
+
+  // Insert na tabela
+  const { data, error: insErr } = await supabase
+    .from('catalogo_midia')
+    .insert({
+      codigo_produto: codigoProduto,
+      tipo,
+      storage_path: storagePath,
+      titulo: titulo || null,
+      ordem: 0,
+      created_by: supervisorId || null,
+    })
+    .select()
+    .single()
+
+  if (insErr) {
+    // rollback do storage se a insert falhar
+    await supabase.storage.from(MIDIA_BUCKET).remove([storagePath])
+    throw new Error(`Insert falhou: ${insErr.message}`)
+  }
+
+  return {
+    ...data,
+    url_publica: `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${data.storage_path}`,
+  }
+}
+
+/**
+ * Remove mídia: deleta do Storage + da tabela.
+ */
+export async function deletarMidia(midia) {
+  // delete do storage (se falhar, ainda tenta remover a row pra nao deixar orfa)
+  if (midia.storage_path) {
+    const { error: stErr } = await supabase.storage.from(MIDIA_BUCKET).remove([midia.storage_path])
+    if (stErr) console.warn('[Midia storage delete]', stErr.message)
+  }
+  const { error } = await supabase.from('catalogo_midia').delete().eq('id', midia.id)
+  if (error) throw new Error(`Delete falhou: ${error.message}`)
+}
+
+/**
+ * Helper pra resize de foto no cliente antes do upload (Canvas, max 1280px, webp q82).
+ * Retorna um novo File pronto pra upload.
+ */
+export async function resizeFotoParaUpload(file, { maxDim = 1280, quality = 0.82 } = {}) {
+  if (!file.type.startsWith('image/')) return file
+  // Não tenta resize de gif/webp animado: passa raw
+  if (file.type === 'image/gif') return file
+
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image()
+    i.onload = () => resolve(i)
+    i.onerror = reject
+    i.src = URL.createObjectURL(file)
+  })
+
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+  const w = Math.round(img.width * scale)
+  const h = Math.round(img.height * scale)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0, w, h)
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality))
+  URL.revokeObjectURL(img.src)
+  if (!blob) return file
+  // Mantém .webp na extensão e content-type
+  const baseName = file.name.replace(/\.[^.]+$/, '')
+  return new File([blob], `${baseName}.webp`, { type: 'image/webp' })
+}
