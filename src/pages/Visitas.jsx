@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { getAllRecords, getByIndex, getRecord, deleteRecord, saveRecord, registrarLog } from '../lib/db'
 import { useCheckin } from '../hooks/useCheckin'
 import PullToRefresh from '../components/PullToRefresh'
@@ -185,12 +186,20 @@ export default function Visitas() {
   return (
     <PullToRefresh onRefresh={carregar}>
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <h2 className="text-xl font-bold">Visitas</h2>
         {!showForm && (
-          <button onClick={handleNovaVisita} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            + Check-in
-          </button>
+          <div className="flex gap-2">
+            <Link
+              to="/visitas/mapa"
+              className="bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
+            >
+              🗺️ Mapa
+            </Link>
+            <button onClick={handleNovaVisita} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+              + Check-in
+            </button>
+          </div>
         )}
       </div>
 

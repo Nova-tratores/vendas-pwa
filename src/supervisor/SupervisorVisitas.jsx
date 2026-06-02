@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { getVisitas, getVendedores } from '../lib/supabaseQueries'
 
 const TIPOS = [
@@ -59,7 +59,15 @@ export default function SupervisorVisitas() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Visitas</h2>
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <h2 className="text-xl font-bold">Visitas</h2>
+        <Link
+          to="/supervisor/mapa"
+          className="bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
+        >
+          🗺️ Mapa
+        </Link>
+      </div>
 
       {/* Filtros */}
       <div className="bg-white rounded-xl shadow p-3 mb-4 space-y-2">

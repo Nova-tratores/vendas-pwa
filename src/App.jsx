@@ -13,6 +13,7 @@ import Catalogo from './pages/Catalogo'
 import CatalogoDetalhe from './pages/CatalogoDetalhe'
 import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
+import VisitasMapa from './pages/VisitasMapa'
 
 // Supervisor
 import SupervisorLogin from './supervisor/SupervisorLogin'
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="pessoas/:propriedadeId" element={<Pessoas />} />
         <Route path="maquinas/:propriedadeId" element={<Maquinas />} />
         <Route path="visitas" element={<Visitas />} />
+        <Route path="visitas/mapa" element={<VisitasMapa />} />
         <Route path="negocios" element={<Negocios />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
