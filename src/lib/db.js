@@ -51,7 +51,14 @@ export async function saveRecord(store, record) {
 
     // Se tem id, usa put (update). Se não, usa add (insert com autoIncrement)
     const req = data.id ? objStore.put(data) : objStore.add(data)
-    req.onsuccess = () => res(req.result) // retorna o id gerado
+    req.onsuccess = () => {
+      // Escrita local pendente: avisa o sync pra agendar um push automático.
+      // O pull grava com status_sync 'synced', então não dispara (evita loop).
+      if (data.status_sync === 'pending' && typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('vendas:pending-write'))
+      }
+      res(req.result) // retorna o id gerado
+    }
     req.onerror = () => rej(req.error)
   })
 }

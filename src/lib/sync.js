@@ -312,7 +312,8 @@ export async function pullOnly() {
 }
 
 export async function pushOnly() {
-  if (!navigator.onLine) return
+  if (isSyncing || !navigator.onLine) return
+  isSyncing = true
   notify('pushing', 'Enviando dados...')
   try {
     const pushed = await pushRecords()
@@ -321,7 +322,30 @@ export async function pushOnly() {
     setTimeout(() => notify('idle', ''), 3000)
   } catch (err) {
     notify('error', err.message)
+  } finally {
+    isSyncing = false
   }
+}
+
+// ============================================
+// AUTO-PUSH: dispara um push (debounced) após escritas locais,
+// pra não depender do botão SYNC / reload / reconexão.
+// ============================================
+
+let autoPushTimer = null
+
+async function runAutoPush() {
+  autoPushTimer = null
+  if (isSyncing || !navigator.onLine) return
+  // Sem sessão não dá pra escrever (RLS bloqueia) — espera o próximo gatilho.
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+  await pushOnly()
+}
+
+export function scheduleAutoPush(delay = 2000) {
+  if (autoPushTimer) clearTimeout(autoPushTimer)
+  autoPushTimer = setTimeout(runAutoPush, delay)
 }
 
 // Contagem de pendentes
@@ -336,6 +360,8 @@ export async function countPending() {
 
 export function initSyncListener() {
   window.addEventListener('online', () => syncAll())
+  // Auto-push após escritas locais (saveRecord dispara 'vendas:pending-write')
+  window.addEventListener('vendas:pending-write', () => scheduleAutoPush())
   // Sync inicial se online
   if (navigator.onLine) syncAll()
 }
