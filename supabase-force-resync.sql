@@ -18,7 +18,10 @@ ALTER TABLE vendedores
 CREATE OR REPLACE FUNCTION force_resync_vendedores(vendedor_id_param bigint DEFAULT NULL)
 RETURNS int
 LANGUAGE plpgsql
-SECURITY INVOKER  -- usa permissoes do caller (RLS aplica)
+SECURITY DEFINER  -- roda como dono pra bypass do RLS de vendedores (que so deixa
+                  -- o proprio vendedor atualizar seu registro). Validacao manual
+                  -- abaixo garante que so supervisor consegue chamar.
+SET search_path = public
 AS $$
 DECLARE
   afetados int;
