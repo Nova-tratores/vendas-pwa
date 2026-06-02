@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   getAllRecords, getPendingRecords, markAsSynced, saveRecord,
   getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs,
+  clearAll,
 } from './db'
 
 export const supabase = createClient(
@@ -179,6 +180,33 @@ function mapForPull(store, record) {
  * Cada celular so baixa os dados do vendedor logado.
  * Sem vendedor_id (modo teste sem id real), pula tudo (zero pull).
  */
+/**
+ * Checa se o supervisor sinalizou force_resync no banco. Se sim e ainda
+ * nao processamos esse carimbo localmente, limpa o IDB e devolve true
+ * (caller deve fazer pull from scratch).
+ */
+async function checarForceResync(vendedorId) {
+  try {
+    const { data, error } = await supabase
+      .from('vendedores')
+      .select('force_resync_at')
+      .eq('id', vendedorId)
+      .maybeSingle()
+    if (error || !data?.force_resync_at) return false
+    const carimboServidor = data.force_resync_at
+    const carimboLocal = localStorage.getItem('lastForceResync') || ''
+    if (carimboServidor > carimboLocal) {
+      console.log('[Sync] force_resync detectado, limpando IDB...')
+      await clearAll()
+      localStorage.setItem('lastForceResync', carimboServidor)
+      return true
+    }
+  } catch (err) {
+    console.warn('[Sync] checarForceResync falhou:', err)
+  }
+  return false
+}
+
 async function pullRecords() {
   let totalPulled = 0
 
@@ -188,6 +216,9 @@ async function pullRecords() {
     console.warn('[Pull] sem vendedor logado, pulando pull')
     return 0
   }
+
+  // Se admin pediu force_resync, IDB foi limpo. Pull abaixo re-popula do zero.
+  await checarForceResync(vendedorId)
 
   async function pullStore(store, query, mapFn = (r) => r) {
     notify('pulling', `Baixando ${store}...`)

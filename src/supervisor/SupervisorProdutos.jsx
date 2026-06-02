@@ -1,6 +1,49 @@
 import { useState, useEffect } from 'react'
 import { getProdutosAdmin, salvarOverride, formatBRL, clearEstoqueCache } from '../lib/catalogoSupabase'
+import { supabase } from '../lib/sync'
 import MidiasEditor from './MidiasEditor'
+
+function BotaoForceResync() {
+  const [estado, setEstado] = useState('idle') // idle | enviando | ok | erro
+  const [msg, setMsg] = useState('')
+
+  async function disparar() {
+    if (!confirm('Forçar todos os vendedores ativos a refazer pull no próximo open? Isso limpa o IndexedDB de cada um e baixa tudo do zero.')) return
+    setEstado('enviando')
+    setMsg('')
+    try {
+      const { data, error } = await supabase.rpc('force_resync_vendedores')
+      if (error) throw error
+      setEstado('ok')
+      setMsg(`${data ?? 0} vendedores sinalizados`)
+      setTimeout(() => { setEstado('idle'); setMsg('') }, 5000)
+    } catch (err) {
+      setEstado('erro')
+      setMsg(err.message || 'falhou')
+    }
+  }
+
+  return (
+    <div className="text-right">
+      <button
+        type="button"
+        onClick={disparar}
+        disabled={estado === 'enviando'}
+        className={`text-xs px-3 py-1.5 rounded font-medium ${
+          estado === 'erro' ? 'bg-red-100 text-red-700'
+          : estado === 'ok' ? 'bg-green-100 text-green-700'
+          : 'bg-amber-50 text-amber-800 active:bg-amber-100'
+        } disabled:opacity-50`}
+        title="Limpa o cache de TODOS os vendedores ativos. Eles refazem pull no próximo open do app."
+      >
+        {estado === 'enviando' ? 'Enviando...'
+          : estado === 'ok' ? '✓ Enviado'
+          : '🔄 Forçar resync (todos)'}
+      </button>
+      {msg && <p className={`text-[10px] mt-1 ${estado === 'erro' ? 'text-red-600' : 'text-slate-500'}`}>{msg}</p>}
+    </div>
+  )
+}
 
 export default function SupervisorProdutos() {
   const [produtos, setProdutos] = useState([])
@@ -69,11 +112,14 @@ export default function SupervisorProdutos() {
 
   return (
     <div>
-      <div className="mb-3">
-        <h2 className="text-xl font-bold">Produtos (admin)</h2>
-        <p className="text-sm text-slate-500">
-          Ajuste preÃ§o/estoque manual e visibilidade. {produtos.length} itens em estoque (pÃ¡tio).
-        </p>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-bold">Produtos (admin)</h2>
+          <p className="text-sm text-slate-500">
+            Ajuste preço/estoque manual e visibilidade. {produtos.length} itens em estoque (pátio).
+          </p>
+        </div>
+        <BotaoForceResync />
       </div>
 
       <input

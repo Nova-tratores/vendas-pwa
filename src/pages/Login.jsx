@@ -14,6 +14,24 @@ async function clearIfDifferentVendedor(novoId) {
   }
 }
 
+/**
+ * Registra o acesso do vendedor em audit_logs_vendas (acao='login').
+ * Best-effort: nunca bloqueia o login. O supervisor usa isso pro "último acesso".
+ */
+async function registrarAcesso(vendedorId, vendedorNome) {
+  try {
+    await supabase.from('audit_logs_vendas').insert({
+      acao: 'login',
+      entidade: 'sessao',
+      vendedor_id: vendedorId,
+      vendedor_nome: vendedorNome || '',
+      data_hora: new Date().toISOString(),
+    })
+  } catch (e) {
+    console.warn('[Login] registrarAcesso falhou:', e)
+  }
+}
+
 export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -91,6 +109,7 @@ export default function Login() {
             nome: vendByEmail.nome,
             email: email,
           }))
+          await registrarAcesso(vendByEmail.id, vendByEmail.nome)
           navigate('/')
           return
         }
@@ -106,6 +125,7 @@ export default function Login() {
         nome: vendedor.nome,
         email: email,
       }))
+      await registrarAcesso(vendedor.id, vendedor.nome)
 
       navigate('/')
     } catch (err) {
@@ -195,22 +215,6 @@ export default function Login() {
           )}
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-200">
-          <button
-            onClick={async () => {
-              await clearIfDifferentVendedor(1)
-              localStorage.setItem('vendedor', JSON.stringify({
-                id: 1,
-                nome: 'Vendedor Teste',
-                email: 'teste@empresa.com',
-              }))
-              navigate('/')
-            }}
-            className="w-full bg-slate-100 text-slate-600 py-2.5 rounded-lg text-sm active:bg-slate-200"
-          >
-            Entrar sem login (teste)
-          </button>
-        </div>
       </div>
     </div>
   )
