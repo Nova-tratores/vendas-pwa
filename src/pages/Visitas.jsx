@@ -6,6 +6,7 @@ import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
 import { TIPOS_PRODUTO, MARCAS } from '../lib/constants'
+import { maskTelefone } from '../lib/masks'
 
 const TIPO_LABELS = {
   presencial: 'Presencial',
@@ -44,7 +45,7 @@ export default function Visitas() {
   const [showNovaMaquina, setShowNovaMaquina] = useState(false)
   const [novaMaquina, setNovaMaquina] = useState({ tipo: 'Trator Novo', marca: 'New Holland', modelo: '', tamanho: '' })
   const [showNovoCliente, setShowNovoCliente] = useState(false)
-  const [novoCliente, setNovoCliente] = useState({ nome_cliente: '', nome_propriedade: '', cidade: '' })
+  const [novoCliente, setNovoCliente] = useState({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '' })
   const [showNegocio, setShowNegocio] = useState(false)
   const [showNovoNegocio, setShowNovoNegocio] = useState(false)
   const [novoNegocio, setNovoNegocio] = useState({ valor: '', status: 'prospect', notas: '' })
@@ -238,7 +239,7 @@ export default function Visitas() {
               onChange={(e) => handleClienteChange(e.target.value)}
               required={!showNovoCliente}
               disabled={showNovoCliente}
-              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:bg-slate-50"
+              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:bg-slate-50"
             >
               <option value="">Selecione o cliente *</option>
               {clientes.map((c) => (
@@ -248,7 +249,7 @@ export default function Visitas() {
             <button
               type="button"
               onClick={() => setShowNovoCliente(!showNovoCliente)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium border ${showNovoCliente ? 'bg-slate-100 text-slate-600 border-slate-300' : 'bg-blue-50 text-blue-700 border-blue-200'}`}
+              className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium border ${showNovoCliente ? 'bg-slate-100 text-slate-600 border-slate-300' : 'bg-blue-50 text-blue-700 border-blue-200'}`}
             >
               {showNovoCliente ? 'Cancelar' : '+ Novo'}
             </button>
@@ -272,13 +273,23 @@ export default function Visitas() {
                 onChange={(e) => setNovoCliente({ ...novoCliente, nome_propriedade: e.target.value })}
                 className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
               />
-              <input
-                type="text"
-                placeholder="Cidade (opcional)"
-                value={novoCliente.cidade}
-                onChange={(e) => setNovoCliente({ ...novoCliente, cidade: e.target.value })}
-                className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Cidade (opcional)"
+                  value={novoCliente.cidade}
+                  onChange={(e) => setNovoCliente({ ...novoCliente, cidade: e.target.value })}
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm"
+                />
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="Telefone (opcional)"
+                  value={novoCliente.telefone}
+                  onChange={(e) => setNovoCliente({ ...novoCliente, telefone: maskTelefone(e.target.value) })}
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
               <button
                 type="button"
                 onClick={async () => {
@@ -291,6 +302,7 @@ export default function Visitas() {
                   const clienteId = await saveRecord('clientes', {
                     vendedor_id: vendedor.id,
                     nome: novoCliente.nome_cliente,
+                    telefone: novoCliente.telefone || null,
                     created_at: now,
                   })
                   await registrarLog('criar', 'clientes', clienteId, `Criado em check-in: ${novoCliente.nome_cliente}`)
@@ -299,6 +311,7 @@ export default function Visitas() {
                     nome: novoCliente.nome_propriedade,
                     nome_fantasia: novoCliente.nome_propriedade,
                     cidade: novoCliente.cidade,
+                    telefone: novoCliente.telefone || null,
                     created_at: now,
                   })
                   await registrarLog('criar', 'propriedades', propId, `Criada em check-in: ${novoCliente.nome_propriedade}`)
@@ -308,7 +321,7 @@ export default function Visitas() {
                   setPropriedadesFiltradas(props)
                   setForm((f) => ({ ...f, propriedade_id: propId }))
                   setShowNovoCliente(false)
-                  setNovoCliente({ nome_cliente: '', nome_propriedade: '', cidade: '' })
+                  setNovoCliente({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '' })
                 }}
                 className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-medium"
               >
