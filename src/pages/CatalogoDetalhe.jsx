@@ -149,15 +149,23 @@ function CompartilharWhatsApp({ partes }) {
       // Caminho 1: Web Share API com arquivos anexados (Android/iOS modernos)
       if (shareNativo && queriaFotoOuFolheto) {
         const files = []
-        try {
-          if (selecoes.foto && partes.fotoUrl) {
-            files.push(await baixarComoArquivo(partes.fotoUrl, 'foto.webp', 'image/webp'))
+        // Cada download é isolado: se a foto falhar (ex.: CORS), o folheto
+        // ainda é baixado, e vice-versa.
+        if (selecoes.foto && (partes.fotoFetchUrl || partes.fotoUrl)) {
+          try {
+            // fotoFetchUrl: URL same-origin (sem CORS) quando a foto está no
+            // próprio app. Cai pra fotoUrl (absoluta) se não vier.
+            files.push(await baixarComoArquivo(partes.fotoFetchUrl || partes.fotoUrl, 'foto.webp', 'image/webp'))
+          } catch (err) {
+            console.warn('[share] download da foto falhou:', err)
           }
-          if (selecoes.folheto && partes.folhetoUrl) {
+        }
+        if (selecoes.folheto && partes.folhetoUrl) {
+          try {
             files.push(await baixarComoArquivo(partes.folhetoUrl, 'folheto.pdf', 'application/pdf'))
+          } catch (err) {
+            console.warn('[share] download do folheto falhou:', err)
           }
-        } catch (err) {
-          console.warn('[share] download dos arquivos falhou:', err)
         }
 
         if (files.length > 0 && navigator.canShare({ files })) {
@@ -402,6 +410,8 @@ function DetalhePortfolio({ produto, estoque, loading }) {
           descricao: produto.descricao,
           valor: estoque?.matched && estoque?.valor_medio > 0 ? estoque.valor_medio : null,
           fotoUrl: `https://novatratores.com/catalogo/fotos/${produto.id}/foto-principal.webp`,
+          // same-origin: baixa do próprio app pra anexar sem esbarrar em CORS
+          fotoFetchUrl: `/catalogo/fotos/${produto.id}/foto-principal.webp`,
           folhetoUrl: produto.ficha_tecnica?.url_storage || null,
         }}
       />
