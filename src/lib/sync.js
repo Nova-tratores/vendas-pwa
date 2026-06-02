@@ -393,10 +393,25 @@ export async function countPending() {
   return total
 }
 
+// Verificador periódico: se há pendentes e tem internet, reenvia sozinho.
+// Cobre itens que ficaram presos (falha passageira, sessão que voltou) sem
+// depender de nova escrita, reconexão ou clique manual.
+async function retryPendentesSeNecessario() {
+  if (isSyncing || !navigator.onLine) return
+  const pend = await countPending()
+  if (pend > 0) scheduleAutoPush(0)
+}
+
 export function initSyncListener() {
   window.addEventListener('online', () => syncAll())
   // Auto-push após escritas locais (saveRecord dispara 'vendas:pending-write')
   window.addEventListener('vendas:pending-write', () => scheduleAutoPush())
+  // Reenvia pendentes ao voltar pro app (reabrir aba / trazer pra frente)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') retryPendentesSeNecessario()
+  })
+  // Verificação periódica: pendência + internet => envia
+  setInterval(retryPendentesSeNecessario, 30000)
   // Sync inicial se online
   if (navigator.onLine) syncAll()
 }
