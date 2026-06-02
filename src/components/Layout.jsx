@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { setSyncCallback, syncAll, countPending, supabase } from '../lib/sync'
+import { setSyncCallback, setAuthRequiredCallback, syncAll, countPending, supabase } from '../lib/sync'
 import { clearAll } from '../lib/db'
 
 const navItems = [
@@ -18,6 +18,7 @@ export default function Layout() {
   const [online, setOnline] = useState(navigator.onLine)
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', detail: '' })
   const [pending, setPending] = useState(0)
+  const [precisaReentrar, setPrecisaReentrar] = useState(false)
 
   const updatePending = useCallback(async () => {
     setPending(await countPending())
@@ -34,6 +35,9 @@ export default function Layout() {
       setSyncStatus(s)
       if (s.status === 'done') updatePending()
     })
+
+    // Aviso de sessão expirada (há pendentes mas não dá pra enviar)
+    setAuthRequiredCallback(setPrecisaReentrar)
 
     // Contar pendentes ao montar
     updatePending()
@@ -97,6 +101,16 @@ export default function Layout() {
           </button>
         </div>
       </header>
+
+      {/* Sessão expirada: há dados pra enviar mas precisa reentrar */}
+      {precisaReentrar && online && (
+        <div className="bg-red-600 text-white text-xs text-center py-1.5 font-medium flex items-center justify-center gap-2">
+          <span>Sessão expirada — reentre para enviar suas visitas</span>
+          <button onClick={() => navigate('/login')} className="underline font-bold">
+            Entrar
+          </button>
+        </div>
+      )}
 
       {/* Barra de status */}
       {!online && (

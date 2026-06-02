@@ -31,6 +31,11 @@ function notify(status, detail) {
   if (onSyncStatusChange) onSyncStatusChange({ status, detail })
 }
 
+// Sinaliza à UI que há pendentes mas a sessão expirou (vendedor precisa reentrar)
+let onAuthRequired = null
+export function setAuthRequiredCallback(cb) { onAuthRequired = cb }
+function sinalizarAuth(precisa) { if (onAuthRequired) onAuthRequired(precisa) }
+
 // ============================================
 // PUSH: IndexedDB (pending) → Supabase
 // ============================================
@@ -306,6 +311,10 @@ export async function syncAll() {
   // Sem sessão: ainda faz pull (leitura), mas pula push (escrita)
   if (!hasSession) {
     console.log('[Sync] Sem sessão autenticada, apenas pull')
+    // Se há trabalho local pra enviar e a sessão caiu, avisa pra reentrar
+    if ((await countPending()) > 0) sinalizarAuth(true)
+  } else {
+    sinalizarAuth(false)
   }
   isSyncing = true
 
@@ -372,9 +381,13 @@ let autoPushTimer = null
 async function runAutoPush() {
   autoPushTimer = null
   if (isSyncing || !navigator.onLine) return
-  // Sem sessão não dá pra escrever (RLS bloqueia) — espera o próximo gatilho.
+  // Sem sessão não dá pra escrever (RLS bloqueia) — avisa se há pendentes presos.
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return
+  if (!session) {
+    if ((await countPending()) > 0) sinalizarAuth(true)
+    return
+  }
+  sinalizarAuth(false)
   await pushOnly()
 }
 
