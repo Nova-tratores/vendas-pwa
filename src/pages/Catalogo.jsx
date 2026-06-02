@@ -1,20 +1,27 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { getProdutos, CATEGORIAS, getFotosLocais } from '../data/catalogo'
-import { getEstoqueAtual, formatBRL } from '../lib/catalogoSupabase'
+import { getProdutosCatalogo, getMarcas, getEstoqueAtual, formatBRL, CATEGORIAS } from '../lib/catalogoSupabase'
 import PullToRefresh from '../components/PullToRefresh'
 
 export default function Catalogo() {
   const [filtroCat, setFiltroCat] = useState('todos')
+  const [filtroMarca, setFiltroMarca] = useState('todas')
   const [busca, setBusca] = useState('')
+  const [produtos, setProdutos] = useState([])
+  const [marcas, setMarcas] = useState([])
+  const [loadingPortfolio, setLoadingPortfolio] = useState(true)
   const [estoque, setEstoque] = useState([])
   const [loadingEstoque, setLoadingEstoque] = useState(true)
   const [aba, setAba] = useState('portfolio') // portfolio | estoque
 
-  const produtos = useMemo(() => getProdutos(), [])
-
   useEffect(() => {
     let alive = true
+    Promise.all([getProdutosCatalogo(), getMarcas()]).then(([p, m]) => {
+      if (!alive) return
+      setProdutos(p)
+      setMarcas(m)
+      setLoadingPortfolio(false)
+    })
     getEstoqueAtual().then((d) => {
       if (alive) {
         setEstoque(d)
@@ -24,19 +31,32 @@ export default function Catalogo() {
     return () => { alive = false }
   }, [])
 
+  // Só mostra chips de marca quando há mais de uma marca no catálogo
+  const marcasComProduto = useMemo(() => {
+    const ativos = new Set(produtos.map((p) => p.marca?.slug).filter(Boolean))
+    return marcas.filter((m) => ativos.has(m.slug))
+  }, [produtos, marcas])
+
+  // Categorias presentes no catálogo (respeitando filtro de marca)
+  const produtosDaMarca = useMemo(() => {
+    if (filtroMarca === 'todas') return produtos
+    return produtos.filter((p) => p.marca?.slug === filtroMarca)
+  }, [produtos, filtroMarca])
+
   const portfolioFiltrado = useMemo(() => {
-    let arr = produtos
+    let arr = produtosDaMarca
     if (filtroCat !== 'todos') arr = arr.filter((p) => p.categoria === filtroCat)
     if (busca) {
       const q = busca.toLowerCase()
       arr = arr.filter((p) =>
         p.titulo.toLowerCase().includes(q) ||
         p.subtitulo?.toLowerCase().includes(q) ||
-        p.descricao?.toLowerCase().includes(q)
+        p.descricao?.toLowerCase().includes(q) ||
+        p.marca?.nome?.toLowerCase().includes(q)
       )
     }
     return arr
-  }, [produtos, filtroCat, busca])
+  }, [produtosDaMarca, filtroCat, busca])
 
   const estoqueFiltrado = useMemo(() => {
     if (!busca) return estoque
@@ -60,14 +80,14 @@ export default function Catalogo() {
           type="text"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por nome, modelo ou descrição..."
+          placeholder="Buscar por nome, marca, modelo ou descrição..."
           className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3"
         />
 
-        {/* Abas: Portfolio Mahindra | Estoque atual */}
+        {/* Abas: Portfolio (curado) | Estoque atual */}
         <div className="flex gap-1 mb-3 border-b border-slate-200">
           <TabButton ativo={aba === 'portfolio'} onClick={() => setAba('portfolio')}>
-            Portfólio Mahindra ({produtos.length})
+            Portfólio ({produtos.length})
           </TabButton>
           <TabButton ativo={aba === 'estoque'} onClick={() => setAba('estoque')}>
             Estoque atual ({estoque.length})
@@ -76,12 +96,28 @@ export default function Catalogo() {
 
         {aba === 'portfolio' && (
           <>
+            {/* Chips de marca (só quando há mais de uma) */}
+            {marcasComProduto.length > 1 && (
+              <div className="flex gap-1 overflow-x-auto pb-2 mb-2">
+                <Chip ativo={filtroMarca === 'todas'} onClick={() => setFiltroMarca('todas')}>
+                  Todas as marcas
+                </Chip>
+                {marcasComProduto.map((m) => (
+                  <Chip key={m.slug} ativo={filtroMarca === m.slug} onClick={() => setFiltroMarca(m.slug)}>
+                    {m.nome}
+                  </Chip>
+                ))}
+              </div>
+            )}
+
+            {/* Chips de categoria */}
             <div className="flex gap-1 overflow-x-auto pb-2 mb-3">
               <Chip ativo={filtroCat === 'todos'} onClick={() => setFiltroCat('todos')}>
-                Todos ({produtos.length})
+                Todos ({produtosDaMarca.length})
               </Chip>
               {CATEGORIAS.map((c) => {
-                const n = produtos.filter((p) => p.categoria === c.key).length
+                const n = produtosDaMarca.filter((p) => p.categoria === c.key).length
+                if (n === 0) return null
                 return (
                   <Chip key={c.key} ativo={filtroCat === c.key} onClick={() => setFiltroCat(c.key)}>
                     {c.label} ({n})
@@ -90,7 +126,9 @@ export default function Catalogo() {
               })}
             </div>
 
-            {portfolioFiltrado.length === 0 ? (
+            {loadingPortfolio ? (
+              <p className="text-sm text-slate-500 text-center py-8">Carregando catálogo...</p>
+            ) : portfolioFiltrado.length === 0 ? (
               <EmptyState />
             ) : (
               <div className="grid grid-cols-3 gap-2">
@@ -160,24 +198,27 @@ function EmptyState({ texto = 'Nenhum produto encontrado' }) {
 }
 
 function CardPortfolio({ produto, index }) {
-  const fotos = getFotosLocais(produto.id)
   return (
     <Link
-      to={produto.id}
+      to={produto.slug}
       className="bg-white rounded-xl shadow overflow-hidden animate-fade-in active:scale-[0.98] transition-transform"
       style={{ animationDelay: `${index * 0.03}s` }}
     >
       <div className="aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
-        <img
-          src={fotos.principal}
-          alt={produto.titulo}
-          className="w-full h-full object-contain"
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-            e.currentTarget.parentElement.innerHTML = '<span class="text-4xl">📷</span>'
-          }}
-        />
+        {produto.foto_principal_url ? (
+          <img
+            src={produto.foto_principal_url}
+            alt={produto.titulo}
+            className="w-full h-full object-contain"
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+              e.currentTarget.parentElement.innerHTML = '<span class="text-4xl">📷</span>'
+            }}
+          />
+        ) : (
+          <span className="text-4xl">📷</span>
+        )}
       </div>
       <div className="p-2">
         <p className="font-bold text-sm leading-tight">{produto.titulo}</p>

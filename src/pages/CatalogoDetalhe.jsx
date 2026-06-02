@@ -1,35 +1,53 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getProdutoById } from '../data/catalogo'
-import { getEstoqueProduto, getEstoqueAtualById, formatBRL, frescorEstoque, getMidiasProduto } from '../lib/catalogoSupabase'
+import {
+  getEstoqueProduto, getEstoqueAtualById, formatBRL, frescorEstoque,
+  getMidiasProduto, getMidiasCatalogoProduto, getProdutoCatalogoBySlug,
+} from '../lib/catalogoSupabase'
 
 export default function CatalogoDetalhe() {
   const { id } = useParams()
   const isSupabase = id?.startsWith('sb-')
   const codigoProduto = isSupabase ? id.slice(3) : null
-  const produtoCurado = !isSupabase ? getProdutoById(id) : null
 
-  const [estoqueCurado, setEstoqueCurado] = useState(null) // pra portfolio Mahindra
-  const [supItem, setSupItem] = useState(null)             // pra estoque atual
-  const [loading, setLoading] = useState(true)
+  const [produtoCurado, setProdutoCurado] = useState(null) // catálogo curado (banco)
+  const [estoqueCurado, setEstoqueCurado] = useState(null) // cross-ref Omie do curado
+  const [supItem, setSupItem] = useState(null)             // estoque atual (Omie)
+  const [loading, setLoading] = useState(true)             // carregando o produto
+  const [loadingEstoque, setLoadingEstoque] = useState(false)
+  const [naoEncontrado, setNaoEncontrado] = useState(false)
 
   useEffect(() => {
     let alive = true
+    setLoading(true)
+    setNaoEncontrado(false)
     if (isSupabase) {
       getEstoqueAtualById(codigoProduto).then((d) => {
         if (alive) { setSupItem(d); setLoading(false) }
       })
-    } else if (produtoCurado) {
-      getEstoqueProduto(produtoCurado).then((d) => {
-        if (alive) { setEstoqueCurado(d); setLoading(false) }
-      })
     } else {
-      setLoading(false)
+      getProdutoCatalogoBySlug(id).then((prod) => {
+        if (!alive) return
+        if (!prod) { setNaoEncontrado(true); setLoading(false); return }
+        setProdutoCurado(prod)
+        setLoading(false)
+        if (prod.filtro_supabase) {
+          setLoadingEstoque(true)
+          getEstoqueProduto(prod).then((e) => {
+            if (alive) { setEstoqueCurado(e); setLoadingEstoque(false) }
+          })
+        }
+      })
     }
     return () => { alive = false }
   }, [id])
 
-  if (!isSupabase && !produtoCurado) {
+  if (isSupabase) return <DetalheEstoque item={supItem} loading={loading} />
+
+  if (loading) {
+    return <p className="text-sm text-slate-500 text-center py-8">Carregando...</p>
+  }
+  if (naoEncontrado || !produtoCurado) {
     return (
       <div className="text-center py-12">
         <p className="text-4xl mb-3">❓</p>
@@ -39,8 +57,7 @@ export default function CatalogoDetalhe() {
     )
   }
 
-  if (isSupabase) return <DetalheEstoque item={supItem} loading={loading} />
-  return <DetalhePortfolio produto={produtoCurado} estoque={estoqueCurado} loading={loading} />
+  return <DetalhePortfolio produto={produtoCurado} estoque={estoqueCurado} loadingEstoque={loadingEstoque} />
 }
 
 // =============== Compartilhar no WhatsApp ===============
@@ -63,7 +80,7 @@ function podeCompartilharArquivos() {
 // Pega o nome de arquivo decente a partir da URL (último segmento, sem query)
 function nomeDaUrl(url, fallback) {
   try {
-    const u = new URL(url)
+    const u = new URL(url, window.location.origin)
     const base = u.pathname.split('/').pop()
     if (base && base.includes('.')) return base
   } catch { /* ignora */ }
@@ -71,7 +88,7 @@ function nomeDaUrl(url, fallback) {
 }
 
 function CompartilharWhatsApp({ partes }) {
-  // partes: { titulo, cv, descricao, fotoUrl, folhetoUrl, valor }
+  // partes: { titulo, cv, descricao, fotoUrl, fotoFetchUrl, folhetoUrl, valor }
   // Cada campo so vira opcao de checkbox se vier preenchido em partes
   const [open, setOpen] = useState(false)
   const [telefone, setTelefone] = useState(() =>
@@ -294,9 +311,78 @@ function CompartilharWhatsApp({ partes }) {
   )
 }
 
-// =============== Portfólio curado (Mahindra) ===============
-function DetalhePortfolio({ produto, estoque, loading }) {
-  const fotoPrincipal = `/catalogo/fotos/${produto.id}/foto-principal.webp`
+// Galeria de mídias extras (fotos/vídeos/PDFs) — compartilhada entre as duas telas
+function GaleriaMidias({ midias }) {
+  const fotosExtras = midias.filter((m) => m.tipo === 'foto')
+  const videos = midias.filter((m) => m.tipo === 'video')
+  const pdfs = midias.filter((m) => m.tipo === 'pdf')
+
+  return (
+    <>
+      {fotosExtras.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-3 mb-3 animate-fade-in">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Mais fotos ({fotosExtras.length})</h3>
+          <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+            {fotosExtras.map((f) => (
+              <a
+                key={f.id}
+                href={f.url_publica}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 w-32 aspect-square bg-slate-100 rounded overflow-hidden"
+              >
+                <img src={f.url_publica} alt={f.titulo || ''} className="w-full h-full object-cover" loading="lazy" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {videos.map((v) => (
+        <div key={v.id} className="bg-white rounded-xl shadow p-3 mb-3 animate-fade-in">
+          {v.titulo && <p className="text-xs text-slate-500 mb-2">{v.titulo}</p>}
+          <video src={v.url_publica} controls preload="metadata" className="w-full rounded bg-black" />
+        </div>
+      ))}
+
+      {pdfs.map((p) => (
+        <a
+          key={p.id}
+          href={p.url_publica}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block bg-white rounded-xl shadow p-3 mb-3 active:bg-slate-50 animate-fade-in"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📄</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-700 truncate">{p.titulo || 'Documento PDF'}</p>
+              <p className="text-xs text-slate-500">Abrir em nova aba</p>
+            </div>
+            <span className="text-blue-700 text-lg">↗</span>
+          </div>
+        </a>
+      ))}
+    </>
+  )
+}
+
+// =============== Portfólio curado (banco) ===============
+function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
+  const [midias, setMidias] = useState([])
+
+  useEffect(() => {
+    if (!produto?.id) return
+    let alive = true
+    getMidiasCatalogoProduto(produto.id).then((m) => { if (alive) setMidias(m) })
+    return () => { alive = false }
+  }, [produto?.id])
+
+  const fotoPrincipal = produto.foto_principal_url || null
+  // URL absoluta pro link de texto (fallback); fetch usa a relativa (same-origin, sem CORS)
+  const fotoAbsoluta = fotoPrincipal
+    ? (fotoPrincipal.startsWith('http') ? fotoPrincipal : `${window.location.origin}${fotoPrincipal}`)
+    : null
 
   return (
     <div className="pb-4">
@@ -304,65 +390,80 @@ function DetalhePortfolio({ produto, estoque, loading }) {
 
       <div className="bg-white rounded-xl shadow overflow-hidden mb-3 animate-fade-in">
         <div className="aspect-video bg-slate-100 flex items-center justify-center">
-          <img
-            src={fotoPrincipal}
-            alt={produto.titulo}
-            className="w-full h-full object-contain"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-              e.currentTarget.parentElement.innerHTML = '<span class="text-6xl">📷</span>'
-            }}
-          />
+          {fotoPrincipal ? (
+            <img
+              src={fotoPrincipal}
+              alt={produto.titulo}
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.parentElement.innerHTML = '<span class="text-6xl">📷</span>'
+              }}
+            />
+          ) : (
+            <span className="text-6xl">📷</span>
+          )}
         </div>
         <div className="p-4">
           <h2 className="text-xl font-bold leading-tight">{produto.titulo}</h2>
           {produto.subtitulo && (
             <p className="text-sm text-slate-500 mt-0.5">{produto.subtitulo}</p>
           )}
-          <span className="inline-block mt-2 text-[10px] uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
-            {produto.categoria}
-          </span>
+          <div className="flex gap-2 mt-2">
+            {produto.marca?.nome && (
+              <span className="inline-block text-[10px] uppercase tracking-wider bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                {produto.marca.nome}
+              </span>
+            )}
+            {produto.categoria && (
+              <span className="inline-block text-[10px] uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                {produto.categoria}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Estoque e preço do Supabase */}
-      <div className="bg-white rounded-xl shadow p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.05s' }}>
-        {loading ? (
-          <p className="text-sm text-slate-400">Consultando estoque...</p>
-        ) : !estoque?.matched ? (
-          <div>
-            <p className="text-sm text-amber-700 font-medium">Consulte disponibilidade e preço</p>
-            <p className="text-xs text-slate-500 mt-1">Este produto não tem SKU mapeado no sistema. Confirme com o supervisor.</p>
-          </div>
-        ) : estoque.sku_count === 0 ? (
-          <div>
-            <p className="text-sm text-slate-700 font-medium">Sem estoque registrado</p>
-            <p className="text-xs text-slate-500 mt-1">Nenhum SKU encontrado para {produto.modelos_supabase.join(', ')}.</p>
-          </div>
-        ) : (
-          <div>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-2xl font-bold text-green-700">{estoque.estoque_total}</span>
-              <span className="text-xs text-slate-500">em estoque</span>
+      {/* Estoque e preço do Supabase (só quando o produto tem cross-ref) */}
+      {produto.filtro_supabase && (
+        <div className="bg-white rounded-xl shadow p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.05s' }}>
+          {loadingEstoque ? (
+            <p className="text-sm text-slate-400">Consultando estoque...</p>
+          ) : !estoque?.matched ? (
+            <div>
+              <p className="text-sm text-amber-700 font-medium">Consulte disponibilidade e preço</p>
+              <p className="text-xs text-slate-500 mt-1">Confirme com o supervisor.</p>
             </div>
-            {estoque.valor_medio > 0 && (
-              <p className="text-sm text-slate-700">
-                {estoque.valor_min === estoque.valor_max
-                  ? formatBRL(estoque.valor_medio)
-                  : `${formatBRL(estoque.valor_min)} – ${formatBRL(estoque.valor_max)}`}
+          ) : estoque.sku_count === 0 ? (
+            <div>
+              <p className="text-sm text-slate-700 font-medium">Sem estoque registrado</p>
+              <p className="text-xs text-slate-500 mt-1">Nenhum SKU encontrado para {(produto.modelos_supabase || []).join(', ')}.</p>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-2xl font-bold text-green-700">{estoque.estoque_total}</span>
+                <span className="text-xs text-slate-500">em estoque</span>
+              </div>
+              {estoque.valor_medio > 0 && (
+                <p className="text-sm text-slate-700">
+                  {estoque.valor_min === estoque.valor_max
+                    ? formatBRL(estoque.valor_medio)
+                    : `${formatBRL(estoque.valor_min)} – ${formatBRL(estoque.valor_max)}`}
+                </p>
+              )}
+              {estoque.ambientes.length > 0 && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Onde está: {estoque.ambientes.join(', ')}
+                </p>
+              )}
+              <p className={`text-xs mt-1 ${frescorEstoque(estoque.atualizado_em).color}`}>
+                {frescorEstoque(estoque.atualizado_em).label}
               </p>
-            )}
-            {estoque.ambientes.length > 0 && (
-              <p className="text-xs text-slate-500 mt-1">
-                Onde está: {estoque.ambientes.join(', ')}
-              </p>
-            )}
-            <p className={`text-xs mt-1 ${frescorEstoque(estoque.atualizado_em).color}`}>
-              {frescorEstoque(estoque.atualizado_em).label}
-            </p>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Descricao */}
       {produto.descricao && (
@@ -403,22 +504,24 @@ function DetalhePortfolio({ produto, estoque, loading }) {
         </div>
       )}
 
+      {/* Mídias extras adicionadas pelo admin */}
+      <GaleriaMidias midias={midias} />
+
       <CompartilharWhatsApp
         partes={{
           titulo: produto.titulo,
           cv: produto.subtitulo || null,
           descricao: produto.descricao,
           valor: estoque?.matched && estoque?.valor_medio > 0 ? estoque.valor_medio : null,
-          fotoUrl: `https://novatratores.com/catalogo/fotos/${produto.id}/foto-principal.webp`,
-          // same-origin: baixa do próprio app pra anexar sem esbarrar em CORS
-          fotoFetchUrl: `/catalogo/fotos/${produto.id}/foto-principal.webp`,
-          folhetoUrl: produto.ficha_tecnica?.url_storage || null,
+          fotoUrl: fotoAbsoluta,
+          fotoFetchUrl: fotoPrincipal,
+          folhetoUrl: produto.folheto_url || null,
         }}
       />
 
-      {produto.ficha_tecnica?.url_storage && (
+      {produto.folheto_url && (
         <a
-          href={produto.ficha_tecnica.url_storage}
+          href={produto.folheto_url}
           target="_blank"
           rel="noopener noreferrer"
           className="block w-full bg-blue-700 text-white text-center py-3 rounded-xl font-medium text-sm active:bg-blue-800 animate-fade-in"
@@ -436,7 +539,7 @@ function DetalhePortfolio({ produto, estoque, loading }) {
           className="block w-full bg-slate-100 text-slate-700 text-center py-2.5 rounded-xl text-xs mt-2 active:bg-slate-200 animate-fade-in"
           style={{ animationDelay: '0.3s' }}
         >
-          Ver no site Mahindra ↗
+          Ver no site do fabricante ↗
         </a>
       )}
     </div>
@@ -468,10 +571,6 @@ function DetalheEstoque({ item, loading }) {
       </div>
     )
   }
-
-  const fotosExtras = midias.filter((m) => m.tipo === 'foto')
-  const videos = midias.filter((m) => m.tipo === 'video')
-  const pdfs = midias.filter((m) => m.tipo === 'pdf')
 
   return (
     <div className="pb-4">
@@ -529,58 +628,7 @@ function DetalheEstoque({ item, loading }) {
         </div>
       )}
 
-      {/* Fotos extras (carrossel horizontal scroll) */}
-      {fotosExtras.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-3 mb-3 animate-fade-in" style={{ animationDelay: '0.12s' }}>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Mais fotos ({fotosExtras.length})</h3>
-          <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
-            {fotosExtras.map((f) => (
-              <a
-                key={f.id}
-                href={f.url_publica}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 w-32 aspect-square bg-slate-100 rounded overflow-hidden"
-              >
-                <img src={f.url_publica} alt={f.titulo || ''} className="w-full h-full object-cover" loading="lazy" />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Videos */}
-      {videos.map((v) => (
-        <div key={v.id} className="bg-white rounded-xl shadow p-3 mb-3 animate-fade-in">
-          {v.titulo && <p className="text-xs text-slate-500 mb-2">{v.titulo}</p>}
-          <video
-            src={v.url_publica}
-            controls
-            preload="metadata"
-            className="w-full rounded bg-black"
-          />
-        </div>
-      ))}
-
-      {/* PDFs */}
-      {pdfs.map((p) => (
-        <a
-          key={p.id}
-          href={p.url_publica}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block bg-white rounded-xl shadow p-3 mb-3 active:bg-slate-50 animate-fade-in"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">📄</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-700 truncate">{p.titulo || 'Documento PDF'}</p>
-              <p className="text-xs text-slate-500">Abrir em nova aba</p>
-            </div>
-            <span className="text-blue-700 text-lg">↗</span>
-          </div>
-        </a>
-      ))}
+      <GaleriaMidias midias={midias} />
 
       <CompartilharWhatsApp
         partes={{
@@ -592,7 +640,6 @@ function DetalheEstoque({ item, loading }) {
           folhetoUrl: null,
         }}
       />
-
 
       {item.override?.notas && (
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.15s' }}>

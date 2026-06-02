@@ -5,6 +5,7 @@ const navItems = [
   { to: '/supervisor', label: 'Geral', end: true },
   { to: '/supervisor/vendedores', label: 'Vendedores' },
   { to: '/supervisor/catalogo', label: 'Catálogo' },
+  { to: '/supervisor/catalogo-admin', label: 'Gerir catálogo' },
   { to: '/supervisor/produtos', label: 'Produtos' },
   { to: '/supervisor/visitas', label: 'Visitas' },
   { to: '/supervisor/pos-vendas', label: 'Pós Vendas' },

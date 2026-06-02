@@ -251,35 +251,51 @@ export function clearEstoqueCache() {
 
 const MIDIA_BUCKET = 'catalogo-midia'
 
-/**
- * Lista todas as mídias de um produto, ordenadas (foto antes, depois video, depois pdf).
- */
-export async function getMidiasProduto(codigoProduto) {
+function midiaComUrl(m) {
+  return {
+    ...m,
+    url_publica: `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${m.storage_path}`,
+  }
+}
+
+async function listarMidias(coluna, valor) {
   const { data, error } = await supabase
     .from('catalogo_midia')
     .select('*')
-    .eq('codigo_produto', codigoProduto)
+    .eq(coluna, valor)
     .order('ordem', { ascending: true })
     .order('created_at', { ascending: true })
   if (error) {
     console.error('[Midia list]', error.message)
     return []
   }
-  return (data || []).map((m) => ({
-    ...m,
-    url_publica: `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${m.storage_path}`,
-  }))
+  return (data || []).map(midiaComUrl)
+}
+
+/**
+ * Lista mídias de um produto do Estoque atual (Omie), por codigo_produto.
+ */
+export async function getMidiasProduto(codigoProduto) {
+  return listarMidias('codigo_produto', codigoProduto)
+}
+
+/**
+ * Lista mídias de um produto do catálogo curado, por catalogo_produto_id.
+ */
+export async function getMidiasCatalogoProduto(catalogoProdutoId) {
+  return listarMidias('catalogo_produto_id', catalogoProdutoId)
 }
 
 /**
  * Upload de arquivo + insert em catalogo_midia.
  * Retorna o registro criado (com url_publica).
  */
-export async function uploadMidia({ codigoProduto, file, tipo, titulo, supervisorId, onProgress }) {
+export async function uploadMidia({ codigoProduto, catalogoProdutoId, file, tipo, titulo, supervisorId, onProgress }) {
   if (!file) throw new Error('Arquivo é obrigatório')
   if (!['foto', 'video', 'pdf'].includes(tipo)) throw new Error(`Tipo inválido: ${tipo}`)
+  if (!codigoProduto && !catalogoProdutoId) throw new Error('Informe codigoProduto ou catalogoProdutoId')
 
-  // path único: {codigo}/{timestamp}-{slug do nome}
+  // path único: {dono}/{timestamp}-{slug do nome}. Produto curado usa prefixo cat-.
   const ts = Date.now()
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
   const slug = file.name
@@ -287,7 +303,8 @@ export async function uploadMidia({ codigoProduto, file, tipo, titulo, superviso
     .replace(/[^a-z0-9]+/gi, '-')
     .toLowerCase()
     .slice(0, 40) || 'arquivo'
-  const storagePath = `${codigoProduto}/${ts}-${slug}.${ext}`
+  const ownerPrefix = catalogoProdutoId ? `cat-${catalogoProdutoId}` : `${codigoProduto}`
+  const storagePath = `${ownerPrefix}/${ts}-${slug}.${ext}`
 
   // Upload
   const { error: upErr } = await supabase.storage
@@ -302,7 +319,8 @@ export async function uploadMidia({ codigoProduto, file, tipo, titulo, superviso
   const { data, error: insErr } = await supabase
     .from('catalogo_midia')
     .insert({
-      codigo_produto: codigoProduto,
+      codigo_produto: codigoProduto ?? null,
+      catalogo_produto_id: catalogoProdutoId ?? null,
       tipo,
       storage_path: storagePath,
       titulo: titulo || null,
@@ -369,4 +387,162 @@ export async function resizeFotoParaUpload(file, { maxDim = 1280, quality = 0.82
   // Mantém .webp na extensão e content-type
   const baseName = file.name.replace(/\.[^.]+$/, '')
   return new File([blob], `${baseName}.webp`, { type: 'image/webp' })
+}
+
+// ====================================================================
+// CATÁLOGO CURADO (multi-marca, gerenciável pela tela de admin)
+// Substitui o portfólio antes estático em src/data/catalogo/.
+// Vendedor vê só o que está visível (marca E produto); admin vê tudo.
+// ====================================================================
+
+// Categorias do catálogo curado. Usadas como filtro (vendedor) e sugestões (admin).
+export const CATEGORIAS = [
+  { key: 'tratores', label: 'Tratores' },
+  { key: 'implementos', label: 'Implementos' },
+  { key: 'pulverizadores', label: 'Pulverizadores' },
+]
+
+let marcasCache = null
+let produtosCatalogoCache = null
+
+export function clearCatalogoCache() {
+  marcasCache = null
+  produtosCatalogoCache = null
+}
+
+/**
+ * Lista marcas. adminMode=true traz invisíveis também.
+ */
+export async function getMarcas({ adminMode = false } = {}) {
+  if (!adminMode && marcasCache) return marcasCache
+  let q = supabase
+    .from('catalogo_marcas')
+    .select('*')
+    .order('ordem', { ascending: true })
+    .order('nome', { ascending: true })
+  if (!adminMode) q = q.eq('visivel', true)
+  const { data, error } = await q
+  if (error) {
+    console.error('[catalogo marcas]', error.message)
+    return []
+  }
+  const marcas = data || []
+  if (!adminMode) marcasCache = marcas
+  return marcas
+}
+
+/**
+ * Lista produtos do catálogo curado, com a marca embutida.
+ * Vendedor (adminMode=false): só produto.visivel E marca.visivel.
+ */
+export async function getProdutosCatalogo({ adminMode = false } = {}) {
+  if (!adminMode && produtosCatalogoCache) return produtosCatalogoCache
+
+  let q = supabase
+    .from('catalogo_produtos')
+    .select('*, marca:catalogo_marcas(id, nome, slug, visivel, ordem)')
+  if (!adminMode) q = q.eq('visivel', true)
+  const { data, error } = await q
+  if (error) {
+    console.error('[catalogo produtos]', error.message)
+    return []
+  }
+
+  let produtos = data || []
+  // marca invisível esconde todos os produtos dela (só no app do vendedor)
+  if (!adminMode) produtos = produtos.filter((p) => p.marca?.visivel !== false)
+
+  const ordCat = { tratores: 1, implementos: 2, pulverizadores: 3 }
+  produtos.sort((a, b) => {
+    const ma = a.marca?.ordem ?? 99, mb = b.marca?.ordem ?? 99
+    if (ma !== mb) return ma - mb
+    const ca = ordCat[a.categoria] ?? 99, cb = ordCat[b.categoria] ?? 99
+    if (ca !== cb) return ca - cb
+    if ((a.ordem ?? 99) !== (b.ordem ?? 99)) return (a.ordem ?? 99) - (b.ordem ?? 99)
+    return (a.titulo || '').localeCompare(b.titulo || '')
+  })
+
+  if (!adminMode) produtosCatalogoCache = produtos
+  return produtos
+}
+
+/**
+ * Busca 1 produto curado por slug (tela de detalhe do vendedor).
+ */
+export async function getProdutoCatalogoBySlug(slug) {
+  const { data, error } = await supabase
+    .from('catalogo_produtos')
+    .select('*, marca:catalogo_marcas(id, nome, slug, visivel)')
+    .eq('slug', slug)
+    .maybeSingle()
+  if (error) {
+    console.error('[catalogo produto slug]', error.message)
+    return null
+  }
+  return data
+}
+
+/**
+ * Upsert de marca (admin). Sem id = insert; com id = update.
+ */
+export async function salvarMarca(marca, supervisorId) {
+  const payload = { ...marca, updated_at: new Date().toISOString(), updated_by: supervisorId }
+  const { data, error } = await supabase
+    .from('catalogo_marcas')
+    .upsert(payload)
+    .select()
+    .single()
+  if (error) throw error
+  clearCatalogoCache()
+  return data
+}
+
+export async function deletarMarca(id) {
+  const { error } = await supabase.from('catalogo_marcas').delete().eq('id', id)
+  if (error) throw error
+  clearCatalogoCache()
+}
+
+/**
+ * Upsert de produto curado (admin). Sem id = insert; com id = update.
+ */
+export async function salvarProdutoCatalogo(produto, supervisorId) {
+  const payload = { ...produto, updated_at: new Date().toISOString(), updated_by: supervisorId }
+  const { data, error } = await supabase
+    .from('catalogo_produtos')
+    .upsert(payload)
+    .select()
+    .single()
+  if (error) throw error
+  clearCatalogoCache()
+  return data
+}
+
+export async function deletarProdutoCatalogo(id) {
+  const { error } = await supabase.from('catalogo_produtos').delete().eq('id', id)
+  if (error) throw error
+  clearCatalogoCache()
+}
+
+/**
+ * Sobe um arquivo avulso (foto principal ou folheto) pro Storage e devolve a
+ * URL pública. NÃO cria registro em catalogo_midia (a galeria usa uploadMidia).
+ * Usa o slug como prefixo de pasta (único por produto).
+ */
+export async function uploadArquivoCatalogo({ slug, file }) {
+  if (!file) throw new Error('Arquivo é obrigatório')
+  if (!slug) throw new Error('Defina o slug antes de enviar arquivos')
+  const ts = Date.now()
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
+  const nome = file.name
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .toLowerCase()
+    .slice(0, 40) || 'arquivo'
+  const storagePath = `cat-${slug}/${ts}-${nome}.${ext}`
+  const { error } = await supabase.storage
+    .from(MIDIA_BUCKET)
+    .upload(storagePath, file, { contentType: file.type || undefined, upsert: false })
+  if (error) throw new Error(`Upload falhou: ${error.message}`)
+  return `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${storagePath}`
 }

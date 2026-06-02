@@ -24,6 +24,7 @@ import SupervisorVisitas from './supervisor/SupervisorVisitas'
 import SupervisorPosVendas from './supervisor/SupervisorPosVendas'
 import SupervisorAlertas from './supervisor/SupervisorAlertas'
 import SupervisorProdutos from './supervisor/SupervisorProdutos'
+import SupervisorCatalogo from './supervisor/SupervisorCatalogo'
 import SupervisorMapa from './supervisor/SupervisorMapa'
 
 function ProtectedRoute({ children }) {
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="alertas" element={<SupervisorAlertas />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
+        <Route path="catalogo-admin" element={<SupervisorCatalogo />} />
         <Route path="produtos" element={<SupervisorProdutos />} />
         <Route path="mapa" element={<SupervisorMapa />} />
       </Route>
