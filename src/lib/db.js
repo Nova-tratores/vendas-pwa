@@ -233,3 +233,33 @@ export async function clearAll() {
     })
   })
 }
+
+/**
+ * Limpa só os registros JÁ SINCRONIZADOS (status_sync === 'synced'), preservando
+ * os pendentes (criados/editados localmente e ainda não enviados). Usado no
+ * force_resync do supervisor: re-popula o cache sem destruir trabalho do
+ * vendedor que ainda não subiu. Não toca em 'logs' nem 'fotos_pendentes'.
+ */
+export async function clearSyncedOnly() {
+  const db = await openDB()
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORES, 'readwrite')
+    let pending = STORES.length
+    let erro = null
+    const done = () => { if (--pending === 0) erro ? rej(erro) : res() }
+    STORES.forEach((name) => {
+      const objStore = tx.objectStore(name)
+      const cur = objStore.openCursor()
+      cur.onsuccess = (e) => {
+        const c = e.target.result
+        if (c) {
+          if (c.value.status_sync !== 'pending') objStore.delete(c.primaryKey)
+          c.continue()
+        } else {
+          done()
+        }
+      }
+      cur.onerror = () => { erro = cur.error; done() }
+    })
+  })
+}

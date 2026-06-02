@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   getAllRecords, getPendingRecords, markAsSynced, saveRecord,
   getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs,
-  clearAll,
+  clearAll, clearSyncedOnly,
 } from './db'
 
 export const supabase = createClient(
@@ -196,8 +196,12 @@ async function checarForceResync(vendedorId) {
     const carimboServidor = data.force_resync_at
     const carimboLocal = localStorage.getItem('lastForceResync') || ''
     if (carimboServidor > carimboLocal) {
-      console.log('[Sync] force_resync detectado, limpando IDB...')
-      await clearAll()
+      console.log('[Sync] force_resync detectado, limpando cache (preserva pendentes)...')
+      // Antes garante o envio de pendentes (não perder o que ainda não subiu),
+      // depois limpa só os sincronizados. clearAll cego apagaria visitas/negócios
+      // criados offline que ainda não chegaram ao Supabase.
+      try { await pushRecords(); await pushFotos() } catch (e) { console.warn('[Sync] push pré-resync:', e) }
+      await clearSyncedOnly()
       localStorage.setItem('lastForceResync', carimboServidor)
       return true
     }
