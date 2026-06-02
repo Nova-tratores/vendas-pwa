@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getMetricasPorVendedor } from '../lib/supabaseQueries'
+import { tempoRelativo, diasDesde } from '../lib/tempo'
 
 export default function SupervisorVendedores() {
   const navigate = useNavigate()
@@ -36,9 +37,8 @@ export default function SupervisorVendedores() {
       ) : (
         <div className="space-y-3">
           {vendedores.map((v) => {
-            const diasSemVisita = v.ultimaVisita
-              ? Math.floor((Date.now() - new Date(v.ultimaVisita).getTime()) / (1000 * 60 * 60 * 24))
-              : null
+            const diasSemVisita = v.ultimaVisita ? diasDesde(v.ultimaVisita) : null
+            const acesso = tempoRelativo(v.ultimoAcesso)
 
             return (
               <div
@@ -71,16 +71,48 @@ export default function SupervisorVendedores() {
                     <p className="text-[10px] text-slate-500">Pipeline</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-amber-600">{v.retroativas}</p>
-                    <p className="text-[10px] text-slate-500">Retro.</p>
+                    <p className="text-lg font-bold text-slate-700">{v.negociosAndamento}</p>
+                    <p className="text-[10px] text-slate-500">Negócios</p>
                   </div>
                 </div>
 
-                {v.ultimaVisita && (
-                  <p className="text-xs text-slate-400 mt-2">
-                    Última: {new Date(v.ultimaVisita).toLocaleDateString('pt-BR')}
-                  </p>
-                )}
+                {/* Linha de monitoramento */}
+                <div className="mt-3 pt-2 border-t border-slate-100 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Último acesso</span>
+                    <span className={`font-medium ${acesso.color}`}>{acesso.label}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Última visita</span>
+                    <span className="text-slate-700">
+                      {v.ultimaVisita ? new Date(v.ultimaVisita).toLocaleDateString('pt-BR') : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Último GPS</span>
+                    {v.ultimoGps ? (
+                      <a
+                        href={`https://www.google.com/maps?q=${v.ultimoGps.lat},${v.ultimoGps.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-blue-700 font-medium"
+                      >
+                        ver no mapa ↗
+                      </a>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </div>
+                  {v.negociosParados > 0 && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Negócios parados</span>
+                      <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+                        {v.negociosParados}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}

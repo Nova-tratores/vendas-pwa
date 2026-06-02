@@ -10,6 +10,7 @@ const navItems = [
   { to: '/supervisor/visitas', label: 'Visitas' },
   { to: '/supervisor/pos-vendas', label: 'Pós Vendas' },
   { to: '/supervisor/alertas', label: 'Alertas' },
+  { to: '/supervisor/config', label: 'Configurações' },
 ]
 
 export default function SupervisorLayout() {

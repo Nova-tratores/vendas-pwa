@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getVisitas, getMetricasPorVendedor } from '../lib/supabaseQueries'
+import { getVisitas, getMetricasPorVendedor, getConfig } from '../lib/supabaseQueries'
 
 export default function SupervisorAlertas() {
   const [alertas, setAlertas] = useState([])
@@ -10,12 +10,14 @@ export default function SupervisorAlertas() {
   async function carregar() {
     setLoading(true)
     try {
-      const [visitas, vendedores] = await Promise.all([
+      const [visitas, vendedores, config] = await Promise.all([
         getVisitas({}),
         getMetricasPorVendedor(),
+        getConfig(),
       ])
 
       const lista = []
+      const limiteVisita = config.dias_inativo_visita ?? 3
 
       // 1. Visitas presenciais sem GPS
       const semGPS = visitas.filter((v) => v.tipo === 'presencial' && !v.latitude)
@@ -54,13 +56,26 @@ export default function SupervisorAlertas() {
           return
         }
         const dias = Math.floor((Date.now() - new Date(v.ultimaVisita).getTime()) / (1000 * 60 * 60 * 24))
-        if (dias > 3) {
+        if (dias > limiteVisita) {
           lista.push({
             tipo: 'inativo',
-            severidade: dias > 7 ? 'alta' : 'media',
+            severidade: dias > limiteVisita * 2 ? 'alta' : 'media',
             titulo: `${dias} dias sem visita`,
             detalhe: v.nome,
             subtexto: `Última: ${new Date(v.ultimaVisita).toLocaleDateString('pt-BR')}`,
+          })
+        }
+      })
+
+      // 4. Negócios em andamento parados há mais de X dias (config)
+      vendedores.forEach((v) => {
+        if (v.negociosParados > 0) {
+          lista.push({
+            tipo: 'negocio_parado',
+            severidade: v.negociosParados >= 3 ? 'alta' : 'media',
+            titulo: `${v.negociosParados} negócio(s) sem atualizar`,
+            detalhe: v.nome,
+            subtexto: `Mais de ${config.dias_lembrete_negocio} dias parados`,
           })
         }
       })
@@ -82,6 +97,7 @@ export default function SupervisorAlertas() {
     sem_gps: '📡',
     retroativa: '🕐',
     inativo: '⚠️',
+    negocio_parado: '💰',
   }
 
   if (loading) {

@@ -60,6 +60,43 @@ export async function marcarPosVendasResolvido(visitaId, resolvido = true) {
 }
 
 // ============================================
+// Configurações globais (singleton id=1)
+// ============================================
+
+export const CONFIG_DEFAULT = { dias_lembrete_negocio: 7, dias_inativo_visita: 3 }
+let configCache = null
+
+export async function getConfig({ force = false } = {}) {
+  if (!force && configCache) return configCache
+  const { data, error } = await supabase
+    .from('configuracoes')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle()
+  if (error || !data) {
+    if (error) console.warn('[config]', error.message)
+    return { ...CONFIG_DEFAULT }
+  }
+  configCache = data
+  return data
+}
+
+export async function salvarConfig(fields, supervisorId) {
+  const payload = {
+    id: 1,
+    ...fields,
+    updated_at: new Date().toISOString(),
+    updated_by: supervisorId,
+  }
+  const { error } = await supabase.from('configuracoes').upsert(payload, { onConflict: 'id' })
+  if (error) throw error
+  configCache = null
+}
+
+// Status de negócio "em andamento" (não fechado)
+export const STATUS_EM_ANDAMENTO = ['prospect', 'proposta_enviada', 'em_negociacao']
+
+// ============================================
 // Helpers de agregação (client-side)
 // ============================================
 
@@ -123,23 +160,42 @@ export async function getKPIs() {
 export async function getMetricasPorVendedor() {
   const semana = startOfWeek()
 
-  const [vendedores, visitas, negocios] = await Promise.all([
+  const [vendedores, visitas, negocios, logins, config] = await Promise.all([
     getVendedores(),
     getVisitas({}),
     getNegocios({}),
+    getAuditLogs({}),
+    getConfig(),
   ])
+
+  const limiteParado = Date.now() - config.dias_lembrete_negocio * 86400000
 
   return vendedores.map((v) => {
     const vendId = v.id
-    const visitasVend = visitas.filter((vis) => vis.vendedor_id === vendId)
+    const visitasVend = visitas
+      .filter((vis) => vis.vendedor_id === vendId)
+      .sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))
     const visitasSemana = visitasVend.filter((vis) => vis.data_visita >= semana).length
     const negociosVend = negocios.filter((n) => n.vendedor_id === vendId)
     const pipeline = negociosVend
       .filter((n) => !['fechado_perdido'].includes(n.status))
       .reduce((acc, n) => acc + (n.valor || 0), 0)
-    const ultimaVisita = visitasVend.length > 0
-      ? visitasVend.sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))[0].data_visita
+    const ultimaVisita = visitasVend.length > 0 ? visitasVend[0].data_visita : null
+
+    // Último GPS conhecido: visita mais recente com coordenadas
+    const visitaComGps = visitasVend.find((vis) => vis.latitude && vis.longitude)
+    const ultimoGps = visitaComGps
+      ? { lat: visitaComGps.latitude, lng: visitaComGps.longitude, data: visitaComGps.data_visita }
       : null
+
+    // Último acesso: log de login mais recente (logs já vêm ordenados desc)
+    const ultimoLogin = logins.find((l) => l.acao === 'login' && l.vendedor_id === vendId)
+    const ultimoAcesso = ultimoLogin ? ultimoLogin.data_hora : null
+
+    const emAndamento = negociosVend.filter((n) => STATUS_EM_ANDAMENTO.includes(n.status))
+    const negociosParados = emAndamento.filter(
+      (n) => new Date(n.updated_at || n.created_at).getTime() < limiteParado
+    ).length
 
     return {
       id: vendId,
@@ -148,6 +204,10 @@ export async function getMetricasPorVendedor() {
       totalVisitas: visitasVend.length,
       pipeline,
       ultimaVisita,
+      ultimoGps,
+      ultimoAcesso,
+      negociosAndamento: emAndamento.length,
+      negociosParados,
       retroativas: visitasVend.filter((vis) => vis.retroativa).length,
     }
   })

@@ -1,6 +1,23 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllRecords } from '../lib/db'
+import { getConfig, STATUS_EM_ANDAMENTO } from '../lib/supabaseQueries'
+import { diasDesde } from '../lib/tempo'
+
+// Lê o X dias de lembrete: online busca da config e cacheia; offline usa o cache.
+async function getDiasLembrete() {
+  let dias = Number(localStorage.getItem('cfg_dias_lembrete')) || 7
+  if (typeof navigator !== 'undefined' && navigator.onLine) {
+    try {
+      const c = await getConfig({ force: true })
+      if (c?.dias_lembrete_negocio) {
+        dias = c.dias_lembrete_negocio
+        localStorage.setItem('cfg_dias_lembrete', String(dias))
+      }
+    } catch { /* mantém cache/fallback */ }
+  }
+  return dias
+}
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -53,6 +70,13 @@ export default function Dashboard() {
         .sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))
         .slice(0, 3)
 
+      // Negócios em andamento parados há mais de X dias (config global)
+      const diasLembrete = await getDiasLembrete()
+      const negociosParaAtualizar = negocios
+        .filter((n) => STATUS_EM_ANDAMENTO.includes(n.status))
+        .filter((n) => diasDesde(n.updated_at || n.created_at) >= diasLembrete)
+        .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at))
+
       setDados({
         visitasHoje,
         visitasSemana,
@@ -64,6 +88,7 @@ export default function Dashboard() {
         proximosContatos,
         contatosAtrasados,
         ultimasVisitas,
+        negociosParaAtualizar,
       })
     } catch (err) {
       console.error('[Dashboard]', err)
@@ -144,6 +169,39 @@ export default function Dashboard() {
             {dados.contatosAtrasados.slice(0, 3).map((v) => (
               <ContatoCard key={v.id} visita={v} atrasado />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Negócios para atualizar (lembrete) */}
+      {dados.negociosParaAtualizar?.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-bold text-amber-600 uppercase mb-2">
+            Negócios para atualizar ({dados.negociosParaAtualizar.length})
+          </p>
+          <div className="space-y-2">
+            {dados.negociosParaAtualizar.slice(0, 5).map((n) => {
+              const dias = diasDesde(n.updated_at || n.created_at)
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => navigate('/negocios')}
+                  className="rounded-xl shadow p-3 bg-amber-50 border-l-4 border-amber-400 cursor-pointer active:bg-amber-100"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{n.titulo || n.descricao || 'Negócio em andamento'}</p>
+                      {n.valor > 0 && (
+                        <p className="text-xs text-slate-500">R$ {Number(n.valor).toLocaleString('pt-BR')}</p>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-amber-700 whitespace-nowrap ml-2">
+                      parado há {dias}d
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
