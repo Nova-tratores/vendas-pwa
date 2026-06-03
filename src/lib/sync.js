@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import {
-  getAllRecords, getPendingRecords, markAsSynced, saveRecord,
+  getAllRecords, getPendingRecords, markAsSynced, saveRecord, deleteRecord,
   getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs,
   clearAll, clearSyncedOnly,
+  FK_REFS, chaveConteudo, getServerId, mapearId, remapearFilhos,
 } from './db'
 
 export const supabase = createClient(
@@ -56,8 +57,23 @@ function mapForPush(store, record) {
   return clean
 }
 
+// Traduz as FKs locais do registro pros ids do servidor (via id_map), quando houver.
+async function traduzFKs(store, record) {
+  const refs = FK_REFS[store]
+  if (!refs) return record
+  const out = { ...record }
+  for (const { campo, pai } of refs) {
+    if (out[campo] != null) {
+      const sid = await getServerId(pai, out[campo])
+      if (sid != null) out[campo] = sid
+    }
+  }
+  return out
+}
+
 async function pushRecords() {
   let totalPushed = 0
+  const failed = []
 
   for (const store of SYNC_ORDER) {
     const pending = await getPendingRecords(store)
@@ -68,7 +84,8 @@ async function pushRecords() {
 
     for (const record of pending) {
       try {
-        const mapped = mapForPush(store, record)
+        // Traduz FKs (cliente_id, propriedade_id, etc) pro id do servidor antes de inserir
+        const mapped = mapForPush(store, await traduzFKs(store, record))
 
         // Tentar insert primeiro (registro novo criado offline)
         const { data, error } = await supabase
@@ -84,19 +101,25 @@ async function pushRecords() {
               .update(mapped)
               .eq('id', record.id)
             if (upErr) {
-              console.error(`[Push] ${store} update:`, upErr.message)
+              failed.push({ store, id: record.id, code: upErr.code, message: upErr.message })
+              console.error(`[Push] ${store} #${record.id} update:`, upErr.code, upErr.message)
               continue
             }
           } else {
-            console.error(`[Push] ${store}:`, error.message)
+            failed.push({ store, id: record.id, code: error.code, message: error.message })
+            console.error(`[Push] ${store} #${record.id}:`, error.code, error.message)
             continue
           }
+        } else if (data && data[0] && data[0].id !== record.id) {
+          // Servidor gerou outro id: guarda o mapeamento pros filhos apontarem certo
+          await mapearId(store, record.id, data[0].id)
         }
 
         await markAsSynced(store, record.id)
         totalPushed++
       } catch (err) {
-        console.error(`[Push] ${store}:`, err)
+        failed.push({ store, id: record.id, message: String(err) })
+        console.error(`[Push] ${store} #${record.id}:`, err)
       }
     }
   }
@@ -114,7 +137,7 @@ async function pushRecords() {
     console.error('[Push] logs:', err)
   }
 
-  return totalPushed
+  return { pushed: totalPushed, failed }
 }
 
 async function pushFotos() {
@@ -237,8 +260,29 @@ async function pullRecords() {
       return []
     }
     if (!data || data.length === 0) return []
+
+    // Índice dos locais já sincronizados por chave de conteúdo, pra reconciliar
+    // o "gêmeo" criado offline (id local) com o que voltou do servidor (id novo).
+    const locais = await getAllRecords(store)
+    const idxLocal = new Map()
+    for (const loc of locais) {
+      if (loc.status_sync !== 'synced') continue
+      const ch = chaveConteudo(store, loc)
+      if (ch) idxLocal.set(ch, loc)
+    }
+
     for (const record of data) {
       const mapped = mapFn(record)
+      const ch = chaveConteudo(store, mapped)
+      const gemeo = ch ? idxLocal.get(ch) : null
+      if (gemeo && gemeo.id !== mapped.id) {
+        // Mesmo registro com id local diferente: mapeia, reaponta os filhos e
+        // remove a duplicata local, ficando só com o id do servidor.
+        await mapearId(store, gemeo.id, mapped.id)
+        await remapearFilhos(store, gemeo.id, mapped.id)
+        await deleteRecord(store, gemeo.id)
+        idxLocal.delete(ch)
+      }
       await saveRecord(store, mapped)
     }
     totalPulled += data.length
@@ -323,16 +367,23 @@ export async function syncAll() {
 
     // 1. Push: enviar pendentes locais para o Supabase (só com sessão)
     let pushed = 0
+    let falhas = 0
     if (hasSession) {
-      pushed = await pushRecords()
+      const res = await pushRecords()
+      pushed = res.pushed
+      falhas = res.failed.length
       await pushFotos()
     }
 
     // 2. Pull: baixar dados do Supabase para o IndexedDB
     const pulled = await pullRecords()
 
-    notify('done', `Sync OK: ${pushed} enviados, ${pulled} baixados`)
-    console.log(`[Sync] Push: ${pushed}, Pull: ${pulled}`)
+    if (falhas > 0) {
+      notify('error', `${falhas} não enviado(s) — tentando de novo automaticamente`)
+    } else {
+      notify('done', `Sync OK: ${pushed} enviados, ${pulled} baixados`)
+    }
+    console.log(`[Sync] Push: ${pushed} (falhas: ${falhas}), Pull: ${pulled}`)
   } catch (err) {
     notify('error', err.message)
     console.error('[Sync] erro geral:', err)
@@ -360,9 +411,13 @@ export async function pushOnly() {
   isSyncing = true
   notify('pushing', 'Enviando dados...')
   try {
-    const pushed = await pushRecords()
+    const res = await pushRecords()
     await pushFotos()
-    notify('done', `${pushed} registros enviados`)
+    if (res.failed.length > 0) {
+      notify('error', `${res.failed.length} não enviado(s) — tentando de novo automaticamente`)
+    } else {
+      notify('done', `${res.pushed} registros enviados`)
+    }
     setTimeout(() => notify('idle', ''), 3000)
   } catch (err) {
     notify('error', err.message)

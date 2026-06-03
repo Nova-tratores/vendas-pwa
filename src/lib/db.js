@@ -1,26 +1,20 @@
 const DB_NAME = 'vendas-offline'
-const DB_VERSION = 5
+const DB_VERSION = 6
 const STORES = ['clientes', 'propriedades', 'pessoas', 'maquinas', 'visitas', 'negocios']
 
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
 
+    // Upgrade ADITIVO: só cria o que falta, nunca apaga (preserva dados/pendentes
+    // ao subir de versão). Index é criado dentro do bloco de criação da store.
     req.onupgradeneeded = (e) => {
       const db = e.target.result
 
-      // Remover stores antigos se existirem
-      ;[...STORES, 'logs', 'fotos_pendentes'].forEach((name) => {
-        if (db.objectStoreNames.contains(name)) {
-          db.deleteObjectStore(name)
-        }
-      })
-
-      // Recriar com autoIncrement (bigint compatível)
       STORES.forEach((name) => {
+        if (db.objectStoreNames.contains(name)) return
         const store = db.createObjectStore(name, { keyPath: 'id', autoIncrement: true })
         store.createIndex('status_sync', 'status_sync', { unique: false })
-
         if (name === 'propriedades') store.createIndex('cliente_dono_id', 'cliente_dono_id')
         if (name === 'pessoas') store.createIndex('propriedade_id', 'propriedade_id')
         if (name === 'maquinas') store.createIndex('propriedade_id', 'propriedade_id')
@@ -28,18 +22,113 @@ function openDB() {
         if (name === 'negocios') store.createIndex('cliente_id', 'cliente_id')
       })
 
-      db.createObjectStore('fotos_pendentes', { keyPath: 'visita_id' })
+      if (!db.objectStoreNames.contains('fotos_pendentes')) {
+        db.createObjectStore('fotos_pendentes', { keyPath: 'visita_id' })
+      }
 
-      // Logs de auditoria
-      const logStore = db.createObjectStore('logs', { keyPath: 'id', autoIncrement: true })
-      logStore.createIndex('status_sync', 'status_sync', { unique: false })
-      logStore.createIndex('entidade', 'entidade')
-      logStore.createIndex('entidade_id', 'entidade_id')
+      if (!db.objectStoreNames.contains('logs')) {
+        const logStore = db.createObjectStore('logs', { keyPath: 'id', autoIncrement: true })
+        logStore.createIndex('status_sync', 'status_sync', { unique: false })
+        logStore.createIndex('entidade', 'entidade')
+        logStore.createIndex('entidade_id', 'entidade_id')
+      }
+
+      // Mapa de id local -> id do servidor (reconciliação de sync). key = "store:localId"
+      if (!db.objectStoreNames.contains('id_map')) {
+        db.createObjectStore('id_map', { keyPath: 'key' })
+      }
     }
 
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
   })
+}
+
+// ============================================
+// RECONCILIAÇÃO DE ID (local <-> servidor)
+// ============================================
+
+// Relações FK do app: para cada store, campos que apontam pra um "store pai".
+// Usado pra traduzir antes do push e pra remapear filhos no pull.
+export const FK_REFS = {
+  propriedades: [{ campo: 'cliente_dono_id', pai: 'clientes' }],
+  negocios: [{ campo: 'cliente_id', pai: 'clientes' }, { campo: 'propriedade_id', pai: 'propriedades' }],
+  pessoas: [{ campo: 'propriedade_id', pai: 'propriedades' }],
+  maquinas: [{ campo: 'propriedade_id', pai: 'propriedades' }],
+  visitas: [{ campo: 'propriedade_id', pai: 'propriedades' }, { campo: 'negocio_id', pai: 'negocios' }],
+}
+
+// Chave de conteúdo por store: identifica o "mesmo" registro entre local e servidor
+// (pra casar o gêmeo criado offline com o que voltou do servidor com outro id).
+export function chaveConteudo(store, r) {
+  if (!r) return null
+  switch (store) {
+    case 'clientes': return [r.nome, r.created_at].join('|')
+    case 'propriedades': return [r.nome_fantasia, r.created_at].join('|')
+    case 'negocios': return [r.created_at, r.valor, r.status].join('|')
+    case 'visitas': return [r.created_at, r.data_visita, r.resumo].join('|')
+    case 'pessoas': return [r.nome, r.telefone, r.created_at].join('|')
+    case 'maquinas': return [r.modelo, r.numero_serie, r.created_at].join('|')
+    default: return null
+  }
+}
+
+let idMapCache = null
+async function carregarIdMap() {
+  if (idMapCache) return idMapCache
+  const db = await openDB()
+  idMapCache = await new Promise((res, rej) => {
+    const req = db.transaction('id_map', 'readonly').objectStore('id_map').getAll()
+    req.onsuccess = () => {
+      const m = new Map()
+      for (const row of req.result) m.set(row.key, row.server_id)
+      res(m)
+    }
+    req.onerror = () => rej(req.error)
+  })
+  return idMapCache
+}
+
+/** id do servidor pra um id local, ou null se não há mapeamento. */
+export async function getServerId(store, localId) {
+  if (localId == null) return null
+  const m = await carregarIdMap()
+  const v = m.get(`${store}:${localId}`)
+  return v == null ? null : v
+}
+
+/** Grava o mapeamento local->servidor. */
+export async function mapearId(store, localId, serverId) {
+  if (localId == null || serverId == null || localId === serverId) return
+  const db = await openDB()
+  await new Promise((res, rej) => {
+    const req = db.transaction('id_map', 'readwrite').objectStore('id_map')
+      .put({ key: `${store}:${localId}`, store, local_id: localId, server_id: serverId })
+    req.onsuccess = () => res()
+    req.onerror = () => rej(req.error)
+  })
+  const m = await carregarIdMap()
+  m.set(`${store}:${localId}`, serverId)
+}
+
+/**
+ * Reescreve as FKs dos filhos locais que apontam pro id antigo do pai.
+ * Ex.: pai 'clientes' 5->30 => negocios.cliente_id 5 vira 30, propriedades.cliente_dono_id 5 vira 30.
+ */
+export async function remapearFilhos(paiStore, oldId, newId) {
+  if (oldId === newId) return
+  for (const [filhoStore, refs] of Object.entries(FK_REFS)) {
+    const campos = refs.filter((r) => r.pai === paiStore).map((r) => r.campo)
+    if (campos.length === 0) continue
+    const registros = await getAllRecords(filhoStore)
+    for (const reg of registros) {
+      let mudou = false
+      for (const campo of campos) {
+        if (reg[campo] === oldId) { reg[campo] = newId; mudou = true }
+      }
+      if (mudou) await saveRecord(filhoStore, { ...reg, status_sync: reg.status_sync })
+    }
+  }
 }
 
 export async function saveRecord(store, record) {
@@ -216,7 +305,8 @@ export async function getLogs() {
  */
 export async function clearAll() {
   const db = await openDB()
-  const allStores = [...STORES, 'logs', 'fotos_pendentes']
+  idMapCache = null
+  const allStores = [...STORES, 'logs', 'fotos_pendentes', 'id_map']
   return new Promise((res, rej) => {
     const tx = db.transaction(allStores, 'readwrite')
     let pending = allStores.length
