@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { capturarGPS } from '../lib/gps'
+import { capturarGPSComFallback } from '../lib/gps'
 import { capturarFoto } from '../lib/camera'
 import { saveRecord, saveFotoPendente, registrarLog } from '../lib/db'
 
@@ -14,7 +14,7 @@ export function useCheckin() {
     setLoading(true)
     setErroGPS(null)
     try {
-      setGpsData(await capturarGPS())
+      setGpsData(await capturarGPSComFallback())
     } catch (err) {
       setErroGPS(err.message)
     } finally {
@@ -33,8 +33,8 @@ export function useCheckin() {
   }
 
   async function salvarVisita(form) {
-    const tipoPresencial = form.tipo === 'presencial'
-    if (tipoPresencial && !gpsData) throw new Error('GPS ainda não obtido.')
+    // GPS não bloqueia mais o registro: no campo, sem sinal, o fix pode estourar.
+    // Salvamos com o que houver (coords podem ficar nulas) pra não travar o vendedor.
     const vendedor = JSON.parse(localStorage.getItem('vendedor'))
 
     const dataVisita = form.data_visita

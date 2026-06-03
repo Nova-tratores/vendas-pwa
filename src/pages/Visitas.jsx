@@ -214,12 +214,12 @@ export default function Visitas() {
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-4 mb-4 space-y-3">
           {/* GPS Status - obrigatório só para presencial */}
           {tipoPresencial ? (
-            <div className={`p-3 rounded-lg text-sm ${gpsData ? 'bg-green-50 text-green-700' : erroGPS ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+            <div className={`p-3 rounded-lg text-sm ${gpsData ? 'bg-green-50 text-green-700' : erroGPS ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
               {loading && 'Obtendo localização...'}
               {gpsData && `GPS: ${gpsData.latitude.toFixed(5)}, ${gpsData.longitude.toFixed(5)} (±${gpsData.gps_accuracy.toFixed(0)}m)`}
-              {erroGPS && `Erro GPS: ${erroGPS}`}
+              {erroGPS && `Sem GPS: ${erroGPS} Você pode registrar mesmo assim (sem localização).`}
               {erroGPS && (
-                <button type="button" onClick={iniciarCheckin} className="ml-2 underline">Tentar novamente</button>
+                <button type="button" onClick={iniciarCheckin} className="ml-2 underline">Tentar de novo</button>
               )}
             </div>
           ) : (
@@ -692,10 +692,10 @@ export default function Visitas() {
             </button>
             <button
               type="submit"
-              disabled={(tipoPresencial && !gpsData) || !form.propriedade_id}
+              disabled={!form.propriedade_id}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
-              Registrar Visita
+              {tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}
             </button>
           </div>
         </form>
