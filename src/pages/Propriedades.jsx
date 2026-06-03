@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getByIndex, saveRecord, getRecord, deleteRecord, registrarLog } from '../lib/db'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
+import { CULTURAS } from '../lib/constants'
 
 const EMPTY = {
   nome: '', endereco: '', cidade: '', estado: '',
-  area_hectares: '', culturas: '', observacoes: '',
+  area_hectares: '', cultura_principal: '', cultura_secundaria: '', observacoes: '',
 }
 
 export default function Propriedades() {
@@ -31,9 +32,11 @@ export default function Propriedades() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    const culturas = form.culturas
-      ? form.culturas.split(',').map((c) => c.trim()).filter(Boolean)
-      : []
+    if (!form.cultura_principal) {
+      alert('Selecione a cultura principal')
+      return
+    }
+    const culturas = [form.cultura_principal, form.cultura_secundaria].filter(Boolean)
 
     await saveRecord('propriedades', {
       cliente_dono_id: parseInt(clienteId),
@@ -89,7 +92,14 @@ export default function Propriedades() {
             <input name="estado" value={form.estado} onChange={handleChange} placeholder="UF" maxLength={2} className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm uppercase" />
           </div>
           <input name="area_hectares" value={form.area_hectares} onChange={handleChange} placeholder="Área (hectares)" type="number" step="0.01" inputMode="decimal" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
-          <input name="culturas" value={form.culturas} onChange={handleChange} placeholder="Culturas (separar por vírgula)" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
+          <select name="cultura_principal" value={form.cultura_principal} onChange={handleChange} required className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
+            <option value="">Cultura principal *</option>
+            {CULTURAS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select name="cultura_secundaria" value={form.cultura_secundaria} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
+            <option value="">Cultura secundária (opcional)</option>
+            {CULTURAS.filter((c) => c !== form.cultura_principal).map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           <textarea name="observacoes" value={form.observacoes} onChange={handleChange} placeholder="Observações" rows={2} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
           <button type="submit" className="w-full bg-green-600 text-white py-2.5 rounded-lg font-medium text-sm active:bg-green-700">Salvar Propriedade</button>
         </form>

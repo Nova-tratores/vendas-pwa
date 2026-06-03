@@ -33,3 +33,22 @@ export const MARCAS = [
   'YTO',
   'Lovol',
 ]
+
+// Culturas/atividades da propriedade — usadas em "Cultura Principal" e
+// "Cultura Secundária" no cadastro de propriedade (e no inline de
+// primeiro contato em Visitas).
+export const CULTURAS = [
+  'Corte/Leite',
+  'Suínos',
+  'Aves',
+  'Café',
+  'Cereais',
+  'Grãos',
+  'Fruticultura',
+  'Estufa',
+  'Hortaliça',
+  'Hortifruti',
+  'Citricultura',
+  'Cana',
+  'Feno',
+]

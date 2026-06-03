@@ -5,7 +5,7 @@ import { useCheckin } from '../hooks/useCheckin'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
-import { TIPOS_PRODUTO, MARCAS } from '../lib/constants'
+import { TIPOS_PRODUTO, MARCAS, CULTURAS } from '../lib/constants'
 import { maskTelefone } from '../lib/masks'
 
 const TIPO_LABELS = {
@@ -45,7 +45,7 @@ export default function Visitas() {
   const [showNovaMaquina, setShowNovaMaquina] = useState(false)
   const [novaMaquina, setNovaMaquina] = useState({ tipo: 'Trator Novo', marca: 'New Holland', modelo: '', tamanho: '' })
   const [showNovoCliente, setShowNovoCliente] = useState(false)
-  const [novoCliente, setNovoCliente] = useState({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '' })
+  const [novoCliente, setNovoCliente] = useState({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '', cultura_principal: '', cultura_secundaria: '' })
   const [showNegocio, setShowNegocio] = useState(false)
   const [showNovoNegocio, setShowNovoNegocio] = useState(false)
   const [novoNegocio, setNovoNegocio] = useState({ valor: '', status: 'prospect', notas: '' })
@@ -290,6 +290,22 @@ export default function Visitas() {
                   className="border border-blue-200 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+              <select
+                value={novoCliente.cultura_principal}
+                onChange={(e) => setNovoCliente({ ...novoCliente, cultura_principal: e.target.value })}
+                className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="">Cultura principal *</option>
+                {CULTURAS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select
+                value={novoCliente.cultura_secundaria}
+                onChange={(e) => setNovoCliente({ ...novoCliente, cultura_secundaria: e.target.value })}
+                className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="">Cultura secundária (opcional)</option>
+                {CULTURAS.filter((c) => c !== novoCliente.cultura_principal).map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
               <button
                 type="button"
                 onClick={async () => {
@@ -306,12 +322,14 @@ export default function Visitas() {
                     created_at: now,
                   })
                   await registrarLog('criar', 'clientes', clienteId, `Criado em check-in: ${novoCliente.nome_cliente}`)
+                  const culturas = [novoCliente.cultura_principal, novoCliente.cultura_secundaria].filter(Boolean)
                   const propId = await saveRecord('propriedades', {
                     cliente_dono_id: clienteId,
                     nome: novoCliente.nome_propriedade,
                     nome_fantasia: novoCliente.nome_propriedade,
                     cidade: novoCliente.cidade,
                     telefone: novoCliente.telefone || null,
+                    culturas: culturas.length ? culturas : null,
                     created_at: now,
                   })
                   await registrarLog('criar', 'propriedades', propId, `Criada em check-in: ${novoCliente.nome_propriedade}`)
@@ -321,7 +339,7 @@ export default function Visitas() {
                   setPropriedadesFiltradas(props)
                   setForm((f) => ({ ...f, propriedade_id: propId }))
                   setShowNovoCliente(false)
-                  setNovoCliente({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '' })
+                  setNovoCliente({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '', cultura_principal: '', cultura_secundaria: '' })
                 }}
                 className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-medium"
               >
