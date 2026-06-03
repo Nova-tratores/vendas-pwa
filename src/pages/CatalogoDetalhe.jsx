@@ -383,6 +383,8 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
   const fotoAbsoluta = fotoPrincipal
     ? (fotoPrincipal.startsWith('http') ? fotoPrincipal : `${window.location.origin}${fotoPrincipal}`)
     : null
+  // Folheto p/ compartilhar: usa o folheto_url do produto, ou o 1º PDF anexado pelo admin
+  const folhetoUrl = produto.folheto_url || midias.find((m) => m.tipo === 'pdf')?.url_publica || null
 
   return (
     <div className="pb-4">
@@ -515,7 +517,7 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
           valor: estoque?.matched && estoque?.valor_medio > 0 ? estoque.valor_medio : null,
           fotoUrl: fotoAbsoluta,
           fotoFetchUrl: fotoPrincipal,
-          folhetoUrl: produto.folheto_url || null,
+          folhetoUrl,
         }}
       />
 
@@ -637,7 +639,8 @@ function DetalheEstoque({ item, loading }) {
           descricao: item.descricao,
           valor: item.preco_efetivo > 0 ? item.preco_efetivo : null,
           fotoUrl: item.imagem_url || null,
-          folhetoUrl: null,
+          // Folheto p/ compartilhar: 1º PDF anexado pelo admin a este produto
+          folhetoUrl: midias.find((m) => m.tipo === 'pdf')?.url_publica || null,
         }}
       />
 
