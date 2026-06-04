@@ -9,7 +9,7 @@ export async function getVendedores() {
   return data || []
 }
 
-export async function getVisitas({ vendedorId, dateFrom, dateTo, tipo, retroativa, posVendas } = {}) {
+export async function getVisitas({ vendedorId, dateFrom, dateTo, tipo, retroativa, posVendas, incluirDuplicadas = false } = {}) {
   let query = supabase.from('vw_visitas_detalhadas').select('*')
   if (vendedorId) query = query.eq('vendedor_id', vendedorId)
   if (dateFrom) query = query.gte('data_visita', dateFrom)
@@ -19,7 +19,79 @@ export async function getVisitas({ vendedorId, dateFrom, dateTo, tipo, retroativ
   if (posVendas !== undefined) query = query.eq('acionar_pos_vendas', posVendas)
   query = query.order('data_visita', { ascending: false })
   const { data } = await query
+  // Esconde as visitas juntadas (marcadas como duplicada de outra). Filtro client-side
+  // pra não quebrar caso a coluna ainda não exista (migração não rodada).
+  if (incluirDuplicadas) return data || []
+  return (data || []).filter((v) => !v.duplicada_de)
+}
+
+// Liga/desliga a sinalização de uma visita (com motivo opcional).
+export async function setSinalizada(visitaId, sinalizada, motivo = null) {
+  const { error } = await supabase
+    .from('visitas')
+    .update({ sinalizada, sinalizada_motivo: sinalizada ? motivo : null })
+    .eq('id', visitaId)
+  if (error) throw error
+}
+
+// Junta duas visitas repetidas: marca a duplicada apontando pra principal (reversível).
+export async function juntarVisitas(duplicadaId, principalId) {
+  const { error } = await supabase
+    .from('visitas')
+    .update({ duplicada_de: principalId })
+    .eq('id', duplicadaId)
+  if (error) throw error
+}
+
+export async function desfazerJuntar(visitaId) {
+  const { error } = await supabase
+    .from('visitas')
+    .update({ duplicada_de: null })
+    .eq('id', visitaId)
+  if (error) throw error
+}
+
+// ============================================
+// Comentários do supervisor (entidade: 'visita' | 'negocio')
+// ============================================
+
+export async function getComentarios(entidade, entidadeId) {
+  const { data, error } = await supabase
+    .from('comentarios_supervisor')
+    .select('*')
+    .eq('entidade', entidade)
+    .eq('entidade_id', entidadeId)
+    .order('created_at', { ascending: true })
+  if (error) { console.warn('[comentarios]', error.message); return [] }
   return data || []
+}
+
+// Conta comentários de vários itens de uma vez (pra mostrar badge na lista).
+export async function getComentariosCount(entidade, ids = []) {
+  if (!ids.length) return {}
+  const { data, error } = await supabase
+    .from('comentarios_supervisor')
+    .select('entidade_id')
+    .eq('entidade', entidade)
+    .in('entidade_id', ids)
+  if (error) { console.warn('[comentarios count]', error.message); return {} }
+  const mapa = {}
+  for (const row of data || []) mapa[row.entidade_id] = (mapa[row.entidade_id] || 0) + 1
+  return mapa
+}
+
+export async function addComentario({ entidade, entidade_id, texto, autor_id, autor_nome }) {
+  const { data, error } = await supabase
+    .from('comentarios_supervisor')
+    .insert({ entidade, entidade_id, texto, autor_id, autor_nome })
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function deleteComentario(id) {
+  const { error } = await supabase.from('comentarios_supervisor').delete().eq('id', id)
+  if (error) throw error
 }
 
 export async function getNegocios({ vendedorId, status } = {}) {

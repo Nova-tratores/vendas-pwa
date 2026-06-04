@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import VendedorAvatar from '../components/VendedorAvatar'
+import ComentariosModal from './ComentariosModal'
 
 const TIPO_COLORS = {
   presencial: 'bg-blue-100 text-blue-800',
@@ -31,15 +33,17 @@ function fmtData(iso, comHora = true) {
   return data + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function LinhaVisita({ v }) {
+function LinhaVisita({ v, onComentar }) {
   return (
-    <div className={`bg-white border border-slate-100 rounded-xl p-3 ${v.retroativa ? 'border-l-4 border-l-amber-400' : ''}`}>
+    <div className={`bg-white border border-slate-100 rounded-xl p-3 ${v.retroativa ? 'border-l-4 border-l-amber-400' : ''} ${v.sinalizada ? 'ring-1 ring-red-300' : ''}`}>
       <div className="flex items-start justify-between mb-1 gap-2">
         {/* Cliente em destaque; vendedor vira o círculo com a inicial */}
         <div className="flex items-center gap-2 min-w-0">
           <VendedorAvatar id={v.vendedor_id} nome={v.vendedor_nome} size={28} />
           <div className="min-w-0">
-            <p className="font-bold text-sm leading-tight truncate">{v.cliente_nome || '—'}</p>
+            <p className="font-bold text-sm leading-tight truncate">
+              {v.sinalizada && <span title="Sinalizada">🚩 </span>}{v.cliente_nome || '—'}
+            </p>
             {v.propriedade_nome && <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>}
           </div>
         </div>
@@ -57,15 +61,18 @@ function LinhaVisita({ v }) {
       </div>
       <p className="text-xs text-slate-500">{fmtData(v.data_visita)}</p>
       {v.resumo && <p className="text-sm text-slate-700 mt-1">{v.resumo}</p>}
+      {onComentar && (
+        <button onClick={() => onComentar(v)} className="text-xs text-blue-600 mt-2 font-medium">💬 Comentar</button>
+      )}
     </div>
   )
 }
 
-function LinhaNegocio({ n }) {
+function LinhaNegocio({ n, onComentar }) {
   return (
     <div className="bg-white border border-slate-100 rounded-xl p-3">
       <div className="flex items-center justify-between mb-1">
-        <p className="font-medium text-sm">{n.cliente_nome || 'Cliente'}</p>
+        <p className="font-bold text-sm">{n.cliente_nome || 'Cliente'}</p>
         <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[n.status] || 'bg-slate-100 text-slate-700'}`}>
           {STATUS_LABELS[n.status] || n.status}
         </span>
@@ -77,6 +84,9 @@ function LinhaNegocio({ n }) {
         </p>
       )}
       <p className="text-xs text-slate-400 mt-1">Criado em {fmtData(n.created_at, false)}</p>
+      {onComentar && (
+        <button onClick={() => onComentar(n)} className="text-xs text-blue-600 mt-2 font-medium">💬 Comentar</button>
+      )}
     </div>
   )
 }
@@ -90,9 +100,13 @@ function LinhaNegocio({ n }) {
  * @param {function} onClose
  */
 export default function DetalheModal({ show, titulo, tipo, itens = [], onClose }) {
+  const [comentarioAlvo, setComentarioAlvo] = useState(null)
   if (!show) return null
 
+  const entidadeComent = tipo === 'negocios' ? 'negocio' : 'visita'
+
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
       onClick={onClose}
@@ -121,12 +135,21 @@ export default function DetalheModal({ show, titulo, tipo, itens = [], onClose }
           ) : (
             itens.map((item) =>
               tipo === 'negocios'
-                ? <LinhaNegocio key={item.id} n={item} />
-                : <LinhaVisita key={item.id} v={item} />
+                ? <LinhaNegocio key={item.id} n={item} onComentar={setComentarioAlvo} />
+                : <LinhaVisita key={item.id} v={item} onComentar={setComentarioAlvo} />
             )
           )}
         </div>
       </div>
     </div>
+
+    <ComentariosModal
+      show={!!comentarioAlvo}
+      entidade={entidadeComent}
+      entidadeId={comentarioAlvo?.id}
+      titulo={comentarioAlvo?.cliente_nome || ''}
+      onClose={() => setComentarioAlvo(null)}
+    />
+    </>
   )
 }

@@ -169,7 +169,9 @@ export default function SupervisorMapa() {
                     <div className="flex items-center gap-2">
                       <VendedorAvatar id={p.vendedor_id} nome={p.vendedor_nome} size={32} />
                       <div className="min-w-0">
-                        <p className="font-bold text-sm leading-tight">{p.cliente_nome || '—'}</p>
+                        <p className="font-bold text-sm leading-tight">
+                          {p.sinalizada && <span title="Sinalizada">🚩 </span>}{p.cliente_nome || '—'}
+                        </p>
                         <p className="text-slate-500 leading-tight">{p.propriedade_nome || '—'}</p>
                       </div>
                     </div>
