@@ -11,6 +11,7 @@ const navItems = [
   { to: '/supervisor/produtos', label: 'Produtos' },
   { to: '/supervisor/visitas', label: 'Visitas' },
   { to: '/supervisor/semana', label: 'Calendário' },
+  { to: '/supervisor/propostas', label: 'Propostas' },
   { to: '/supervisor/pos-vendas', label: 'Pós Vendas' },
   { to: '/supervisor/alertas', label: 'Alertas' },
   { to: '/supervisor/config', label: 'Configurações' },

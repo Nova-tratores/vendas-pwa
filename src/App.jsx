@@ -30,6 +30,7 @@ import SupervisorConfig from './supervisor/SupervisorConfig'
 import SupervisorMapa from './supervisor/SupervisorMapa'
 import SupervisorClientes from './supervisor/SupervisorClientes'
 import SupervisorSemana from './supervisor/SupervisorSemana'
+import SupervisorPropostas from './supervisor/SupervisorPropostas'
 
 function ProtectedRoute({ children }) {
   const vendedor = localStorage.getItem('vendedor')
@@ -88,6 +89,7 @@ export default function App() {
         <Route path="evolucao" element={<SupervisorEvolucao />} />
         <Route path="visitas" element={<SupervisorVisitas />} />
         <Route path="semana" element={<SupervisorSemana />} />
+        <Route path="propostas" element={<SupervisorPropostas />} />
         <Route path="pos-vendas" element={<SupervisorPosVendas />} />
         <Route path="alertas" element={<SupervisorAlertas />} />
         <Route path="catalogo" element={<Catalogo />} />

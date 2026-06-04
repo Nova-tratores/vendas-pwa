@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import VendedorAvatar from '../components/VendedorAvatar'
 import ComentariosModal from './ComentariosModal'
+import { statusLabel, statusColor } from '../lib/funil'
 
 const TIPO_COLORS = {
   presencial: 'bg-blue-100 text-blue-800',
@@ -9,21 +10,6 @@ const TIPO_COLORS = {
   email: 'bg-purple-100 text-purple-800',
 }
 
-const STATUS_LABELS = {
-  prospect: 'Prospect',
-  proposta_enviada: 'Proposta Enviada',
-  em_negociacao: 'Em Negociação',
-  fechado_ganho: 'Fechado (Ganho)',
-  fechado_perdido: 'Fechado (Perdido)',
-}
-
-const STATUS_COLORS = {
-  prospect: 'bg-slate-100 text-slate-700',
-  proposta_enviada: 'bg-blue-100 text-blue-800',
-  em_negociacao: 'bg-yellow-100 text-yellow-800',
-  fechado_ganho: 'bg-green-100 text-green-800',
-  fechado_perdido: 'bg-red-100 text-red-800',
-}
 
 function fmtData(iso, comHora = true) {
   if (!iso) return '—'
@@ -73,8 +59,8 @@ function LinhaNegocio({ n, onComentar }) {
     <div className="bg-white border border-slate-100 rounded-xl p-3">
       <div className="flex items-center justify-between mb-1">
         <p className="font-bold text-sm">{n.cliente_nome || 'Cliente'}</p>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[n.status] || 'bg-slate-100 text-slate-700'}`}>
-          {STATUS_LABELS[n.status] || n.status}
+        <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor(n.status)}`}>
+          {statusLabel(n.status)}
         </span>
       </div>
       {n.vendedor_nome && <p className="text-xs text-slate-500">{n.vendedor_nome}</p>}

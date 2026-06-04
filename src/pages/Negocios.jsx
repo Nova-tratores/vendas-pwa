@@ -2,16 +2,14 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getAllRecords, saveRecord, deleteRecord, registrarLog } from '../lib/db'
 import { TIPOS_PRODUTO, MARCAS } from '../lib/constants'
+import { STATUS_NEGOCIO, MOTIVOS_PERDA, isAberto, isPerdido, FORMAS_PAGAMENTO } from '../lib/funil'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
+import CidadeSelect from '../components/CidadeSelect'
+import MaquinaSelect from '../components/MaquinaSelect'
 
-const STATUS_FUNIL = [
-  { key: 'prospect', label: 'Prospect', color: 'bg-slate-100 text-slate-700' },
-  { key: 'proposta_enviada', label: 'Proposta Enviada', color: 'bg-blue-100 text-blue-800' },
-  { key: 'em_negociacao', label: 'Em Negociação', color: 'bg-yellow-100 text-yellow-800' },
-  { key: 'fechado_ganho', label: 'Fechado (Ganho)', color: 'bg-green-100 text-green-800' },
-  { key: 'fechado_perdido', label: 'Fechado (Perdido)', color: 'bg-red-100 text-red-800' },
-]
+const STATUS_FUNIL = STATUS_NEGOCIO
+const STATUS_PERDIDO = 'fechamento_negativo'
 
 const HORIZONTES = [
   { key: 'todos', label: 'Todos' },
@@ -28,76 +26,12 @@ function classificarHorizonte(negocio, hoje) {
   prevista.setHours(0, 0, 0, 0)
   const diffDias = Math.floor((prevista - hoje) / 86400000)
   if (diffDias < 0) {
-    return negocio.status && !negocio.status.startsWith('fechado') ? 'atrasado' : 'distante'
+    return isAberto(negocio.status) ? 'atrasado' : 'distante'
   }
   if (diffDias <= 30) return 'proximos_30'
   if (diffDias <= 90) return 'proximos_90'
   return 'distante'
 }
-
-const MOTIVOS_PERDA = [
-  {
-    key: 'preco',
-    label: 'Preço',
-    campos: [
-      { key: 'valor_desejado', label: 'Valor que o cliente queria', tipo: 'number' },
-      { key: 'diferenca_preco', label: 'Diferença de preço', tipo: 'text' },
-    ],
-  },
-  {
-    key: 'concorrencia',
-    label: 'Concorrência',
-    campos: [
-      { key: 'nome_concorrente', label: 'Nome do concorrente', tipo: 'text' },
-      { key: 'condicoes_oferecidas', label: 'Condições oferecidas', tipo: 'text' },
-      { key: 'valor_concorrente', label: 'Valor oferecido (R$)', tipo: 'number' },
-    ],
-  },
-  {
-    key: 'sem_orcamento',
-    label: 'Sem orçamento',
-    campos: [
-      { key: 'previsao_verba', label: 'Previsão de quando terá verba', tipo: 'text' },
-    ],
-  },
-  {
-    key: 'sem_interesse',
-    label: 'Sem interesse',
-    campos: [
-      { key: 'motivo_desinteresse', label: 'Motivo do desinteresse', tipo: 'text' },
-    ],
-  },
-  {
-    key: 'prazo',
-    label: 'Prazo',
-    campos: [
-      { key: 'prazo_necessario', label: 'Prazo que precisava', tipo: 'text' },
-      { key: 'prazo_oferecido', label: 'Prazo que oferecemos', tipo: 'text' },
-    ],
-  },
-  {
-    key: 'produto_inadequado',
-    label: 'Produto inadequado',
-    campos: [
-      { key: 'produto_necessario', label: 'O que ele precisava', tipo: 'text' },
-    ],
-  },
-  {
-    key: 'sem_retorno',
-    label: 'Sem retorno',
-    campos: [
-      { key: 'tentativas_contato', label: 'Quantas tentativas de contato', tipo: 'number' },
-      { key: 'ultima_tentativa', label: 'Data da última tentativa', tipo: 'date' },
-    ],
-  },
-  {
-    key: 'outro',
-    label: 'Outro',
-    campos: [
-      { key: 'descricao', label: 'Detalhe o motivo', tipo: 'text' },
-    ],
-  },
-]
 
 export default function Negocios() {
   const [negocios, setNegocios] = useState([])
@@ -154,7 +88,23 @@ export default function Negocios() {
       data_fechamento_prevista: negocio.data_fechamento_prevista || '',
       motivo_categoria: motivo.categoria || '',
       motivo_detalhes: motivo.detalhes || {},
+      cidade: negocio.cidade || '',
+      maquina_familia: negocio.maquina_familia || '',
+      maquina_marca: negocio.maquina_marca || '',
+      maquina_modelo: negocio.maquina_modelo || '',
+      proposta: negocio.proposta_dados || {},
     })
+  }
+
+  // Mudança rápida de etapa pelo card. Etapas que exigem dados extras
+  // (Fechamento Negativo → motivo; Solicitação da Proposta → form) abrem o modal.
+  function iniciarMudanca(negocio, novoStatus) {
+    if (novoStatus === STATUS_PERDIDO || novoStatus === 'solicitacao_proposta') {
+      abrirEdicao(negocio)
+      setEditForm((f) => ({ ...f, status: novoStatus }))
+    } else {
+      atualizarStatus(negocio, novoStatus)
+    }
   }
 
   async function handleSalvarEdicao() {
@@ -168,13 +118,20 @@ export default function Negocios() {
 
     // Montar motivo de perda estruturado
     let motivo_perda = null
-    if (editForm.status === 'fechado_perdido' && editForm.motivo_categoria) {
+    if (editForm.status === STATUS_PERDIDO && editForm.motivo_categoria) {
       motivo_perda = JSON.stringify({
         categoria: editForm.motivo_categoria,
         detalhes: editForm.motivo_detalhes,
       })
       const motivoLabel = MOTIVOS_PERDA.find((m) => m.key === editForm.motivo_categoria)?.label || editForm.motivo_categoria
       alteracoes.push(`motivo perda: ${motivoLabel}`)
+    }
+
+    // Solicitação da Proposta: carimba quando entrou nessa etapa (1ª vez)
+    let proposta_solicitada_em = editTarget.proposta_solicitada_em || null
+    if (editForm.status === 'solicitacao_proposta' && !proposta_solicitada_em) {
+      proposta_solicitada_em = new Date().toISOString()
+      alteracoes.push('proposta solicitada')
     }
 
     await saveRecord('negocios', {
@@ -185,6 +142,12 @@ export default function Negocios() {
       produtos: editForm.produtos || [],
       data_fechamento_prevista: editForm.data_fechamento_prevista || null,
       motivo_perda,
+      cidade: editForm.cidade || null,
+      maquina_familia: editForm.maquina_familia || null,
+      maquina_marca: editForm.maquina_marca || null,
+      maquina_modelo: editForm.maquina_modelo || null,
+      proposta_dados: editForm.proposta && Object.keys(editForm.proposta).length ? editForm.proposta : null,
+      proposta_solicitada_em,
       updated_at: new Date().toISOString(),
       status_sync: 'pending',
     })
@@ -212,7 +175,7 @@ export default function Negocios() {
   }
 
   const totalValor = negocios
-    .filter((n) => !n.status.startsWith('fechado_perdido'))
+    .filter((n) => !isPerdido(n.status))
     .reduce((acc, n) => acc + (n.valor || 0), 0)
 
   const clienteMap = Object.fromEntries(clientes.map((c) => [c.id, c.nome]))
@@ -297,6 +260,12 @@ export default function Negocios() {
                   </div>
                 </div>
                 {n.valor && <p className="text-lg font-bold text-green-700">R$ {n.valor.toLocaleString('pt-BR')}</p>}
+                {(n.maquina_familia || n.cidade) && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {[n.maquina_familia, n.maquina_marca, n.maquina_modelo].filter(Boolean).join(' · ')}
+                    {n.cidade ? ` — ${n.cidade}` : ''}
+                  </p>
+                )}
                 {n.produtos?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
                     {n.produtos.map((p, idx) => {
@@ -329,34 +298,19 @@ export default function Negocios() {
                   )
                 })()}
 
-                {/* Ações rápidas de mudança de status */}
-                {!n.status.startsWith('fechado') && (
-                  <div className="flex gap-1 mt-3 flex-wrap">
-                    {STATUS_FUNIL.filter((s) => s.key !== n.status).map((s) => (
-                      <button
-                        key={s.key}
-                        onClick={() => {
-                          if (s.key === 'fechado_perdido') {
-                            // Abre edição com status pré-selecionado para preencher motivo
-                            setEditTarget(n)
-                            const motivo = parseMotivo(n.motivo_perda)
-                            setEditForm({
-                              status: 'fechado_perdido',
-                              valor: n.valor || '',
-                              notas: n.notas || '',
-                              data_fechamento_prevista: n.data_fechamento_prevista || '',
-                              motivo_categoria: motivo.categoria || '',
-                              motivo_detalhes: motivo.detalhes || {},
-                            })
-                          } else {
-                            atualizarStatus(n, s.key)
-                          }
-                        }}
-                        className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50"
-                      >
-                        {s.label}
-                      </button>
-                    ))}
+                {/* Mudança rápida de etapa (select, pois são 11 etapas) */}
+                {!isPerdido(n.status) && (
+                  <div className="mt-3">
+                    <select
+                      value=""
+                      onChange={(e) => { if (e.target.value) iniciarMudanca(n, e.target.value) }}
+                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white text-slate-600"
+                    >
+                      <option value="">Mudar etapa…</option>
+                      {STATUS_FUNIL.filter((s) => s.key !== n.status).map((s) => (
+                        <option key={s.key} value={s.key}>{s.label}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>
@@ -425,6 +379,31 @@ export default function Negocios() {
                 />
               </div>
 
+              {/* Cidade */}
+              <CidadeSelect
+                value={editForm.cidade}
+                onChange={(cidade) => setEditForm({ ...editForm, cidade })}
+              />
+
+              {/* Máquina (cascata família → marca → modelo) */}
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Máquina</label>
+                <MaquinaSelect
+                  familia={editForm.maquina_familia}
+                  marca={editForm.maquina_marca}
+                  modelo={editForm.maquina_modelo}
+                  onChange={(campos) => setEditForm({ ...editForm, ...campos })}
+                />
+              </div>
+
+              {/* Solicitação da Proposta: campos pro responsável cotar */}
+              {editForm.status === 'solicitacao_proposta' && (
+                <PropostaEditor
+                  dados={editForm.proposta || {}}
+                  onChange={(proposta) => setEditForm({ ...editForm, proposta })}
+                />
+              )}
+
               {/* Produtos */}
               <ProdutosEditor
                 produtos={editForm.produtos || []}
@@ -443,8 +422,8 @@ export default function Negocios() {
                 />
               </div>
 
-              {/* Motivo de perda (se status for fechado_perdido) */}
-              {editForm.status === 'fechado_perdido' && (
+              {/* Motivo de perda (se status for Fechamento Negativo) */}
+              {editForm.status === STATUS_PERDIDO && (
                 <div className="space-y-2">
                   <label className="block text-xs text-slate-500 mb-1">Motivo da perda</label>
                   <select
@@ -506,6 +485,56 @@ export default function Negocios() {
       )}
     </div>
     </PullToRefresh>
+  )
+}
+
+// Campos da Solicitação da Proposta (vão pro responsável cotar/montar a proposta).
+function PropostaEditor({ dados, onChange }) {
+  const set = (campo, valor) => onChange({ ...dados, [campo]: valor })
+  return (
+    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 space-y-2 animate-slide-up">
+      <p className="text-xs font-bold text-indigo-800">Solicitação da Proposta</p>
+      <div>
+        <label className="block text-[10px] text-indigo-600 mb-0.5">Valor pretendido / faixa (R$)</label>
+        <input type="number" step="0.01" inputMode="decimal" value={dados.valor_pretendido || ''}
+          onChange={(e) => set('valor_pretendido', e.target.value)}
+          className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white" />
+      </div>
+      <div>
+        <label className="block text-[10px] text-indigo-600 mb-0.5">Forma de pagamento</label>
+        <select value={dados.forma_pagamento || ''} onChange={(e) => set('forma_pagamento', e.target.value)}
+          className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="">Selecione</option>
+          {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-[10px] text-indigo-600 mb-0.5">Entrada (R$)</label>
+          <input type="number" step="0.01" inputMode="decimal" value={dados.entrada || ''}
+            onChange={(e) => set('entrada', e.target.value)}
+            className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white" />
+        </div>
+        <div>
+          <label className="block text-[10px] text-indigo-600 mb-0.5">Prazo / parcelas</label>
+          <input value={dados.prazo || ''} onChange={(e) => set('prazo', e.target.value)}
+            placeholder="ex.: 60x" className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white" />
+        </div>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-indigo-800">
+        <input type="checkbox" checked={!!dados.troca_tem} onChange={(e) => set('troca_tem', e.target.checked)} className="rounded" />
+        Tem máquina na troca
+      </label>
+      {dados.troca_tem && (
+        <div className="grid grid-cols-2 gap-2">
+          <input value={dados.troca_descricao || ''} onChange={(e) => set('troca_descricao', e.target.value)}
+            placeholder="Marca/modelo/ano/horas" className="border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white" />
+          <input type="number" step="0.01" inputMode="decimal" value={dados.troca_valor || ''}
+            onChange={(e) => set('troca_valor', e.target.value)}
+            placeholder="Valor estimado (R$)" className="border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white" />
+        </div>
+      )}
+    </div>
   )
 }
 

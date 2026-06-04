@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllRecords } from '../lib/db'
-import { getConfig, STATUS_EM_ANDAMENTO } from '../lib/supabaseQueries'
+import { getConfig } from '../lib/supabaseQueries'
+import { STATUS_EM_ANDAMENTO, isAberto } from '../lib/funil'
 import { diasDesde } from '../lib/tempo'
 
 // Lê o X dias de lembrete: online busca da config e cacheia; offline usa o cache.
@@ -48,10 +49,10 @@ export default function Dashboard() {
       const visitasMes = visitas.filter((v) => new Date(v.data_visita) >= inicioMes).length
 
       const pipeline = negocios
-        .filter((n) => !['fechado_perdido', 'fechado_ganho'].includes(n.status))
+        .filter((n) => isAberto(n.status))
         .reduce((acc, n) => acc + (n.valor || 0), 0)
 
-      const negociosAbertos = negocios.filter((n) => !n.status.startsWith('fechado')).length
+      const negociosAbertos = negocios.filter((n) => isAberto(n.status)).length
 
       // Próximos contatos planejados
       const hojeStr = new Date().toISOString().slice(0, 10)

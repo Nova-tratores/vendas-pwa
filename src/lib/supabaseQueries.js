@@ -1,4 +1,8 @@
 import { supabase } from './sync'
+import { STATUS_EM_ANDAMENTO, isPerdido, isGanho } from './funil'
+
+// Re-export pra quem já importava daqui (ex.: Dashboard).
+export { STATUS_EM_ANDAMENTO } from './funil'
 
 // ============================================
 // Queries do Supervisor (direto no Supabase)
@@ -133,6 +137,27 @@ export async function getAuditLogs({ vendedorId, dateFrom, dateTo } = {}) {
   return data || []
 }
 
+// Fila de Solicitação da Proposta: negócios que pediram proposta.
+export async function getPropostas() {
+  const { data, error } = await supabase
+    .from('vw_negocios_detalhados')
+    .select('*')
+    .not('proposta_solicitada_em', 'is', null)
+    .order('proposta_solicitada_em', { ascending: false })
+  if (error) { console.warn('[propostas]', error.message); return [] }
+  return data || []
+}
+
+export async function marcarPropostaResolvida(negocioId, resolvido = true) {
+  const sup = JSON.parse(localStorage.getItem('supervisor') || '{}')
+  const { error } = await supabase.from('negocios').update({
+    proposta_resolvida: resolvido,
+    proposta_resolvida_em: resolvido ? new Date().toISOString() : null,
+    proposta_resolvida_por: resolvido ? (sup.nome || 'Supervisor') : null,
+  }).eq('id', negocioId)
+  return !error
+}
+
 export async function marcarPosVendasResolvido(visitaId, resolvido = true) {
   const { error } = await supabase
     .from('visitas')
@@ -174,9 +199,6 @@ export async function salvarConfig(fields, supervisorId) {
   if (error) throw error
   configCache = null
 }
-
-// Status de negócio "em andamento" (não fechado)
-export const STATUS_EM_ANDAMENTO = ['prospect', 'proposta_enviada', 'em_negociacao']
 
 // ============================================
 // Helpers de agregação (client-side)
@@ -220,13 +242,13 @@ export async function getKPIs() {
   const posVendasPendentes = visitas.filter((v) => v.acionar_pos_vendas && !v.pos_vendas_resolvido).length
 
   const pipeline = negocios
-    .filter((n) => !['fechado_perdido'].includes(n.status))
+    .filter((n) => !isPerdido(n.status))
     .reduce((acc, n) => acc + (n.valor || 0), 0)
 
   const pipelineList = negocios.filter((n) => !['fechado_perdido'].includes(n.status))
 
   const negociosFechadosMesList = negocios
-    .filter((n) => n.status === 'fechado_ganho' && n.updated_at >= mes)
+    .filter((n) => isGanho(n.status) && n.updated_at >= mes)
 
   return {
     visitasHoje,
@@ -274,7 +296,7 @@ export async function getMetricasPorVendedor() {
     const visitasSemana = visitasVend.filter((vis) => vis.data_visita >= semana).length
     const negociosVend = negocios.filter((n) => n.vendedor_id === vendId)
     const pipeline = negociosVend
-      .filter((n) => !['fechado_perdido'].includes(n.status))
+      .filter((n) => !isPerdido(n.status))
       .reduce((acc, n) => acc + (n.valor || 0), 0)
     const ultimaVisita = visitasVend.length > 0 ? visitasVend[0].data_visita : null
 

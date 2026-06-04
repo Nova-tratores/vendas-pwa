@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   getAllRecords, getPendingRecords, markAsSynced, saveRecord, deleteRecord,
   getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs,
-  clearAll, clearSyncedOnly,
+  clearAll, clearSyncedOnly, clearStore,
   FK_REFS, chaveConteudo, getServerId, mapearId, remapearFilhos,
 } from './db'
 
@@ -19,10 +19,12 @@ const TABLE_MAP = {
   maquinas: 'maquinas',
   negocios: 'negocios',
   visitas: 'visitas',
+  cidades: 'cidades',
+  opcoes_maquina: 'opcoes_maquina',
 }
 
-// Ordem respeita FKs
-const SYNC_ORDER = ['clientes', 'propriedades', 'pessoas', 'maquinas', 'negocios', 'visitas']
+// Ordem respeita FKs. cidades/opcoes_maquina são opções compartilhadas (push das criações).
+const SYNC_ORDER = ['clientes', 'propriedades', 'pessoas', 'maquinas', 'negocios', 'visitas', 'cidades', 'opcoes_maquina']
 
 // Callbacks para notificar a UI
 let onSyncStatusChange = null
@@ -42,7 +44,8 @@ function sinalizarAuth(precisa) { if (onAuthRequired) onAuthRequired(precisa) }
 // ============================================
 
 function mapForPush(store, record) {
-  const { id, status_sync, ...clean } = record
+  // _srv é flag interna (registro veio do servidor) — não vai pro Supabase.
+  const { id, status_sync, _srv, ...clean } = record
 
   if (store === 'propriedades') {
     // IndexedDB "propriedades" → Supabase "Clientes"
@@ -87,32 +90,46 @@ async function pushRecords() {
         // Traduz FKs (cliente_id, propriedade_id, etc) pro id do servidor antes de inserir
         const mapped = mapForPush(store, await traduzFKs(store, record))
 
-        // Tentar insert primeiro (registro novo criado offline)
-        const { data, error } = await supabase
-          .from(supaTable)
-          .insert(mapped)
-          .select()
-
-        if (error) {
-          if (error.code === '23505') {
-            // Registro já existe - tentar update
-            const { error: upErr } = await supabase
-              .from(supaTable)
-              .update(mapped)
-              .eq('id', record.id)
-            if (upErr) {
-              failed.push({ store, id: record.id, code: upErr.code, message: upErr.message })
-              console.error(`[Push] ${store} #${record.id} update:`, upErr.code, upErr.message)
-              continue
-            }
-          } else {
-            failed.push({ store, id: record.id, code: error.code, message: error.message })
-            console.error(`[Push] ${store} #${record.id}:`, error.code, error.message)
+        if (record._srv === true) {
+          // Já existe no servidor (veio de um pull): EDIÇÃO → UPDATE pelo id.
+          // (Insert criaria duplicata, pois a coluna id é GENERATED ALWAYS.)
+          const { data: upd, error: upErr } = await supabase
+            .from(supaTable).update(mapped).eq('id', record.id).select()
+          if (upErr) {
+            failed.push({ store, id: record.id, code: upErr.code, message: upErr.message })
+            console.error(`[Push] ${store} #${record.id} update:`, upErr.code, upErr.message)
             continue
           }
-        } else if (data && data[0] && data[0].id !== record.id) {
-          // Servidor gerou outro id: guarda o mapeamento pros filhos apontarem certo
-          await mapearId(store, record.id, data[0].id)
+          // Se o update não achou a linha (sumiu no servidor), cai pra insert.
+          if (!upd || upd.length === 0) {
+            const { data: ins, error: insErr } = await supabase.from(supaTable).insert(mapped).select()
+            if (insErr) {
+              failed.push({ store, id: record.id, code: insErr.code, message: insErr.message })
+              console.error(`[Push] ${store} #${record.id} insert:`, insErr.code, insErr.message)
+              continue
+            }
+            if (ins && ins[0] && ins[0].id !== record.id) await mapearId(store, record.id, ins[0].id)
+          }
+        } else {
+          // Registro novo criado offline: INSERT.
+          const { data, error } = await supabase.from(supaTable).insert(mapped).select()
+          if (error) {
+            if (error.code === '23505') {
+              const { error: upErr } = await supabase.from(supaTable).update(mapped).eq('id', record.id)
+              if (upErr) {
+                failed.push({ store, id: record.id, code: upErr.code, message: upErr.message })
+                console.error(`[Push] ${store} #${record.id} update:`, upErr.code, upErr.message)
+                continue
+              }
+            } else {
+              failed.push({ store, id: record.id, code: error.code, message: error.message })
+              console.error(`[Push] ${store} #${record.id}:`, error.code, error.message)
+              continue
+            }
+          } else if (data && data[0] && data[0].id !== record.id) {
+            // Servidor gerou outro id: guarda o mapeamento pros filhos apontarem certo
+            await mapearId(store, record.id, data[0].id)
+          }
         }
 
         await markAsSynced(store, record.id)
@@ -273,6 +290,7 @@ async function pullRecords() {
 
     for (const record of data) {
       const mapped = mapFn(record)
+      mapped._srv = true // veio do servidor: edições futuras fazem UPDATE, não INSERT
       const ch = chaveConteudo(store, mapped)
       const gemeo = ch ? idxLocal.get(ch) : null
       if (gemeo && gemeo.id !== mapped.id) {
@@ -336,6 +354,36 @@ async function pullRecords() {
     supabase.from('visitas').select('*').eq('vendedor_id', vendedorId),
     (r) => mapForPull('visitas', r)
   )
+
+  // 7. Opções compartilhadas (não isoladas por vendedor): cidades e marca/modelo criados
+  await pullStore('cidades', supabase.from('cidades').select('*'), (r) => ({ ...r, status_sync: 'synced' }))
+  await pullStore('opcoes_maquina', supabase.from('opcoes_maquina').select('*'), (r) => ({ ...r, status_sync: 'synced' }))
+
+  // 8. Catálogo de máquinas (DISTINCT família/marca/modelo do ERP `produtos`) p/ a cascata offline.
+  //    Cache read-only: limpa e repovoa; id = "familia|marca|modelo" (sem duplicar entre pulls).
+  try {
+    const { data: prod, error } = await supabase
+      .from('produtos')
+      .select('familia_nome, marca, modelo')
+      .neq('familia_nome', 'Peças')
+    if (!error && prod) {
+      await clearStore('cat_maquinas')
+      const seen = new Set()
+      for (const p of prod) {
+        const familia = (p.familia_nome || '').trim()
+        if (!familia) continue
+        const marca = (p.marca || '').trim()
+        const modelo = (p.modelo || '').trim()
+        const id = [familia, marca, modelo].join('|')
+        if (seen.has(id)) continue
+        seen.add(id)
+        await saveRecord('cat_maquinas', { id, familia_nome: familia, marca, modelo, status_sync: 'synced' })
+      }
+      totalPulled += seen.size
+    }
+  } catch (e) {
+    console.warn('[Pull] cat_maquinas:', e)
+  }
 
   return totalPulled
 }

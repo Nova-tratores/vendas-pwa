@@ -1,6 +1,6 @@
 const DB_NAME = 'vendas-offline'
-const DB_VERSION = 6
-const STORES = ['clientes', 'propriedades', 'pessoas', 'maquinas', 'visitas', 'negocios']
+const DB_VERSION = 7
+const STORES = ['clientes', 'propriedades', 'pessoas', 'maquinas', 'visitas', 'negocios', 'cidades', 'opcoes_maquina', 'cat_maquinas']
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -69,6 +69,8 @@ export function chaveConteudo(store, r) {
     case 'visitas': return [r.created_at, r.data_visita, r.resumo].join('|')
     case 'pessoas': return [r.nome, r.telefone, r.created_at].join('|')
     case 'maquinas': return [r.modelo, r.numero_serie, r.created_at].join('|')
+    case 'cidades': return [(r.nome || '').toLowerCase(), (r.uf || '').toUpperCase()].join('|')
+    case 'opcoes_maquina': return [r.familia_nome, r.marca, r.modelo].join('|')
     default: return null
   }
 }
@@ -167,6 +169,16 @@ export async function getRecord(store, id) {
     const numId = typeof id === 'string' ? parseInt(id) : id
     const req = db.transaction(store, 'readonly').objectStore(store).get(numId)
     req.onsuccess = () => res(req.result)
+    req.onerror = () => rej(req.error)
+  })
+}
+
+// Limpa todos os registros de uma store (usado pra repovoar caches read-only).
+export async function clearStore(store) {
+  const db = await openDB()
+  return new Promise((res, rej) => {
+    const req = db.transaction(store, 'readwrite').objectStore(store).clear()
+    req.onsuccess = () => res()
     req.onerror = () => rej(req.error)
   })
 }

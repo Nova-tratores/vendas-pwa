@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { getVisitas, getNegocios, getPropriedades } from '../lib/supabaseQueries'
+import { isGanho } from '../lib/funil'
 import { montarSerie } from '../lib/evolucao'
 
 const EvolucaoChart = lazy(() => import('./EvolucaoChart'))
@@ -85,7 +86,7 @@ export default function SupervisorEvolucao() {
         .filter((v) => v.data_visita)
         .map((v) => ({ data: v.data_visita, dimensao: dimDe(v), valor: 1 }))
     } else {
-      const fechados = negocios.filter((n) => n.status === 'fechado_ganho')
+      const fechados = negocios.filter((n) => isGanho(n.status))
       eventos = fechados.map((n) => ({
         data: n.updated_at || n.created_at,
         dimensao: dimDe(n),

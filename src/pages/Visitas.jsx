@@ -6,6 +6,9 @@ import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
 import { TIPOS_PRODUTO, MARCAS, CULTURAS } from '../lib/constants'
+import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, statusLabel } from '../lib/funil'
+import CidadeSelect from '../components/CidadeSelect'
+import MaquinaSelect from '../components/MaquinaSelect'
 import { maskTelefone } from '../lib/masks'
 
 const TIPO_LABELS = {
@@ -48,7 +51,7 @@ export default function Visitas() {
   const [novoCliente, setNovoCliente] = useState({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '', cultura_principal: '', cultura_secundaria: '' })
   const [showNegocio, setShowNegocio] = useState(false)
   const [showNovoNegocio, setShowNovoNegocio] = useState(false)
-  const [novoNegocio, setNovoNegocio] = useState({ valor: '', status: 'prospect', notas: '' })
+  const [novoNegocio, setNovoNegocio] = useState({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '' })
   const [negocioVinculado, setNegocioVinculado] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm] = useState(null)
@@ -770,10 +773,20 @@ export default function Visitas() {
                     onChange={(e) => setNovoNegocio({ ...novoNegocio, status: e.target.value })}
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                   >
-                    <option value="prospect">Prospect</option>
-                    <option value="proposta_enviada">Proposta Enviada</option>
-                    <option value="em_negociacao">Em Negociação</option>
+                    {STATUS_NEGOCIO.filter((s) => STATUS_ABERTOS.includes(s.key)).map((s) => (
+                      <option key={s.key} value={s.key}>{s.label}</option>
+                    ))}
                   </select>
+                  <CidadeSelect
+                    value={novoNegocio.cidade}
+                    onChange={(cidade) => setNovoNegocio({ ...novoNegocio, cidade })}
+                  />
+                  <MaquinaSelect
+                    familia={novoNegocio.maquina_familia}
+                    marca={novoNegocio.maquina_marca}
+                    modelo={novoNegocio.maquina_modelo}
+                    onChange={(campos) => setNovoNegocio({ ...novoNegocio, ...campos })}
+                  />
                   <textarea
                     value={novoNegocio.notas}
                     onChange={(e) => setNovoNegocio({ ...novoNegocio, notas: e.target.value })}
@@ -801,6 +814,10 @@ export default function Visitas() {
                           motivo_perda: null,
                           data_fechamento_prevista: null,
                           notas: novoNegocio.notas,
+                          cidade: novoNegocio.cidade || null,
+                          maquina_familia: novoNegocio.maquina_familia || null,
+                          maquina_marca: novoNegocio.maquina_marca || null,
+                          maquina_modelo: novoNegocio.maquina_modelo || null,
                           created_at: now,
                           updated_at: now,
                         })
@@ -808,7 +825,7 @@ export default function Visitas() {
                         const negCriado = { id: negId, ...novoNegocio, valor: novoNegocio.valor ? parseFloat(novoNegocio.valor) : null }
                         setNegocioVinculado(negCriado)
                         setForm((f) => ({ ...f, negocio_id: negId }))
-                        setNovoNegocio({ valor: '', status: 'prospect', notas: '' })
+                        setNovoNegocio({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '' })
                         setShowNovoNegocio(false)
                         setShowNegocio(false)
                         // Recarregar negócios
@@ -824,7 +841,7 @@ export default function Visitas() {
               {negocios.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-xs text-slate-500 font-medium">Negócios existentes:</p>
-                  {negocios.filter((n) => !n.status.startsWith('fechado_perdido')).map((n) => (
+                  {negocios.filter((n) => !isPerdido(n.status)).map((n) => (
                     <button
                       key={n.id}
                       type="button"
@@ -839,7 +856,7 @@ export default function Visitas() {
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium">{n.notas || n.status}</p>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          {n.status === 'prospect' ? 'Prospect' : n.status === 'proposta_enviada' ? 'Proposta' : n.status === 'em_negociacao' ? 'Negociando' : n.status}
+                          {statusLabel(n.status)}
                         </span>
                       </div>
                       {n.valor && <p className="text-sm text-green-700 font-bold mt-1">R$ {Number(n.valor).toLocaleString('pt-BR')}</p>}
