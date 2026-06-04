@@ -1,3 +1,5 @@
+import VendedorAvatar from '../components/VendedorAvatar'
+
 const TIPO_COLORS = {
   presencial: 'bg-blue-100 text-blue-800',
   mensagem: 'bg-green-100 text-green-800',
@@ -32,9 +34,16 @@ function fmtData(iso, comHora = true) {
 function LinhaVisita({ v }) {
   return (
     <div className={`bg-white border border-slate-100 rounded-xl p-3 ${v.retroativa ? 'border-l-4 border-l-amber-400' : ''}`}>
-      <div className="flex items-center justify-between mb-1">
-        <p className="font-medium text-sm">{v.vendedor_nome || 'Vendedor'}</p>
-        <div className="flex items-center gap-1">
+      <div className="flex items-start justify-between mb-1 gap-2">
+        {/* Cliente em destaque; vendedor vira o círculo com a inicial */}
+        <div className="flex items-center gap-2 min-w-0">
+          <VendedorAvatar id={v.vendedor_id} nome={v.vendedor_nome} size={28} />
+          <div className="min-w-0">
+            <p className="font-bold text-sm leading-tight truncate">{v.cliente_nome || '—'}</p>
+            {v.propriedade_nome && <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
           <span className={`text-xs px-2 py-0.5 rounded-full ${TIPO_COLORS[v.tipo] || 'bg-slate-100 text-slate-700'}`}>
             {v.tipo}
           </span>
@@ -47,9 +56,6 @@ function LinhaVisita({ v }) {
         </div>
       </div>
       <p className="text-xs text-slate-500">{fmtData(v.data_visita)}</p>
-      <p className="text-xs text-slate-600 mt-1">
-        {v.cliente_nome || '—'} / {v.propriedade_nome || '—'}
-      </p>
       {v.resumo && <p className="text-sm text-slate-700 mt-1">{v.resumo}</p>}
     </div>
   )

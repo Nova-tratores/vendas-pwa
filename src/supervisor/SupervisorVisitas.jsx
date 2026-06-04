@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { getVisitas, getVendedores } from '../lib/supabaseQueries'
+import VendedorAvatar from '../components/VendedorAvatar'
 
 const TIPOS = [
   { key: '', label: 'Todos' },
@@ -138,9 +139,16 @@ export default function SupervisorVisitas() {
                 key={v.id}
                 className={`bg-white rounded-xl shadow p-4 ${v.retroativa ? 'border-l-4 border-amber-400' : ''}`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-medium text-sm">{v.vendedor_nome || 'Vendedor'}</p>
-                  <div className="flex items-center gap-1">
+                <div className="flex items-start justify-between mb-1 gap-2">
+                  {/* Cliente em destaque; vendedor vira o círculo com a inicial */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <VendedorAvatar id={v.vendedor_id} nome={v.vendedor_nome} size={30} />
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm leading-tight truncate">{v.cliente_nome || '—'}</p>
+                      {v.propriedade_nome && <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${TIPO_COLORS[v.tipo] || 'bg-slate-100 text-slate-700'}`}>
                       {v.tipo}
                     </span>
@@ -153,9 +161,6 @@ export default function SupervisorVisitas() {
                   </div>
                 </div>
                 <p className="text-xs text-slate-500">{dataStr}</p>
-                <p className="text-xs text-slate-600 mt-1">
-                  {v.cliente_nome || '—'} / {v.propriedade_nome || '—'}
-                </p>
                 {v.resumo && <p className="text-sm text-slate-700 mt-2">{v.resumo}</p>}
                 {v.latitude && (
                   <p className="text-xs text-slate-400 mt-1">

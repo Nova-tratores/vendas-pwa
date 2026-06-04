@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { getVisitas, getVendedores } from '../lib/supabaseQueries'
+import VendedorAvatar, { primeiroNome } from '../components/VendedorAvatar'
 
 // Fix do icone padrao do leaflet (URLs viram broken por Vite bundling)
 delete L.Icon.Default.prototype._getIconUrl
@@ -163,17 +164,32 @@ export default function SupervisorMapa() {
             {pontos.map((p) => (
               <Marker key={p.id} position={[p.lat, p.lng]} icon={iconeTipo(p.tipo)}>
                 <Popup>
-                  <div className="text-xs">
-                    <p className="font-bold">{p.vendedor_nome || 'Vendedor'}</p>
-                    <p className="text-slate-500">{new Date(p.data_visita).toLocaleString('pt-BR')}</p>
-                    <p className="mt-1">
-                      <span className="font-semibold">{p.cliente_nome || '—'}</span>
-                      {' / '}
-                      <span>{p.propriedade_nome || '—'}</span>
-                    </p>
+                  <div className="text-xs" style={{ minWidth: 170 }}>
+                    {/* Cliente em destaque; rosto (avatar colorido) do vendedor no lugar do nome */}
+                    <div className="flex items-center gap-2">
+                      <VendedorAvatar id={p.vendedor_id} nome={p.vendedor_nome} size={32} />
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm leading-tight">{p.cliente_nome || '—'}</p>
+                        <p className="text-slate-500 leading-tight">{p.propriedade_nome || '—'}</p>
+                      </div>
+                    </div>
+                    <p className="text-slate-500 mt-1">{new Date(p.data_visita).toLocaleString('pt-BR')}</p>
                     <p className="capitalize text-slate-600 mt-0.5">{p.tipo}</p>
                     {p.resumo && <p className="mt-1 italic">{p.resumo.slice(0, 120)}{p.resumo.length > 120 ? '...' : ''}</p>}
                     {p.acionar_pos_vendas && <p className="mt-1 text-orange-600 font-medium">⚠ Pós-vendas acionado</p>}
+                    {/* Filtro por vendedor direto do popup */}
+                    <button
+                      type="button"
+                      onClick={() => setFiltros((f) => ({
+                        ...f,
+                        vendedor_id: f.vendedor_id === String(p.vendedor_id) ? '' : String(p.vendedor_id),
+                      }))}
+                      className="mt-2 text-blue-700 underline"
+                    >
+                      {filtros.vendedor_id === String(p.vendedor_id)
+                        ? 'Ver todos os vendedores'
+                        : `Ver só ${primeiroNome(p.vendedor_nome) || 'este vendedor'}`}
+                    </button>
                   </div>
                 </Popup>
               </Marker>
