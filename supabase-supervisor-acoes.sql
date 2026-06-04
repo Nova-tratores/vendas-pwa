@@ -14,9 +14,12 @@ ALTER TABLE visitas ADD COLUMN IF NOT EXISTS sinalizada_motivo text;
 -- duplicada_de aponta pra visita "principal" (a que fica). NULL = visita normal.
 ALTER TABLE visitas ADD COLUMN IF NOT EXISTS duplicada_de      bigint REFERENCES visitas(id) ON DELETE SET NULL;
 
--- 2. Recriar a view: como ela usa "v.*", as colunas novas só aparecem após o replace.
---    (mesma definição da migração de vendedores: JOIN com vendedores)
-CREATE OR REPLACE VIEW vw_visitas_detalhadas AS
+-- 2. Recriar a view pra expor as colunas novas. Usamos DROP + CREATE (e não
+--    CREATE OR REPLACE) porque o Postgres não permite mudar nome/posição de
+--    colunas existentes num REPLACE — e como "v.*" passou a trazer colunas novas,
+--    a posição das colunas nomeadas (vendedor_nome etc.) muda.
+DROP VIEW IF EXISTS vw_visitas_detalhadas;
+CREATE VIEW vw_visitas_detalhadas AS
 SELECT
   v.*,
   vd.nome              AS vendedor_nome,
