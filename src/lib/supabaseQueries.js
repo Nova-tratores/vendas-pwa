@@ -141,8 +141,10 @@ export async function getKPIs() {
     .filter((n) => !['fechado_perdido'].includes(n.status))
     .reduce((acc, n) => acc + (n.valor || 0), 0)
 
-  const negociosFechadosMes = negocios
-    .filter((n) => n.status === 'fechado_ganho' && n.updated_at >= mes).length
+  const pipelineList = negocios.filter((n) => !['fechado_perdido'].includes(n.status))
+
+  const negociosFechadosMesList = negocios
+    .filter((n) => n.status === 'fechado_ganho' && n.updated_at >= mes)
 
   return {
     visitasHoje,
@@ -151,9 +153,21 @@ export async function getKPIs() {
     visitasRetroativas,
     posVendasPendentes,
     pipeline,
-    negociosFechadosMes,
+    negociosFechadosMes: negociosFechadosMesList.length,
     totalVisitas: visitas.length,
     totalNegocios: negocios.length,
+    // Listas que compõem cada valor (para popups e relatório detalhado)
+    listas: {
+      visitasHoje: visitas.filter((v) => v.data_visita >= hoje),
+      visitasSemana: visitas.filter((v) => v.data_visita >= semana),
+      visitasMes: visitas.filter((v) => v.data_visita >= mes),
+      visitasRetroativas: visitas.filter((v) => v.retroativa),
+      posVendasPendentes: visitas.filter((v) => v.acionar_pos_vendas && !v.pos_vendas_resolvido),
+      pipeline: pipelineList,
+      negociosFechadosMes: negociosFechadosMesList,
+      totalVisitas: visitas,
+      totalNegocios: negocios,
+    },
   }
 }
 
@@ -193,6 +207,7 @@ export async function getMetricasPorVendedor() {
     const ultimoAcesso = ultimoLogin ? ultimoLogin.data_hora : null
 
     const emAndamento = negociosVend.filter((n) => STATUS_EM_ANDAMENTO.includes(n.status))
+    const pipelineList = negociosVend.filter((n) => !['fechado_perdido'].includes(n.status))
     const negociosParados = emAndamento.filter(
       (n) => new Date(n.updated_at || n.created_at).getTime() < limiteParado
     ).length
@@ -209,6 +224,13 @@ export async function getMetricasPorVendedor() {
       negociosAndamento: emAndamento.length,
       negociosParados,
       retroativas: visitasVend.filter((vis) => vis.retroativa).length,
+      // Listas que compõem cada métrica (para popups e relatório detalhado)
+      listas: {
+        visitasSemana: visitasVend.filter((vis) => vis.data_visita >= semana),
+        totalVisitas: visitasVend,
+        pipeline: pipelineList,
+        negociosAndamento: emAndamento,
+      },
     }
   })
 }

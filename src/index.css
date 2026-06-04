@@ -94,3 +94,44 @@ input, textarea, select {
   background: #cbd5e1;
   border-radius: 4px;
 }
+
+/* ============================================
+   Impressão de relatórios (Salvar como PDF)
+   Em tela, #relatorio-print fica oculto.
+   Ao imprimir, só ele aparece — o resto some.
+   ============================================ */
+#relatorio-print {
+  display: none;
+}
+
+@media print {
+  /* Esconde tudo (app, splash, etc.) exceto a área de relatório */
+  body > *:not(#relatorio-print) {
+    display: none !important;
+  }
+  /* Mostra apenas a área de relatório */
+  #relatorio-print {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 0;
+    color: #0f172a;
+    background: #fff;
+  }
+  html {
+    font-size: 12px;
+  }
+  body {
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+  .rel-evitar-quebra {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  @page {
+    margin: 14mm;
+  }
+}
