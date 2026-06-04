@@ -41,6 +41,16 @@ export async function getPropriedades() {
   return data || []
 }
 
+export async function getPessoas() {
+  const { data } = await supabase.from('pessoas').select('*')
+  return data || []
+}
+
+export async function getMaquinas() {
+  const { data } = await supabase.from('maquinas').select('*')
+  return data || []
+}
+
 export async function getAuditLogs({ vendedorId, dateFrom, dateTo } = {}) {
   let query = supabase.from('audit_logs_vendas').select('*')
   if (vendedorId) query = query.eq('vendedor_id', vendedorId)
