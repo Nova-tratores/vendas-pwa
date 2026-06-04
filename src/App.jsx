@@ -20,6 +20,7 @@ import SupervisorLogin from './supervisor/SupervisorLogin'
 import SupervisorLayout from './supervisor/SupervisorLayout'
 import SupervisorOverview from './supervisor/SupervisorOverview'
 import SupervisorVendedores from './supervisor/SupervisorVendedores'
+import SupervisorEvolucao from './supervisor/SupervisorEvolucao'
 import SupervisorVisitas from './supervisor/SupervisorVisitas'
 import SupervisorPosVendas from './supervisor/SupervisorPosVendas'
 import SupervisorAlertas from './supervisor/SupervisorAlertas'
@@ -81,6 +82,7 @@ export default function App() {
       >
         <Route index element={<SupervisorOverview />} />
         <Route path="vendedores" element={<SupervisorVendedores />} />
+        <Route path="evolucao" element={<SupervisorEvolucao />} />
         <Route path="visitas" element={<SupervisorVisitas />} />
         <Route path="pos-vendas" element={<SupervisorPosVendas />} />
         <Route path="alertas" element={<SupervisorAlertas />} />
