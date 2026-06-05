@@ -11,3 +11,6 @@ DESIGN/
 # build/cache local
 .vite
 *.log
+
+# Config local do Claude Code
+.claude/

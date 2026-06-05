@@ -61,10 +61,25 @@ export function useCheckin() {
       proximos_passos: form.proximos_passos,
       data_proximo_contato: form.data_proximo_contato || null,
       acionar_pos_vendas: form.acionar_pos_vendas || false,
+      veiculo: form.veiculo || null,
       created_at: new Date().toISOString(),
     }
 
     const id = await saveRecord('visitas', visita)
+
+    // Registra o veículo usado no dia (pra aparecer no mapa do supervisor)
+    if (form.veiculo && navigator.onLine) {
+      try {
+        const { supabase } = await import('../lib/sync')
+        const hoje = new Date().toISOString().split('T')[0]
+        await supabase.from('checkin_vendedor').upsert({
+          vendedor_id: vendedor.id,
+          vendedor_nome: vendedor.nome || '',
+          placa: form.veiculo,
+          data: hoje,
+        }, { onConflict: 'vendedor_id,data' })
+      } catch { /* offline: sincroniza depois */ }
+    }
     const logDetalhe = `Visita ${visita.tipo}${isRetroativa ? ' [RETROATIVA]' : ''}${visita.acionar_pos_vendas ? ' [PÓS VENDAS]' : ''} - ${visita.resumo || 'sem resumo'}`
     await registrarLog('criar', 'visitas', id, logDetalhe)
     if (visita.acionar_pos_vendas) {

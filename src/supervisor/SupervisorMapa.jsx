@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { getVisitas, getVendedores } from '../lib/supabaseQueries'
-import VendedorAvatar, { primeiroNome } from '../components/VendedorAvatar'
+import VendedorAvatar, { primeiroNome, corVendedor } from '../components/VendedorAvatar'
 
 // Fix do icone padrao do leaflet (URLs viram broken por Vite bundling)
 delete L.Icon.Default.prototype._getIconUrl
@@ -13,27 +13,25 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-// Icones por tipo de visita - SVG inline com cor diferente
-function iconeTipo(tipo) {
-  const cores = {
-    presencial: '#1e40af',  // azul
-    mensagem:   '#16a34a',  // verde
-    telefonema: '#d97706',  // amber
-    email:      '#7c3aed',  // roxo
-  }
-  const cor = cores[tipo] || '#64748b'
+// Icone-pino colorido por vendedor (cache p/ nao recriar SVG a cada render).
+// A cor vem de corVendedor(id) - a MESMA do VendedorAvatar, pra bater pino x avatar.
+const _iconCache = {}
+function iconePin(cor) {
+  if (_iconCache[cor]) return _iconCache[cor]
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
       <path d="M16 0 C7.2 0 0 7.2 0 16 c0 12 16 24 16 24 s16-12 16-24 c0-8.8-7.2-16-16-16 z" fill="${cor}" stroke="#fff" stroke-width="1.5"/>
       <circle cx="16" cy="14" r="6" fill="#fff"/>
     </svg>`
-  return L.divIcon({
+  const icon = L.divIcon({
     html: svg,
     className: '',
     iconSize: [32, 40],
     iconAnchor: [16, 40],
     popupAnchor: [0, -36],
   })
+  _iconCache[cor] = icon
+  return icon
 }
 
 const TIPOS = [
@@ -103,6 +101,12 @@ export default function SupervisorMapa() {
   // Centro padrão: Bauru/SP (sede), caso não tenha pontos
   const centroDefault = [-22.32, -49.07]
 
+  // Vendedores presentes no mapa atual (para a legenda de cores)
+  const vendedoresNoMapa = useMemo(() => {
+    const ids = new Set(pontos.map((p) => p.vendedor_id))
+    return vendedores.filter((v) => ids.has(v.id))
+  }, [pontos, vendedores])
+
   return (
     <div>
       <h2 className="text-xl font-bold mb-2">Mapa de visitas</h2>
@@ -162,7 +166,7 @@ export default function SupervisorMapa() {
             />
             <FitBounds pontos={pontos} />
             {pontos.map((p) => (
-              <Marker key={p.id} position={[p.lat, p.lng]} icon={iconeTipo(p.tipo)}>
+              <Marker key={p.id} position={[p.lat, p.lng]} icon={iconePin(corVendedor(p.vendedor_id))}>
                 <Popup>
                   <div className="text-xs" style={{ minWidth: 170 }}>
                     {/* Cliente em destaque; rosto (avatar colorido) do vendedor no lugar do nome */}
@@ -177,6 +181,7 @@ export default function SupervisorMapa() {
                     </div>
                     <p className="text-slate-500 mt-1">{new Date(p.data_visita).toLocaleString('pt-BR')}</p>
                     <p className="capitalize text-slate-600 mt-0.5">{p.tipo}</p>
+                    {p.veiculo && <p className="mt-1 text-slate-700 font-medium">🚗 {p.veiculo}</p>}
                     {p.resumo && <p className="mt-1 italic">{p.resumo.slice(0, 120)}{p.resumo.length > 120 ? '...' : ''}</p>}
                     {p.acionar_pos_vendas && <p className="mt-1 text-orange-600 font-medium">⚠ Pós-vendas acionado</p>}
                     {/* Filtro por vendedor direto do popup */}
@@ -200,12 +205,16 @@ export default function SupervisorMapa() {
         )}
       </div>
 
-      <div className="flex gap-3 mt-2 text-[11px] text-slate-500 justify-center flex-wrap">
-        <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#1e40af' }}/> Presencial</span>
-        <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#16a34a' }}/> Mensagem</span>
-        <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#d97706' }}/> Telefonema</span>
-        <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#7c3aed' }}/> E-mail</span>
-      </div>
+      {vendedoresNoMapa.length > 0 && (
+        <div className="flex gap-x-3 gap-y-1 mt-2 text-[11px] text-slate-500 justify-center flex-wrap">
+          {vendedoresNoMapa.map((v) => (
+            <span key={v.id} className="inline-flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full" style={{ background: corVendedor(v.id) }} />
+              {primeiroNome(v.nome)}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

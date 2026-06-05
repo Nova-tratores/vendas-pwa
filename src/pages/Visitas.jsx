@@ -55,6 +55,7 @@ export default function Visitas() {
   const [negocioVinculado, setNegocioVinculado] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm] = useState(null)
+  const [veiculosDisp, setVeiculosDisp] = useState([])
 
   const [form, setForm] = useState({
     propriedade_id: '',
@@ -67,6 +68,7 @@ export default function Visitas() {
     data_proximo_contato: '',
     acionar_pos_vendas: false,
     data_visita: '',
+    veiculo: '',
   })
 
   useEffect(() => { carregar() }, [])
@@ -76,6 +78,12 @@ export default function Visitas() {
     setClientes(await getAllRecords('clientes'))
     setPropriedadesAll(await getAllRecords('propriedades'))
     setNegocios(await getAllRecords('negocios'))
+    // Veículos (placas) para o campo "veículo utilizado"
+    try {
+      const { supabase } = await import('../lib/sync')
+      const { data } = await supabase.from('SupaPlacas').select('IdPlaca, NumPlaca').order('NumPlaca')
+      if (data) setVeiculosDisp(data)
+    } catch { /* offline */ }
   }
 
   async function handleClienteChange(clienteId) {
@@ -116,7 +124,7 @@ export default function Visitas() {
       setClienteSelecionado('')
       setPropriedadesFiltradas([])
       setNegocioVinculado(null)
-      setForm({ propriedade_id: '', tipo: 'presencial', negocio_id: '', pessoa_ids: [], maquina_ids: [], resumo: '', proximos_passos: '', data_proximo_contato: '', acionar_pos_vendas: false, data_visita: '' })
+      setForm({ propriedade_id: '', tipo: 'presencial', negocio_id: '', pessoa_ids: [], maquina_ids: [], resumo: '', proximos_passos: '', data_proximo_contato: '', acionar_pos_vendas: false, data_visita: '', veiculo: '' })
       carregar()
       setTimeout(() => setSucesso(false), 3000)
     } catch (err) {
@@ -382,6 +390,21 @@ export default function Visitas() {
                 {t.label}
               </button>
             ))}
+          </div>
+
+          {/* Veículo utilizado */}
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Veículo utilizado</label>
+            <select
+              value={form.veiculo}
+              onChange={(e) => setForm({ ...form, veiculo: e.target.value })}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">Selecione o veículo (opcional)</option>
+              {veiculosDisp.map((v) => (
+                <option key={v.IdPlaca} value={v.NumPlaca}>{v.NumPlaca}</option>
+              ))}
+            </select>
           </div>
 
           {/* Data/hora da visita */}
