@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { setSyncCallback, setAuthRequiredCallback, syncAll, countPending, supabase } from '../lib/sync'
 import { clearAll } from '../lib/db'
+import ConfigModal from './ConfigModal'
 
 const navItems = [
   { to: '/dashboard', label: 'Início', icon: '🏠' },
@@ -19,6 +20,8 @@ export default function Layout() {
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', detail: '' })
   const [pending, setPending] = useState(0)
   const [precisaReentrar, setPrecisaReentrar] = useState(false)
+  const [menuAberto, setMenuAberto] = useState(false)
+  const [configAberto, setConfigAberto] = useState(false)
 
   const updatePending = useCallback(async () => {
     setPending(await countPending())
@@ -93,14 +96,53 @@ export default function Layout() {
             )}
           </button>
           <span className="text-sm opacity-80">{vendedor.nome}</span>
-          <button
-            onClick={handleLogout}
-            className="text-xs bg-blue-900 px-2 py-1 rounded active:bg-blue-950"
-          >
-            Sair
-          </button>
+
+          {/* Menu hamburguer */}
+          <div className="relative">
+            <button
+              onClick={() => setMenuAberto((v) => !v)}
+              className="text-lg leading-none bg-blue-900 px-2.5 py-1.5 rounded active:bg-blue-950"
+              aria-label="Menu"
+              aria-expanded={menuAberto}
+            >
+              ☰
+            </button>
+
+            {menuAberto && (
+              <>
+                {/* Backdrop pra fechar ao tocar fora */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setMenuAberto(false)}
+                />
+                <div className="absolute right-0 mt-2 w-44 bg-white text-slate-700 rounded-xl shadow-xl py-1 z-50 animate-scale-in origin-top-right">
+                  <button
+                    onClick={() => {
+                      setMenuAberto(false)
+                      setConfigAberto(true)
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
+                  >
+                    <span>⚙️</span> Config
+                  </button>
+                  <div className="border-t border-slate-100 my-1" />
+                  <button
+                    onClick={() => {
+                      setMenuAberto(false)
+                      handleLogout()
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-red-600 active:bg-red-50"
+                  >
+                    <span>🚪</span> Sair
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
+
+      <ConfigModal show={configAberto} onClose={() => setConfigAberto(false)} />
 
       {/* Sessão expirada: há dados pra enviar mas precisa reentrar */}
       {precisaReentrar && online && (
