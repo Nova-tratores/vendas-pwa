@@ -73,3 +73,27 @@ export const MOTIVOS_PERDA = [
 export const FORMAS_PAGAMENTO = [
   'À vista', 'Financiamento', 'Consórcio', 'BNDES / Pronaf', 'Cartão BNDES', 'Outro',
 ]
+
+// ============================================
+// Temperatura do negócio (termômetro) — atualizada a cada movimentação
+// para acompanhar a progressão (avançando / estagnado / recuando).
+// ============================================
+export const TEMPERATURAS = [
+  { key: 'frio',   label: 'Frio',   nivel: 1, sel: 'bg-blue-600 text-white border-blue-600',   off: 'bg-white text-blue-700 border-blue-300' },
+  { key: 'morno',  label: 'Morno',  nivel: 2, sel: 'bg-amber-500 text-white border-amber-500', off: 'bg-white text-amber-700 border-amber-300' },
+  { key: 'quente', label: 'Quente', nivel: 3, sel: 'bg-red-600 text-white border-red-600',     off: 'bg-white text-red-700 border-red-300' },
+]
+
+const _tempByKey = Object.fromEntries(TEMPERATURAS.map((t) => [t.key, t]))
+export function temperaturaNivel(key) { return _tempByKey[key]?.nivel || 0 }
+export function temperaturaLabel(key) { return _tempByKey[key]?.label || '—' }
+
+// Tendência comparando a temperatura atual com a anterior.
+export function tendenciaNegocio(atual, anterior) {
+  const a = temperaturaNivel(atual)
+  const b = temperaturaNivel(anterior)
+  if (!a || !b) return null
+  if (a > b) return { key: 'avancando',  label: 'Avançando',  icon: '↑', cor: 'text-green-600' }
+  if (a < b) return { key: 'recuando',   label: 'Recuando',   icon: '↓', cor: 'text-red-600' }
+  return { key: 'estagnado', label: 'Estagnado', icon: '→', cor: 'text-slate-500' }
+}

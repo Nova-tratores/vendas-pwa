@@ -82,7 +82,8 @@ export default function VisitasMapa() {
           lat: Number(v.latitude),
           lng: Number(v.longitude),
           propriedade_nome: prop?.nome || prop?.nome_fantasia || '—',
-          cliente_nome: cli?.nome || '—',
+          // Propriedades do ERP não têm dono: cai na razão social/nome da propriedade
+          cliente_nome: cli?.nome || prop?.razao_social || prop?.nome || '—',
         }
       })
       .sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))

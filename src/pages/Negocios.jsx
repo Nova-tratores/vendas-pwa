@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getAllRecords, saveRecord, deleteRecord, registrarLog } from '../lib/db'
 import { TIPOS_PRODUTO, MARCAS } from '../lib/constants'
-import { STATUS_NEGOCIO, MOTIVOS_PERDA, isAberto, isPerdido, FORMAS_PAGAMENTO } from '../lib/funil'
+import { STATUS_NEGOCIO, MOTIVOS_PERDA, isAberto, isPerdido, FORMAS_PAGAMENTO, TEMPERATURAS, tendenciaNegocio } from '../lib/funil'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import CidadeSelect from '../components/CidadeSelect'
@@ -49,13 +49,17 @@ export default function Negocios() {
     setClientes(await getAllRecords('clientes'))
   }
 
-  async function atualizarStatus(negocio, novoStatus) {
+  // Atualização rápida da temperatura pelo card. Guarda a anterior pra calcular
+  // a tendência (avançando / estagnado / recuando).
+  async function atualizarTemperatura(negocio, key) {
+    if (negocio.temperatura === key) return
     await saveRecord('negocios', {
       ...negocio,
-      status: novoStatus,
+      temperatura: key,
+      temperatura_anterior: negocio.temperatura || null,
       updated_at: new Date().toISOString(),
     })
-    await registrarLog('alterar', 'negocios', negocio.id, `Status: ${negocio.status} → ${novoStatus}`)
+    await registrarLog('alterar', 'negocios', negocio.id, `Temperatura: ${negocio.temperatura || '—'} → ${key}`)
     carregar()
   }
 
@@ -88,6 +92,7 @@ export default function Negocios() {
       data_fechamento_prevista: negocio.data_fechamento_prevista || '',
       motivo_categoria: motivo.categoria || '',
       motivo_detalhes: motivo.detalhes || {},
+      temperatura: negocio.temperatura || '',
       cidade: negocio.cidade || '',
       maquina_familia: negocio.maquina_familia || '',
       maquina_marca: negocio.maquina_marca || '',
@@ -96,22 +101,24 @@ export default function Negocios() {
     })
   }
 
-  // Mudança rápida de etapa pelo card. Etapas que exigem dados extras
-  // (Fechamento Negativo → motivo; Solicitação da Proposta → form) abrem o modal.
+  // Toda mudança de etapa abre o modal, pois a cada movimentação o vendedor
+  // precisa (obrigatoriamente) reavaliar a temperatura do negócio.
   function iniciarMudanca(negocio, novoStatus) {
-    if (novoStatus === STATUS_PERDIDO || novoStatus === 'solicitacao_proposta') {
-      abrirEdicao(negocio)
-      setEditForm((f) => ({ ...f, status: novoStatus }))
-    } else {
-      atualizarStatus(negocio, novoStatus)
-    }
+    abrirEdicao(negocio)
+    setEditForm((f) => ({ ...f, status: novoStatus }))
   }
 
   async function handleSalvarEdicao() {
     if (!editTarget || !editForm) return
+    // Temperatura é obrigatória a cada movimentação do negócio.
+    if (!editForm.temperatura) {
+      alert('Marque a temperatura do negócio (termômetro)')
+      return
+    }
 
     const alteracoes = []
     if (editForm.status !== editTarget.status) alteracoes.push(`status: ${editTarget.status} → ${editForm.status}`)
+    if (editForm.temperatura !== (editTarget.temperatura || '')) alteracoes.push(`temperatura: ${editTarget.temperatura || '—'} → ${editForm.temperatura}`)
     if (String(editForm.valor) !== String(editTarget.valor || '')) alteracoes.push(`valor: R$ ${editTarget.valor || 0} → R$ ${editForm.valor || 0}`)
     if (editForm.notas !== (editTarget.notas || '')) alteracoes.push('notas alteradas')
     if (editForm.data_fechamento_prevista !== (editTarget.data_fechamento_prevista || '')) alteracoes.push('previsão alterada')
@@ -142,6 +149,10 @@ export default function Negocios() {
       produtos: editForm.produtos || [],
       data_fechamento_prevista: editForm.data_fechamento_prevista || null,
       motivo_perda,
+      temperatura: editForm.temperatura,
+      temperatura_anterior: editForm.temperatura !== editTarget.temperatura
+        ? (editTarget.temperatura || null)
+        : (editTarget.temperatura_anterior || null),
       cidade: editForm.cidade || null,
       maquina_familia: editForm.maquina_familia || null,
       maquina_marca: editForm.maquina_marca || null,
@@ -298,6 +309,27 @@ export default function Negocios() {
                   )
                 })()}
 
+                {/* Termômetro + tendência (negócios em andamento) */}
+                {isAberto(n.status) && (
+                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm" aria-hidden="true">🌡️</span>
+                    {TEMPERATURAS.map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => atualizarTemperatura(n, t.key)}
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${n.temperatura === t.key ? t.sel : t.off}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                    {(() => {
+                      const tr = tendenciaNegocio(n.temperatura, n.temperatura_anterior)
+                      return tr ? <span className={`text-[11px] font-bold ml-auto ${tr.cor}`}>{tr.icon} {tr.label}</span> : null
+                    })()}
+                  </div>
+                )}
+
                 {/* Mudança rápida de etapa (select, pois são 11 etapas) */}
                 {!isPerdido(n.status) && (
                   <div className="mt-3">
@@ -352,6 +384,23 @@ export default function Negocios() {
                     <option key={s.key} value={s.key}>{s.label}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Temperatura — obrigatória a cada movimentação */}
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Temperatura do negócio <span className="text-red-500">*</span></label>
+                <div className="flex gap-2">
+                  {TEMPERATURAS.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, temperatura: t.key })}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border ${editForm.temperatura === t.key ? t.sel : t.off}`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Valor */}
@@ -475,7 +524,8 @@ export default function Negocios() {
               </button>
               <button
                 onClick={handleSalvarEdicao}
-                className="flex-1 bg-blue-700 text-white py-2.5 rounded-lg font-medium text-sm active:bg-blue-800"
+                disabled={!editForm.temperatura}
+                className="flex-1 bg-blue-700 text-white py-2.5 rounded-lg font-medium text-sm active:bg-blue-800 disabled:opacity-40"
               >
                 Salvar Alterações
               </button>

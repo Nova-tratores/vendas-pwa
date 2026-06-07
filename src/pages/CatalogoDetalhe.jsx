@@ -107,6 +107,22 @@ function CompartilharWhatsApp({ partes }) {
     Object.fromEntries(opcoesDisponiveis.map((o) => [o.key, true]))
   )
 
+  // O folheto (e foto) de produtos do estoque vêm das mídias, que carregam de
+  // forma assíncrona DEPOIS do mount. Sem isto, a opção aparecia desmarcada e
+  // não ia no envio. Aqui qualquer opção que surge depois entra já marcada.
+  const chavesDisponiveis = opcoesDisponiveis.map((o) => o.key).join(',')
+  useEffect(() => {
+    setSelecoes((prev) => {
+      let mudou = false
+      const next = { ...prev }
+      for (const o of opcoesDisponiveis) {
+        if (!(o.key in next)) { next[o.key] = true; mudou = true }
+      }
+      return mudou ? next : prev
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chavesDisponiveis])
+
   function toggleSelecao(k) {
     setSelecoes((s) => ({ ...s, [k]: !s[k] }))
   }

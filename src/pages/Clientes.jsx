@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllRecords, saveRecord, deleteRecord, getByIndex, registrarLog } from '../lib/db'
 import { maskCPFouCNPJ, maskTelefone } from '../lib/masks'
+import { CULTURAS } from '../lib/constants'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -18,15 +19,42 @@ export default function Clientes() {
   const [expandedDono, setExpandedDono] = useState(null)
   const [agenda, setAgenda] = useState({ atrasados: [], hoje: [], semana: [] })
   const [showAgenda, setShowAgenda] = useState(true)
+  const [pessoasCount, setPessoasCount] = useState({})
+  const [maquinasCount, setMaquinasCount] = useState({})
+  const [culturaTarget, setCulturaTarget] = useState(null)
+  const [culturaSel, setCulturaSel] = useState([])
 
   useEffect(() => { carregar() }, [])
 
   async function carregar() {
     const props = await getAllRecords('propriedades')
     const cls = await getAllRecords('clientes')
+    // Contagem de pessoas/máquinas por propriedade (1 leitura cada, sem N queries)
+    const pessoas = await getAllRecords('pessoas')
+    const maquinas = await getAllRecords('maquinas')
+    const pc = {}; for (const x of pessoas) pc[x.propriedade_id] = (pc[x.propriedade_id] || 0) + 1
+    const mc = {}; for (const x of maquinas) mc[x.propriedade_id] = (mc[x.propriedade_id] || 0) + 1
+    setPessoasCount(pc)
+    setMaquinasCount(mc)
     setPropriedades(props)
     setClientes(cls)
     await carregarAgenda(props, cls)
+  }
+
+  function abrirCultura(prop) {
+    setCulturaTarget(prop)
+    setCulturaSel(Array.isArray(prop.culturas) ? prop.culturas : [])
+  }
+  function toggleCultura(c) {
+    setCulturaSel((sel) => sel.includes(c) ? sel.filter((x) => x !== c) : [...sel, c])
+  }
+  async function salvarCultura() {
+    if (!culturaTarget) return
+    await saveRecord('propriedades', { ...culturaTarget, culturas: culturaSel })
+    await registrarLog('alterar', 'propriedades', culturaTarget.id, `Culturas: ${culturaSel.join(', ') || '—'}`)
+    setCulturaTarget(null)
+    setCulturaSel([])
+    await carregar()
   }
 
   async function carregarAgenda(props, cls) {
@@ -221,6 +249,9 @@ export default function Clientes() {
                   index={i}
                   navigate={navigate}
                   onDelete={() => setDeleteTarget(item.prop)}
+                  nPessoas={pessoasCount[item.prop.id] || 0}
+                  nMaquinas={maquinasCount[item.prop.id] || 0}
+                  onCultura={() => abrirCultura(item.prop)}
                 />
               )
             }
@@ -248,6 +279,9 @@ export default function Clientes() {
                         index={0}
                         navigate={navigate}
                         onDelete={() => setDeleteTarget(p)}
+                        nPessoas={pessoasCount[p.id] || 0}
+                        nMaquinas={maquinasCount[p.id] || 0}
+                        onCultura={() => abrirCultura(p)}
                         compact
                       />
                     ))}
@@ -266,11 +300,88 @@ export default function Clientes() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Editor rápido de culturas da propriedade */}
+      {culturaTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-4 pb-4"
+          onClick={() => setCulturaTarget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[80vh] flex flex-col animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-slate-100">
+              <h3 className="font-bold text-lg">Culturas</h3>
+              <p className="text-xs text-slate-500 truncate">{culturaTarget.nome}</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex flex-wrap gap-2">
+                {CULTURAS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => toggleCultura(c)}
+                    className={`px-3 py-1.5 rounded-full text-sm border ${culturaSel.includes(c) ? 'bg-green-600 text-white border-green-600' : 'bg-white text-slate-600 border-slate-300'}`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex gap-2">
+              <button
+                onClick={() => setCulturaTarget(null)}
+                className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-lg font-medium text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvarCultura}
+                className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-medium text-sm active:bg-green-700"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PullToRefresh>
   )
 }
 
-function PropCard({ prop, dono, index, navigate, onDelete, compact }) {
+// Ícones monocromáticos (currentColor) — acesos (preto) quando há cadastro,
+// apagados (cinza) quando falta. Ver padrão de SVG inline em VisitasMapa.jsx.
+function IconCultura({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M13 21v-6.3c3.4-.4 6-3.2 6-7.1V6h-1.8c-2.6 0-4.9 1.6-5.9 3.9C10.4 8 8.4 6.8 6 6.8H4v.9c0 3.3 2.6 6 5.9 6.1.4 0 .8 0 1.1-.1V21h2Z" />
+    </svg>
+  )
+}
+function IconPessoas({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5Z" />
+    </svg>
+  )
+}
+function IconTrator({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <g fill="currentColor">
+        <path d="M4 13V8h5l1.5-2.5H14V11h3.6L19 15h-1.3a3.5 3.5 0 0 0-6.4 0H10.4A3.5 3.5 0 0 0 4 13Z" />
+        <circle cx="7" cy="16.5" r="3.5" />
+        <circle cx="17.5" cy="17.5" r="2.5" />
+      </g>
+    </svg>
+  )
+}
+
+function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas = 0, nMaquinas = 0, compact }) {
+  const temCultura = Array.isArray(prop.culturas) && prop.culturas.length > 0
+  const aceso = 'text-black opacity-100'
+  const apagado = 'text-slate-400 opacity-80'
   return (
     <div
       className={`bg-white rounded-xl shadow flex items-center justify-between card-touch animate-fade-in ${compact ? 'p-3' : 'p-4'}`}
@@ -284,16 +395,25 @@ function PropCard({ prop, dono, index, navigate, onDelete, compact }) {
         </p>
         {prop.telefone && <p className="text-xs text-blue-600 truncate">{prop.telefone}</p>}
       </div>
-      <div className="flex items-center gap-2 ml-2 shrink-0">
-        <button
-          onClick={() => navigate(`/maquinas/${prop.id}`)}
-          className="text-[10px] text-amber-600 px-1.5 py-0.5 rounded border border-amber-200"
-        >
-          Máq.
+      <div className="flex items-center gap-3 ml-2 shrink-0">
+        {/* 3 ícones de completude: cultura, pessoas, máquinas */}
+        <button type="button" title="Cultura" aria-label="Cultura"
+          onClick={(e) => { e.stopPropagation(); onCultura && onCultura() }}
+          className={temCultura ? aceso : apagado}>
+          <IconCultura className="w-5 h-5" />
+        </button>
+        <button type="button" title="Pessoas" aria-label="Pessoas"
+          onClick={(e) => { e.stopPropagation(); navigate(`/pessoas/${prop.id}`) }}
+          className={nPessoas > 0 ? aceso : apagado}>
+          <IconPessoas className="w-5 h-5" />
+        </button>
+        <button type="button" title="Máquinas" aria-label="Máquinas"
+          onClick={(e) => { e.stopPropagation(); navigate(`/maquinas/${prop.id}`) }}
+          className={nMaquinas > 0 ? aceso : apagado}>
+          <IconTrator className="w-5 h-5" />
         </button>
         <span className={`w-2 h-2 rounded-full ${prop.status_sync === 'synced' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-        <button onClick={onDelete} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>
-        <span className="text-slate-400" onClick={() => navigate(`/pessoas/${prop.id}`)}>&rsaquo;</span>
+        <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>
       </div>
     </div>
   )

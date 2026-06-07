@@ -729,7 +729,7 @@ export default function Visitas() {
 
           {/* Resumo - texto ou áudio */}
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Resumo da visita</label>
+            <label className="block text-xs text-slate-500 mb-1">Resumo da visita <span className="text-red-500">*</span></label>
             <AudioTextInput
               value={form.resumo}
               onChange={(val) => setForm({ ...form, resumo: val })}
@@ -773,7 +773,7 @@ export default function Visitas() {
             </button>
             <button
               type="submit"
-              disabled={!form.propriedade_id || form.pessoa_ids.length === 0}
+              disabled={!form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim()}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
               {tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}
@@ -1065,9 +1065,16 @@ function VisitaCard({ visita, index, onDelete, onEdit, editavel }) {
     getRecord('propriedades', visita.propriedade_id).then((p) => {
       if (p) {
         setPropNome(p.nome)
-        getRecord('clientes', p.cliente_dono_id).then((c) => {
-          if (c) setClienteNome(c.nome)
-        })
+        // Cliente = dono (clientes_vendas). Propriedades vindas do ERP não têm
+        // dono (cliente_dono_id nulo), então usamos o nome da própria propriedade
+        // (razão social) pra não exibir "..." no lugar do cliente.
+        if (p.cliente_dono_id) {
+          getRecord('clientes', p.cliente_dono_id).then((c) => {
+            setClienteNome(c?.nome || p.razao_social || p.nome || '')
+          })
+        } else {
+          setClienteNome(p.razao_social || p.nome || '')
+        }
       }
     })
   }, [visita.propriedade_id])

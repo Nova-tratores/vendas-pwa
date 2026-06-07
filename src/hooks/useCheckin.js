@@ -36,6 +36,7 @@ export function useCheckin() {
     // Propriedade e pessoa são obrigatórias (defesa: a UI já bloqueia o botão).
     if (!form.propriedade_id) throw new Error('Selecione a propriedade / cliente')
     if (!form.pessoa_ids?.length) throw new Error('Selecione ou cadastre pelo menos uma pessoa')
+    if (!form.resumo?.trim()) throw new Error('Adicione um resumo da visita (o que foi conversado)')
     // GPS não bloqueia mais o registro: no campo, sem sinal, o fix pode estourar.
     // Salvamos com o que houver (coords podem ficar nulas) pra não travar o vendedor.
     const vendedor = JSON.parse(localStorage.getItem('vendedor'))
