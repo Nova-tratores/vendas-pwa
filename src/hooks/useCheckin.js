@@ -33,6 +33,9 @@ export function useCheckin() {
   }
 
   async function salvarVisita(form) {
+    // Propriedade e pessoa são obrigatórias (defesa: a UI já bloqueia o botão).
+    if (!form.propriedade_id) throw new Error('Selecione a propriedade / cliente')
+    if (!form.pessoa_ids?.length) throw new Error('Selecione ou cadastre pelo menos uma pessoa')
     // GPS não bloqueia mais o registro: no campo, sem sinal, o fix pode estourar.
     // Salvamos com o que houver (coords podem ficar nulas) pra não travar o vendedor.
     const vendedor = JSON.parse(localStorage.getItem('vendedor'))
@@ -41,7 +44,7 @@ export function useCheckin() {
       ? new Date(form.data_visita).toISOString()
       : new Date().toISOString()
     const isRetroativa = form.data_visita
-      ? (Date.now() - new Date(form.data_visita).getTime()) > 5 * 60 * 1000
+      ? (Date.now() - new Date(form.data_visita).getTime()) > 120 * 60 * 1000
       : false
 
     const visita = {

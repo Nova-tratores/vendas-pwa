@@ -59,7 +59,7 @@ export default function Visitas() {
 
   const [form, setForm] = useState({
     propriedade_id: '',
-    tipo: 'presencial',
+    tipo: '',
     negocio_id: '',
     pessoa_ids: [],
     maquina_ids: [],
@@ -117,7 +117,7 @@ export default function Visitas() {
       setClienteSelecionado('')
       setBuscaProp('')
       setNegocioVinculado(null)
-      setForm({ propriedade_id: '', tipo: 'presencial', negocio_id: '', pessoa_ids: [], maquina_ids: [], resumo: '', proximos_passos: '', data_proximo_contato: '', acionar_pos_vendas: false, data_visita: '', veiculo: '' })
+      setForm({ propriedade_id: '', tipo: '', negocio_id: '', pessoa_ids: [], maquina_ids: [], resumo: '', proximos_passos: '', data_proximo_contato: '', acionar_pos_vendas: false, data_visita: '', veiculo: '' })
       carregar()
       setTimeout(() => setSucesso(false), 3000)
     } catch (err) {
@@ -238,8 +238,27 @@ export default function Visitas() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-4 mb-4 space-y-3">
-          {/* GPS Status - obrigatório só para presencial */}
-          {tipoPresencial ? (
+          {/* Tipo da visita — primeiro passo (sempre visível) */}
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { key: 'presencial', label: 'Presencial' },
+              { key: 'mensagem', label: 'Mensagem' },
+              { key: 'telefonema', label: 'Telefonema' },
+              { key: 'email', label: 'E-mail' },
+            ].map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setForm({ ...form, tipo: t.key })}
+                className={`py-2 rounded-lg text-sm font-medium border ${form.tipo === t.key ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-300'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* GPS Status - obrigatório só para presencial (aparece após escolher o tipo) */}
+          {form.tipo && (tipoPresencial ? (
             <div className={`p-3 rounded-lg text-sm ${gpsData ? 'bg-green-50 text-green-700' : erroGPS ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
               {loading && 'Obtendo localização...'}
               {gpsData && `GPS: ${gpsData.latitude.toFixed(5)}, ${gpsData.longitude.toFixed(5)} (±${gpsData.gps_accuracy.toFixed(0)}m)`}
@@ -256,9 +275,10 @@ export default function Visitas() {
                 <button type="button" onClick={iniciarCheckin} className="ml-2 text-blue-600 underline">Capturar GPS</button>
               )}
             </div>
-          )}
+          ))}
 
-          {/* Propriedade / Cliente — busca direta */}
+          {/* Propriedade / Cliente — busca direta (aparece após escolher o tipo) */}
+          {form.tipo && (<>
           {propSelecionada ? (
             <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
               <div className="min-w-0">
@@ -414,89 +434,13 @@ export default function Visitas() {
               </button>
             </div>
           )}
+          </>)}
 
-          {/* Tipo */}
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { key: 'presencial', label: 'Presencial' },
-              { key: 'mensagem', label: 'Mensagem' },
-              { key: 'telefonema', label: 'Telefonema' },
-              { key: 'email', label: 'E-mail' },
-            ].map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setForm({ ...form, tipo: t.key })}
-                className={`py-2 rounded-lg text-sm font-medium border ${form.tipo === t.key ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-300'}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Veículo utilizado */}
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">Veículo utilizado</label>
-            <select
-              value={form.veiculo}
-              onChange={(e) => setForm({ ...form, veiculo: e.target.value })}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">Selecione o veículo (opcional)</option>
-              {veiculosDisp.map((v) => (
-                <option key={v.IdPlaca} value={v.NumPlaca}>{v.NumPlaca}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Data/hora da visita */}
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">Data/hora da visita</label>
-            <input
-              type="datetime-local"
-              value={form.data_visita}
-              max={getLocalDatetime()}
-              onChange={(e) => setForm({ ...form, data_visita: e.target.value })}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
-            />
-            {form.data_visita && (Date.now() - new Date(form.data_visita).getTime()) > 5 * 60 * 1000 && (
-              <p className="text-xs text-amber-600 mt-1 font-medium">Esta visita será marcada como retroativa</p>
-            )}
-          </div>
-
-          {/* Negócio (opcional) */}
-          <div>
-            {negocioVinculado ? (
-              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium text-green-800">Negócio vinculado</p>
-                  <p className="text-xs text-green-600">
-                    {negocioVinculado.notas || negocioVinculado.status}
-                    {negocioVinculado.valor ? ` - R$ ${Number(negocioVinculado.valor).toLocaleString('pt-BR')}` : ''}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setNegocioVinculado(null); setForm({ ...form, negocio_id: '' }) }}
-                  className="text-green-600 text-lg px-1"
-                >&times;</button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowNegocio(true)}
-                className="w-full py-2.5 rounded-lg text-sm font-medium border border-slate-300 bg-white text-slate-600 active:bg-slate-50"
-              >
-                + Vincular Negócio
-              </button>
-            )}
-          </div>
-
-          {/* Pessoas */}
+          {/* Pessoas — obrigatória (aparece após selecionar a propriedade) */}
           {form.propriedade_id && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs text-slate-500">Com quem conversou:</p>
+                <p className="text-xs text-slate-500">Com quem conversou: <span className="text-red-500">*</span></p>
                 <button
                   type="button"
                   onClick={() => setShowNovaPessoa(!showNovaPessoa)}
@@ -584,8 +528,74 @@ export default function Visitas() {
                   <p className="text-xs text-slate-400 italic">Nenhuma pessoa cadastrada nesta propriedade</p>
                 )
               )}
+
+              {form.pessoa_ids.length === 0 && !showNovaPessoa && (
+                <p className="text-xs text-amber-600 mt-1 font-medium">Selecione ou cadastre pelo menos uma pessoa para continuar</p>
+              )}
             </div>
           )}
+
+          {/* Demais campos — aparecem após selecionar a propriedade e ao menos uma pessoa */}
+          {form.propriedade_id && form.pessoa_ids.length > 0 && (
+          <div className="space-y-3 animate-slide-up">
+
+          {/* Veículo utilizado */}
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Veículo utilizado</label>
+            <select
+              value={form.veiculo}
+              onChange={(e) => setForm({ ...form, veiculo: e.target.value })}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">Selecione o veículo (opcional)</option>
+              {veiculosDisp.map((v) => (
+                <option key={v.IdPlaca} value={v.NumPlaca}>{v.NumPlaca}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Data/hora da visita */}
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Data/hora da visita</label>
+            <input
+              type="datetime-local"
+              value={form.data_visita}
+              max={getLocalDatetime()}
+              onChange={(e) => setForm({ ...form, data_visita: e.target.value })}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            />
+            {form.data_visita && (Date.now() - new Date(form.data_visita).getTime()) > 120 * 60 * 1000 && (
+              <p className="text-xs text-amber-600 mt-1 font-medium">Esta visita será marcada como retroativa</p>
+            )}
+          </div>
+
+          {/* Negócio (opcional) */}
+          <div>
+            {negocioVinculado ? (
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium text-green-800">Negócio vinculado</p>
+                  <p className="text-xs text-green-600">
+                    {negocioVinculado.notas || negocioVinculado.status}
+                    {negocioVinculado.valor ? ` - R$ ${Number(negocioVinculado.valor).toLocaleString('pt-BR')}` : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setNegocioVinculado(null); setForm({ ...form, negocio_id: '' }) }}
+                  className="text-green-600 text-lg px-1"
+                >&times;</button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowNegocio(true)}
+                className="w-full py-2.5 rounded-lg text-sm font-medium border border-slate-300 bg-white text-slate-600 active:bg-slate-50"
+              >
+                + Vincular Negócio
+              </button>
+            )}
+          </div>
 
           {/* Máquinas */}
           {form.propriedade_id && (
@@ -750,6 +760,9 @@ export default function Visitas() {
             />
           </div>
 
+          </div>
+          )}
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -760,7 +773,7 @@ export default function Visitas() {
             </button>
             <button
               type="submit"
-              disabled={!form.propriedade_id}
+              disabled={!form.propriedade_id || form.pessoa_ids.length === 0}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
               {tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}
