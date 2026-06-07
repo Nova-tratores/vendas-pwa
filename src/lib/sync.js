@@ -269,17 +269,11 @@ async function pullRecords() {
   // Se admin pediu force_resync, IDB foi limpo. Pull abaixo re-popula do zero.
   await checarForceResync(vendedorId)
 
-  async function pullStore(store, query, mapFn = (r) => r) {
-    notify('pulling', `Baixando ${store}...`)
-    const { data, error } = await query
-    if (error) {
-      console.error(`[Pull] ${store}:`, error.message)
-      return []
-    }
-    if (!data || data.length === 0) return []
+  // Grava linhas já carregadas do servidor, reconciliando o "gêmeo" criado
+  // offline (id local) com o que voltou do servidor (id novo).
+  async function savePulled(store, rows, mapFn = (r) => r) {
+    if (!rows || rows.length === 0) return []
 
-    // Índice dos locais já sincronizados por chave de conteúdo, pra reconciliar
-    // o "gêmeo" criado offline (id local) com o que voltou do servidor (id novo).
     const locais = await getAllRecords(store)
     const idxLocal = new Map()
     for (const loc of locais) {
@@ -288,7 +282,7 @@ async function pullRecords() {
       if (ch) idxLocal.set(ch, loc)
     }
 
-    for (const record of data) {
+    for (const record of rows) {
       const mapped = mapFn(record)
       mapped._srv = true // veio do servidor: edições futuras fazem UPDATE, não INSERT
       const ch = chaveConteudo(store, mapped)
@@ -303,8 +297,31 @@ async function pullRecords() {
       }
       await saveRecord(store, mapped)
     }
-    totalPulled += data.length
-    return data
+    totalPulled += rows.length
+    return rows
+  }
+
+  async function pullStore(store, query, mapFn = (r) => r) {
+    notify('pulling', `Baixando ${store}...`)
+    const { data, error } = await query
+    if (error) {
+      console.error(`[Pull] ${store}:`, error.message)
+      return []
+    }
+    return savePulled(store, data, mapFn)
+  }
+
+  // Busca em "Clientes" filtrando por uma coluna com lista de valores,
+  // em lotes pra não estourar o tamanho da URL.
+  async function fetchClientesIn(coluna, valores) {
+    const out = []
+    for (let i = 0; i < valores.length; i += 200) {
+      const chunk = valores.slice(i, i + 200)
+      const { data, error } = await supabase.from('Clientes').select('*').in(coluna, chunk)
+      if (error) { console.error(`[Pull] Clientes por ${coluna}:`, error.message); continue }
+      if (data) out.push(...data)
+    }
+    return out
   }
 
   // 1. clientes (donos) do vendedor
@@ -315,15 +332,45 @@ async function pullRecords() {
   )
   const clientesIds = clientesData.map((c) => c.id)
 
-  // 2. propriedades (Supabase "Clientes") cujos donos sao do vendedor
+  // 2. propriedades (Supabase "Clientes"): UNIÃO de três fontes —
+  //    (a) cidades atribuídas ao vendedor (vendedor_cidades)
+  //    (b) donos do vendedor (cliente_dono_id) — clientes criados no check-in
+  //    (c) histórico — propriedades com visita/negócio do vendedor
+  //    Assim o vendedor enxerga a base do ERP da sua região sem perder o que já trabalhou.
   let propriedadesIds = []
-  if (clientesIds.length > 0) {
-    const propsData = await pullStore(
-      'propriedades',
-      supabase.from('Clientes').select('*').in('cliente_dono_id', clientesIds),
-      (r) => mapForPull('propriedades', r)
-    )
-    propriedadesIds = propsData.map((p) => p.id)
+  {
+    notify('pulling', 'Baixando propriedades...')
+
+    // (a) cidades atribuídas
+    let cidades = []
+    try {
+      const { data: vc } = await supabase
+        .from('vendedor_cidades').select('cidade').eq('vendedor_id', vendedorId)
+      cidades = [...new Set((vc || []).map((r) => r.cidade).filter(Boolean))]
+    } catch (e) { console.warn('[Pull] vendedor_cidades:', e) }
+
+    // (c) histórico: ids de propriedade citados nas visitas/negócios do vendedor
+    let histIds = []
+    try {
+      const [{ data: vis }, { data: neg }] = await Promise.all([
+        supabase.from('visitas').select('propriedade_id').eq('vendedor_id', vendedorId),
+        supabase.from('negocios').select('propriedade_id').eq('vendedor_id', vendedorId),
+      ])
+      const s = new Set()
+      for (const r of vis || []) if (r.propriedade_id != null) s.add(r.propriedade_id)
+      for (const r of neg || []) if (r.propriedade_id != null) s.add(r.propriedade_id)
+      histIds = [...s]
+    } catch (e) { console.warn('[Pull] histórico propriedades:', e) }
+
+    // Coleta as três fontes e deduplica por id
+    const byId = new Map()
+    if (cidades.length > 0) for (const r of await fetchClientesIn('cidade', cidades)) byId.set(r.id, r)
+    if (clientesIds.length > 0) for (const r of await fetchClientesIn('cliente_dono_id', clientesIds)) byId.set(r.id, r)
+    if (histIds.length > 0) for (const r of await fetchClientesIn('id', histIds)) byId.set(r.id, r)
+
+    const propsArr = [...byId.values()]
+    await savePulled('propriedades', propsArr, (r) => mapForPull('propriedades', r))
+    propriedadesIds = propsArr.map((p) => p.id)
   }
 
   // 3. pessoas dessas propriedades

@@ -29,6 +29,7 @@ import SupervisorCatalogo from './supervisor/SupervisorCatalogo'
 import SupervisorConfig from './supervisor/SupervisorConfig'
 import SupervisorMapa from './supervisor/SupervisorMapa'
 import SupervisorClientes from './supervisor/SupervisorClientes'
+import SupervisorCidades from './supervisor/SupervisorCidades'
 import SupervisorSemana from './supervisor/SupervisorSemana'
 import SupervisorPropostas from './supervisor/SupervisorPropostas'
 
@@ -86,6 +87,7 @@ export default function App() {
         <Route index element={<SupervisorOverview />} />
         <Route path="vendedores" element={<SupervisorVendedores />} />
         <Route path="clientes" element={<SupervisorClientes />} />
+        <Route path="cidades" element={<SupervisorCidades />} />
         <Route path="evolucao" element={<SupervisorEvolucao />} />
         <Route path="visitas" element={<SupervisorVisitas />} />
         <Route path="semana" element={<SupervisorSemana />} />

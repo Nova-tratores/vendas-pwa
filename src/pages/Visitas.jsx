@@ -36,7 +36,7 @@ export default function Visitas() {
   const [visitas, setVisitas] = useState([])
   const [clientes, setClientes] = useState([])
   const [propriedadesAll, setPropriedadesAll] = useState([])
-  const [propriedadesFiltradas, setPropriedadesFiltradas] = useState([])
+  const [buscaProp, setBuscaProp] = useState('')
   const [pessoasDisp, setPessoasDisp] = useState([])
   const [maquinasDisp, setMaquinasDisp] = useState([])
   const [negocios, setNegocios] = useState([])
@@ -86,28 +86,21 @@ export default function Visitas() {
     } catch { /* offline */ }
   }
 
-  async function handleClienteChange(clienteId) {
-    setClienteSelecionado(clienteId)
-    setForm({ ...form, propriedade_id: '', pessoa_ids: [], maquina_ids: [] })
-    setPessoasDisp([])
-    setMaquinasDisp([])
-    if (clienteId) {
-      const props = await getByIndex('propriedades', 'cliente_dono_id', clienteId)
-      setPropriedadesFiltradas(props)
-    } else {
-      setPropriedadesFiltradas([])
-    }
+  // Check-in é centrado na PROPRIEDADE (cliente do ERP). O vendedor busca a
+  // propriedade direto; o "dono" (clientes_vendas) é derivado quando existe.
+  async function selecionarPropriedade(p) {
+    setForm((f) => ({ ...f, propriedade_id: p.id, pessoa_ids: [], maquina_ids: [] }))
+    setClienteSelecionado(p.cliente_dono_id ? String(p.cliente_dono_id) : '')
+    setBuscaProp('')
+    setPessoasDisp(await getByIndex('pessoas', 'propriedade_id', p.id))
+    setMaquinasDisp(await getByIndex('maquinas', 'propriedade_id', p.id))
   }
 
-  async function handlePropChange(propId) {
-    setForm({ ...form, propriedade_id: propId, pessoa_ids: [], maquina_ids: [] })
-    if (propId) {
-      setPessoasDisp(await getByIndex('pessoas', 'propriedade_id', propId))
-      setMaquinasDisp(await getByIndex('maquinas', 'propriedade_id', propId))
-    } else {
-      setPessoasDisp([])
-      setMaquinasDisp([])
-    }
+  function limparPropriedade() {
+    setForm((f) => ({ ...f, propriedade_id: '', pessoa_ids: [], maquina_ids: [] }))
+    setClienteSelecionado('')
+    setPessoasDisp([])
+    setMaquinasDisp([])
   }
 
   function toggleArray(arr, id) {
@@ -122,7 +115,7 @@ export default function Visitas() {
       setShowForm(false)
       resetCheckin()
       setClienteSelecionado('')
-      setPropriedadesFiltradas([])
+      setBuscaProp('')
       setNegocioVinculado(null)
       setForm({ propriedade_id: '', tipo: 'presencial', negocio_id: '', pessoa_ids: [], maquina_ids: [], resumo: '', proximos_passos: '', data_proximo_contato: '', acionar_pos_vendas: false, data_visita: '', veiculo: '' })
       carregar()
@@ -133,6 +126,28 @@ export default function Visitas() {
   }
 
   const tipoPresencial = form.tipo === 'presencial'
+
+  // Propriedade atualmente selecionada e seu dono (se houver)
+  const propSelecionada = form.propriedade_id
+    ? propriedadesAll.find((p) => String(p.id) === String(form.propriedade_id))
+    : null
+  const donoNome = clienteSelecionado
+    ? (clientes.find((c) => String(c.id) === String(clienteSelecionado))?.nome || '')
+    : ''
+
+  // Resultados da busca de propriedade (limita a 50 pra não pesar no mobile)
+  const resultadosBusca = (() => {
+    const t = buscaProp.trim().toLowerCase()
+    if (!t) return []
+    const out = []
+    for (const p of propriedadesAll) {
+      const campos = [p.nome, p.nome_fantasia, p.razao_social, p.cidade, p.cnpj_cpf]
+        .filter(Boolean).map((s) => String(s).toLowerCase())
+      if (campos.some((s) => s.includes(t))) out.push(p)
+      if (out.length >= 50) break
+    }
+    return out
+  })()
 
   function getLocalDatetime() {
     const now = new Date()
@@ -243,28 +258,68 @@ export default function Visitas() {
             </div>
           )}
 
-          {/* Cliente */}
-          <div className="flex gap-2">
-            <select
-              value={clienteSelecionado}
-              onChange={(e) => handleClienteChange(e.target.value)}
-              required={!showNovoCliente}
-              disabled={showNovoCliente}
-              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:bg-slate-50"
-            >
-              <option value="">Selecione o cliente *</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => setShowNovoCliente(!showNovoCliente)}
-              className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium border ${showNovoCliente ? 'bg-slate-100 text-slate-600 border-slate-300' : 'bg-blue-50 text-blue-700 border-blue-200'}`}
-            >
-              {showNovoCliente ? 'Cancelar' : '+ Novo'}
-            </button>
-          </div>
+          {/* Propriedade / Cliente — busca direta */}
+          {propSelecionada ? (
+            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-blue-900 truncate">
+                  {propSelecionada.nome || propSelecionada.nome_fantasia}
+                </p>
+                <p className="text-xs text-blue-600 truncate">
+                  {[propSelecionada.cidade, donoNome].filter(Boolean).join(' · ') || 'Propriedade selecionada'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={limparPropriedade}
+                className="text-blue-600 text-sm underline shrink-0 ml-2"
+              >
+                trocar
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2">
+                <input
+                  value={buscaProp}
+                  onChange={(e) => setBuscaProp(e.target.value)}
+                  placeholder="Buscar cliente / propriedade *"
+                  disabled={showNovoCliente}
+                  className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:bg-slate-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNovoCliente(!showNovoCliente)}
+                  className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium border ${showNovoCliente ? 'bg-slate-100 text-slate-600 border-slate-300' : 'bg-blue-50 text-blue-700 border-blue-200'}`}
+                >
+                  {showNovoCliente ? 'Cancelar' : '+ Novo'}
+                </button>
+              </div>
+
+              {!showNovoCliente && buscaProp.trim() && (
+                <div className="mt-1 border border-slate-200 rounded-lg max-h-56 overflow-y-auto divide-y divide-slate-100">
+                  {resultadosBusca.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-slate-400">Nenhuma propriedade encontrada</p>
+                  ) : (
+                    resultadosBusca.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => selecionarPropriedade(p)}
+                        className="w-full text-left px-3 py-2 text-sm active:bg-slate-50"
+                      >
+                        <span className="font-medium">{p.nome || p.nome_fantasia}</span>
+                        {p.cidade && <span className="text-slate-400"> — {p.cidade}</span>}
+                      </button>
+                    ))
+                  )}
+                  {resultadosBusca.length >= 50 && (
+                    <p className="px-3 py-1.5 text-xs text-slate-400">Mostrando os 50 primeiros — refine a busca</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Mini-form: novo cliente (primeiro contato) */}
           {showNovoCliente && (
@@ -345,10 +400,11 @@ export default function Visitas() {
                   })
                   await registrarLog('criar', 'propriedades', propId, `Criada em check-in: ${novoCliente.nome_propriedade}`)
                   await carregar()
-                  setClienteSelecionado(clienteId)
-                  const props = await getByIndex('propriedades', 'cliente_dono_id', clienteId)
-                  setPropriedadesFiltradas(props)
-                  setForm((f) => ({ ...f, propriedade_id: propId }))
+                  setClienteSelecionado(String(clienteId))
+                  setForm((f) => ({ ...f, propriedade_id: propId, pessoa_ids: [], maquina_ids: [] }))
+                  setPessoasDisp([])
+                  setMaquinasDisp([])
+                  setBuscaProp('')
                   setShowNovoCliente(false)
                   setNovoCliente({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '', cultura_principal: '', cultura_secundaria: '' })
                 }}
@@ -358,20 +414,6 @@ export default function Visitas() {
               </button>
             </div>
           )}
-
-          {/* Propriedade (filtrada pelo cliente) */}
-          <select
-            value={form.propriedade_id}
-            onChange={(e) => handlePropChange(e.target.value)}
-            required
-            disabled={!clienteSelecionado}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:bg-slate-50"
-          >
-            <option value="">{clienteSelecionado ? 'Selecione a propriedade *' : 'Selecione um cliente primeiro'}</option>
-            {propriedadesFiltradas.map((p) => (
-              <option key={p.id} value={p.id}>{p.nome}</option>
-            ))}
-          </select>
 
           {/* Tipo */}
           <div className="grid grid-cols-2 gap-2">
@@ -711,7 +753,7 @@ export default function Visitas() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => { setShowForm(false); resetCheckin(); setClienteSelecionado(''); setPropriedadesFiltradas([]); setNegocioVinculado(null) }}
+              onClick={() => { setShowForm(false); resetCheckin(); setClienteSelecionado(''); setBuscaProp(''); setNegocioVinculado(null) }}
               className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-sm"
             >
               Cancelar
@@ -830,7 +872,7 @@ export default function Visitas() {
                         const now = new Date().toISOString()
                         const negId = await saveRecord('negocios', {
                           vendedor_id: vendedor.id,
-                          cliente_id: parseInt(clienteSelecionado),
+                          cliente_id: clienteSelecionado ? parseInt(clienteSelecionado) : null,
                           propriedade_id: form.propriedade_id ? parseInt(form.propriedade_id) : null,
                           status: novoNegocio.status,
                           valor: novoNegocio.valor ? parseFloat(novoNegocio.valor) : null,

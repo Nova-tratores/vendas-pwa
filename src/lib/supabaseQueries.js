@@ -122,6 +122,43 @@ export async function getPessoas() {
   return data || []
 }
 
+// ============================================
+// Atribuição de cidades a vendedores
+// ============================================
+
+// Cidades distintas da base de clientes (ERP) com contagem de propriedades.
+export async function getCidadesContagem() {
+  const { data, error } = await supabase.from('Clientes').select('cidade')
+  if (error) { console.warn('[cidades]', error.message); return [] }
+  const mapa = new Map()
+  for (const r of data || []) {
+    const c = (r.cidade || '').trim()
+    if (!c) continue
+    mapa.set(c, (mapa.get(c) || 0) + 1)
+  }
+  return [...mapa.entries()]
+    .map(([cidade, total]) => ({ cidade, total }))
+    .sort((a, b) => a.cidade.localeCompare(b.cidade))
+}
+
+export async function getVendedorCidades() {
+  const { data, error } = await supabase.from('vendedor_cidades').select('*')
+  if (error) { console.warn('[vendedor_cidades]', error.message); return [] }
+  return data || []
+}
+
+export async function addVendedorCidade(vendedorId, cidade) {
+  const { error } = await supabase.from('vendedor_cidades')
+    .upsert({ vendedor_id: vendedorId, cidade }, { onConflict: 'vendedor_id,cidade' })
+  if (error) throw error
+}
+
+export async function removeVendedorCidade(vendedorId, cidade) {
+  const { error } = await supabase.from('vendedor_cidades')
+    .delete().eq('vendedor_id', vendedorId).eq('cidade', cidade)
+  if (error) throw error
+}
+
 export async function getMaquinas() {
   const { data } = await supabase.from('maquinas').select('*')
   return data || []
