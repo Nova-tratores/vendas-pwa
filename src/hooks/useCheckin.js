@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { capturarGPSComFallback } from '../lib/gps'
 import { capturarFoto } from '../lib/camera'
-import { saveRecord, saveFotoPendente, registrarLog } from '../lib/db'
+import { saveRecord, saveFotoPendente, registrarLog, getRecord } from '../lib/db'
 
 export function useCheckin() {
   const [loading, setLoading] = useState(false)
@@ -70,6 +70,20 @@ export function useCheckin() {
     }
 
     const id = await saveRecord('visitas', visita)
+
+    // 1º check-in presencial geolocaliza a PROPRIEDADE (a fazenda no mapa).
+    // Só grava se ainda não tiver coordenada — não sobrescreve depois.
+    if (visita.tipo === 'presencial' && gpsData?.latitude != null && visita.propriedade_id) {
+      const prop = await getRecord('propriedades', visita.propriedade_id)
+      if (prop && prop.latitude == null && prop.longitude == null) {
+        await saveRecord('propriedades', {
+          ...prop,
+          latitude: gpsData.latitude,
+          longitude: gpsData.longitude,
+        })
+        await registrarLog('alterar', 'propriedades', prop.id, `Coordenada do 1º check-in: ${gpsData.latitude.toFixed(5)}, ${gpsData.longitude.toFixed(5)}`)
+      }
+    }
 
     // Registra o veículo usado no dia (pra aparecer no mapa do supervisor)
     if (form.veiculo && navigator.onLine) {

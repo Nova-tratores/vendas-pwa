@@ -49,6 +49,8 @@ export default function Visitas() {
   const [novaMaquina, setNovaMaquina] = useState({ tipo: 'Trator Novo', marca: 'New Holland', modelo: '', tamanho: '' })
   const [showNovoCliente, setShowNovoCliente] = useState(false)
   const [novoCliente, setNovoCliente] = useState({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '', cultura_principal: '', cultura_secundaria: '' })
+  const [showOutraProp, setShowOutraProp] = useState(false)
+  const [novaProp, setNovaProp] = useState({ nome: '', cidade: '', cultura_principal: '', cultura_secundaria: '' })
   const [showNegocio, setShowNegocio] = useState(false)
   const [showNovoNegocio, setShowNovoNegocio] = useState(false)
   const [novoNegocio, setNovoNegocio] = useState({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '' })
@@ -101,6 +103,33 @@ export default function Visitas() {
     setClienteSelecionado('')
     setPessoasDisp([])
     setMaquinasDisp([])
+    setShowOutraProp(false)
+  }
+
+  // Cadastra outra propriedade para o MESMO cliente (dono) da propriedade
+  // selecionada — o modelo já suporta vários locais por cliente (cliente_dono_id).
+  async function salvarOutraProp() {
+    const donoId = propSelecionada?.cliente_dono_id
+    if (!donoId) return
+    if (!novaProp.nome) { alert('Informe o nome da propriedade'); return }
+    if (!novaProp.cultura_principal) { alert('Selecione a cultura principal'); return }
+    const culturas = [novaProp.cultura_principal, novaProp.cultura_secundaria].filter(Boolean)
+    const propId = await saveRecord('propriedades', {
+      cliente_dono_id: donoId,
+      nome: novaProp.nome,
+      nome_fantasia: novaProp.nome,
+      cidade: novaProp.cidade,
+      culturas: culturas.length ? culturas : null,
+      created_at: new Date().toISOString(),
+    })
+    await registrarLog('criar', 'propriedades', propId, `Outra propriedade do cliente: ${novaProp.nome}`)
+    await carregar()
+    setClienteSelecionado(String(donoId))
+    setForm((f) => ({ ...f, propriedade_id: propId, pessoa_ids: [], maquina_ids: [] }))
+    setPessoasDisp([])
+    setMaquinasDisp([])
+    setShowOutraProp(false)
+    setNovaProp({ nome: '', cidade: '', cultura_principal: '', cultura_secundaria: '' })
   }
 
   function toggleArray(arr, id) {
@@ -280,22 +309,80 @@ export default function Visitas() {
           {/* Propriedade / Cliente — busca direta (aparece após escolher o tipo) */}
           {form.tipo && (<>
           {propSelecionada ? (
-            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-blue-900 truncate">
-                  {propSelecionada.nome || propSelecionada.nome_fantasia}
-                </p>
-                <p className="text-xs text-blue-600 truncate">
-                  {[propSelecionada.cidade, donoNome].filter(Boolean).join(' · ') || 'Propriedade selecionada'}
-                </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-blue-900 truncate">
+                    {propSelecionada.nome || propSelecionada.nome_fantasia}
+                  </p>
+                  <p className="text-xs text-blue-600 truncate">
+                    {[propSelecionada.cidade, donoNome].filter(Boolean).join(' · ') || 'Propriedade selecionada'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={limparPropriedade}
+                  className="text-blue-600 text-sm underline shrink-0 ml-2"
+                >
+                  trocar
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={limparPropriedade}
-                className="text-blue-600 text-sm underline shrink-0 ml-2"
-              >
-                trocar
-              </button>
+
+              {/* Outra propriedade do mesmo cliente (só quando há dono) */}
+              {propSelecionada.cliente_dono_id && !showOutraProp && (
+                <button
+                  type="button"
+                  onClick={() => setShowOutraProp(true)}
+                  className="text-xs text-blue-600 font-medium"
+                >
+                  + Outra propriedade deste cliente
+                </button>
+              )}
+              {propSelecionada.cliente_dono_id && showOutraProp && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2 animate-slide-up">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Nova propriedade deste cliente</p>
+                    <button type="button" onClick={() => setShowOutraProp(false)} className="text-xs text-slate-500">Cancelar</button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Nome da propriedade / fazenda *"
+                    value={novaProp.nome}
+                    onChange={(e) => setNovaProp({ ...novaProp, nome: e.target.value })}
+                    className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Cidade (opcional)"
+                    value={novaProp.cidade}
+                    onChange={(e) => setNovaProp({ ...novaProp, cidade: e.target.value })}
+                    className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                  <select
+                    value={novaProp.cultura_principal}
+                    onChange={(e) => setNovaProp({ ...novaProp, cultura_principal: e.target.value })}
+                    className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">Cultura principal *</option>
+                    {CULTURAS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <select
+                    value={novaProp.cultura_secundaria}
+                    onChange={(e) => setNovaProp({ ...novaProp, cultura_secundaria: e.target.value })}
+                    className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">Cultura secundária (opcional)</option>
+                    {CULTURAS.filter((c) => c !== novaProp.cultura_principal).map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={salvarOutraProp}
+                    className="w-full bg-blue-700 text-white py-2 rounded-lg text-sm font-medium"
+                  >
+                    Salvar propriedade
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div>
@@ -345,27 +432,16 @@ export default function Visitas() {
           {showNovoCliente && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2 animate-slide-up">
               <p className="text-xs font-medium text-blue-700">Cadastrar cliente novo (primeiro contato)</p>
-              <input
-                type="text"
-                placeholder="Nome do cliente / dono *"
-                value={novoCliente.nome_cliente}
-                onChange={(e) => setNovoCliente({ ...novoCliente, nome_cliente: e.target.value })}
-                className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
-              />
-              <input
-                type="text"
-                placeholder="Nome da propriedade / fazenda *"
-                value={novoCliente.nome_propriedade}
-                onChange={(e) => setNovoCliente({ ...novoCliente, nome_propriedade: e.target.value })}
-                className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
-              />
-              <div className="grid grid-cols-2 gap-2">
+
+              {/* Bloco CLIENTE (pessoa) */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Cliente (pessoa)</p>
                 <input
                   type="text"
-                  placeholder="Cidade (opcional)"
-                  value={novoCliente.cidade}
-                  onChange={(e) => setNovoCliente({ ...novoCliente, cidade: e.target.value })}
-                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Nome do cliente / dono *"
+                  value={novoCliente.nome_cliente}
+                  onChange={(e) => setNovoCliente({ ...novoCliente, nome_cliente: e.target.value })}
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
                 />
                 <input
                   type="tel"
@@ -373,25 +449,44 @@ export default function Visitas() {
                   placeholder="Telefone (opcional)"
                   value={novoCliente.telefone}
                   onChange={(e) => setNovoCliente({ ...novoCliente, telefone: maskTelefone(e.target.value) })}
-                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm"
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
-              <select
-                value={novoCliente.cultura_principal}
-                onChange={(e) => setNovoCliente({ ...novoCliente, cultura_principal: e.target.value })}
-                className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white"
-              >
-                <option value="">Cultura principal *</option>
-                {CULTURAS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select
-                value={novoCliente.cultura_secundaria}
-                onChange={(e) => setNovoCliente({ ...novoCliente, cultura_secundaria: e.target.value })}
-                className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white"
-              >
-                <option value="">Cultura secundária (opcional)</option>
-                {CULTURAS.filter((c) => c !== novoCliente.cultura_principal).map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+
+              {/* Bloco PROPRIEDADE (fazenda) */}
+              <div className="space-y-2 pt-2 border-t border-blue-200">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Propriedade (fazenda)</p>
+                <input
+                  type="text"
+                  placeholder="Nome da propriedade / fazenda *"
+                  value={novoCliente.nome_propriedade}
+                  onChange={(e) => setNovoCliente({ ...novoCliente, nome_propriedade: e.target.value })}
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Cidade (opcional)"
+                  value={novoCliente.cidade}
+                  onChange={(e) => setNovoCliente({ ...novoCliente, cidade: e.target.value })}
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
+                />
+                <select
+                  value={novoCliente.cultura_principal}
+                  onChange={(e) => setNovoCliente({ ...novoCliente, cultura_principal: e.target.value })}
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">Cultura principal *</option>
+                  {CULTURAS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select
+                  value={novoCliente.cultura_secundaria}
+                  onChange={(e) => setNovoCliente({ ...novoCliente, cultura_secundaria: e.target.value })}
+                  className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">Cultura secundária (opcional)</option>
+                  {CULTURAS.filter((c) => c !== novoCliente.cultura_principal).map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
               <button
                 type="button"
                 onClick={async () => {
