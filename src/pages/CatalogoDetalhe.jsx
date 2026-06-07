@@ -139,7 +139,13 @@ function CompartilharWhatsApp({ partes }) {
   }
 
   async function baixarComoArquivo(url, nomePadrao, mimePadrao) {
-    const r = await fetch(url)
+    // Cache-buster: a foto do produto é exibida via <img> (modo no-cors), e o
+    // service worker (CacheFirst em /storage/v1/object/public/) guarda essa
+    // resposta OPACA. Um fetch normal aqui pegaria a opaca do cache e estouraria
+    // ("Failed to fetch"), deixando foto/folheto sem anexar no WhatsApp. A query
+    // única força o SW a buscar da rede em modo cors (legível).
+    const sep = url.includes('?') ? '&' : '?'
+    const r = await fetch(`${url}${sep}_share=${Date.now()}`, { cache: 'no-store' })
     if (!r.ok) throw new Error(`Falha baixando ${url}: HTTP ${r.status}`)
     const blob = await r.blob()
     const nome = nomeDaUrl(url, nomePadrao)
