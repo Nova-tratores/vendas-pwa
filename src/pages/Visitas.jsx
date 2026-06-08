@@ -53,7 +53,7 @@ export default function Visitas() {
   const [novaProp, setNovaProp] = useState({ nome: '', cidade: '', cultura_principal: '', cultura_secundaria: '' })
   const [showNegocio, setShowNegocio] = useState(false)
   const [showNovoNegocio, setShowNovoNegocio] = useState(false)
-  const [novoNegocio, setNovoNegocio] = useState({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '' })
+  const [novoNegocio, setNovoNegocio] = useState({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '', data_fechamento_prevista: '' })
   const [negocioVinculado, setNegocioVinculado] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm] = useState(null)
@@ -539,9 +539,9 @@ export default function Visitas() {
                 <button
                   type="button"
                   onClick={() => setShowNovaPessoa(!showNovaPessoa)}
-                  className="text-xs text-blue-600 font-medium"
+                  className={`text-xs font-medium px-2.5 py-1 rounded-lg ${showNovaPessoa ? 'text-blue-600' : 'text-blue-700 border border-blue-300'} ${!showNovaPessoa && form.pessoa_ids.length === 0 ? 'animate-pulse-glow' : ''}`}
                 >
-                  {showNovaPessoa ? 'Cancelar' : '+ Nova pessoa'}
+                  {showNovaPessoa ? 'Cancelar' : '👤 Nova pessoa'}
                 </button>
               </div>
 
@@ -950,6 +950,15 @@ export default function Visitas() {
                       <option key={s.key} value={s.key}>{s.label}</option>
                     ))}
                   </select>
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">Previsão de fechamento <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      value={novoNegocio.data_fechamento_prevista}
+                      onChange={(e) => setNovoNegocio({ ...novoNegocio, data_fechamento_prevista: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
+                    />
+                  </div>
                   <CidadeSelect
                     value={novoNegocio.cidade}
                     onChange={(cidade) => setNovoNegocio({ ...novoNegocio, cidade })}
@@ -975,7 +984,12 @@ export default function Visitas() {
                     >Cancelar</button>
                     <button
                       type="button"
+                      disabled={!novoNegocio.data_fechamento_prevista}
                       onClick={async () => {
+                        if (!novoNegocio.data_fechamento_prevista) {
+                          alert('Defina a previsão de fechamento do negócio')
+                          return
+                        }
                         const vendedor = JSON.parse(localStorage.getItem('vendedor'))
                         const now = new Date().toISOString()
                         const negId = await saveRecord('negocios', {
@@ -985,7 +999,7 @@ export default function Visitas() {
                           status: novoNegocio.status,
                           valor: novoNegocio.valor ? parseFloat(novoNegocio.valor) : null,
                           motivo_perda: null,
-                          data_fechamento_prevista: null,
+                          data_fechamento_prevista: novoNegocio.data_fechamento_prevista || null,
                           notas: novoNegocio.notas,
                           cidade: novoNegocio.cidade || null,
                           maquina_familia: novoNegocio.maquina_familia || null,
@@ -998,13 +1012,13 @@ export default function Visitas() {
                         const negCriado = { id: negId, ...novoNegocio, valor: novoNegocio.valor ? parseFloat(novoNegocio.valor) : null }
                         setNegocioVinculado(negCriado)
                         setForm((f) => ({ ...f, negocio_id: negId }))
-                        setNovoNegocio({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '' })
+                        setNovoNegocio({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '', data_fechamento_prevista: '' })
                         setShowNovoNegocio(false)
                         setShowNegocio(false)
                         // Recarregar negócios
                         carregar()
                       }}
-                      className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-medium"
+                      className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                     >Criar e Vincular</button>
                   </div>
                 </div>

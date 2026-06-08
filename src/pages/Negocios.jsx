@@ -11,15 +11,8 @@ import MaquinaSelect from '../components/MaquinaSelect'
 const STATUS_FUNIL = STATUS_NEGOCIO
 const STATUS_PERDIDO = 'fechamento_negativo'
 
-const HORIZONTES = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'atrasado', label: 'Atrasados' },
-  { key: 'proximos_30', label: 'Próx. 30 dias' },
-  { key: 'proximos_90', label: 'Próx. 90 dias' },
-  { key: 'distante', label: 'Mais distantes' },
-  { key: 'sem_data', label: 'Sem data' },
-]
-
+// Classifica o negócio por prazo de fechamento — usado só para o selo "Atrasado"
+// no card (o filtro de prazo foi removido por ser redundante/pouco preenchido).
 function classificarHorizonte(negocio, hoje) {
   if (!negocio.data_fechamento_prevista) return 'sem_data'
   const prevista = new Date(negocio.data_fechamento_prevista)
@@ -37,7 +30,6 @@ export default function Negocios() {
   const [negocios, setNegocios] = useState([])
   const [clientes, setClientes] = useState([])
   const [filtroStatus, setFiltroStatus] = useState('todos')
-  const [filtroHorizonte, setFiltroHorizonte] = useState('todos')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm] = useState(null)
@@ -173,17 +165,8 @@ export default function Negocios() {
   hoje.setHours(0, 0, 0, 0)
   const negociosComHorizonte = negocios.map((n) => ({ ...n, _horizonte: classificarHorizonte(n, hoje) }))
 
-  let negociosFiltrados = negociosComHorizonte
+  const negociosFiltrados = negociosComHorizonte
     .filter((n) => filtroStatus === 'todos' || n.status === filtroStatus)
-    .filter((n) => filtroHorizonte === 'todos' || n._horizonte === filtroHorizonte)
-
-  if (filtroHorizonte !== 'todos' && filtroHorizonte !== 'sem_data') {
-    negociosFiltrados = [...negociosFiltrados].sort((a, b) => {
-      if (!a.data_fechamento_prevista) return 1
-      if (!b.data_fechamento_prevista) return -1
-      return new Date(a.data_fechamento_prevista) - new Date(b.data_fechamento_prevista)
-    })
-  }
 
   const totalValor = negocios
     .filter((n) => !isPerdido(n.status))
@@ -200,7 +183,7 @@ export default function Negocios() {
         <p className="text-xs text-slate-400 mt-1">Novos negócios são criados ao registrar uma visita.</p>
       </div>
 
-      {/* Filtros (status + horizonte) num único scroll horizontal */}
+      {/* Filtro por etapa do funil */}
       <div className="flex gap-1 overflow-x-auto pb-2 mb-3 items-center">
         <button
           onClick={() => setFiltroStatus('todos')}
@@ -220,35 +203,13 @@ export default function Negocios() {
             </button>
           )
         })}
-
-        <span className="w-px h-5 bg-slate-300 mx-1 shrink-0" aria-hidden="true" />
-
-        {HORIZONTES.map((h) => {
-          const count = h.key === 'todos'
-            ? negociosComHorizonte.length
-            : negociosComHorizonte.filter((n) => n._horizonte === h.key).length
-          const ativo = filtroHorizonte === h.key
-          const isAtrasado = h.key === 'atrasado'
-          const baseClass = ativo
-            ? (isAtrasado ? 'bg-red-600 text-white border-red-600' : 'bg-slate-700 text-white border-slate-700')
-            : (isAtrasado && count > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-slate-600 border-slate-300')
-          return (
-            <button
-              key={h.key}
-              onClick={() => setFiltroHorizonte(h.key)}
-              className={`px-3 py-1 rounded-full text-xs whitespace-nowrap border ${baseClass}`}
-            >
-              {h.label} ({count})
-            </button>
-          )
-        })}
       </div>
 
       {negociosFiltrados.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-4xl mb-3">💰</p>
-          <p className="text-slate-400">{filtroStatus === 'todos' && filtroHorizonte === 'todos' ? 'Nenhum negócio cadastrado' : 'Nenhum negócio neste filtro'}</p>
-          {filtroStatus === 'todos' && filtroHorizonte === 'todos' && (
+          <p className="text-slate-400">{filtroStatus === 'todos' ? 'Nenhum negócio cadastrado' : 'Nenhum negócio neste filtro'}</p>
+          {filtroStatus === 'todos' && (
             <Link to="/visitas" className="text-blue-700 text-sm mt-2 font-medium inline-block">
               Registrar uma visita →
             </Link>
