@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { getAllRecords, saveRecord, deleteRecord, registrarLog } from '../lib/db'
 import { TIPOS_PRODUTO, MARCAS } from '../lib/constants'
 import { STATUS_NEGOCIO, MOTIVOS_PERDA, isAberto, isPerdido, FORMAS_PAGAMENTO, TEMPERATURAS, tendenciaNegocio } from '../lib/funil'
@@ -27,6 +27,7 @@ function classificarHorizonte(negocio, hoje) {
 }
 
 export default function Negocios() {
+  const navigate = useNavigate()
   const [negocios, setNegocios] = useState([])
   const [clientes, setClientes] = useState([])
   const [filtroStatus, setFiltroStatus] = useState('todos')
@@ -289,6 +290,17 @@ export default function Negocios() {
                       return tr ? <span className={`text-[11px] font-bold ml-auto ${tr.cor}`}>{tr.icon} {tr.label}</span> : null
                     })()}
                   </div>
+                )}
+
+                {/* Registrar visita já vinculada a este negócio */}
+                {isAberto(n.status) && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/visitas', { state: { negocioId: n.id, propriedadeId: n.propriedade_id, clienteId: n.cliente_id } })}
+                    className="mt-2 w-full py-2 rounded-lg text-sm font-medium border border-blue-200 bg-blue-50 text-blue-700 active:bg-blue-100"
+                  >
+                    📍 Registrar visita
+                  </button>
                 )}
 
                 {/* Mudança rápida de etapa (select, pois são 11 etapas) */}

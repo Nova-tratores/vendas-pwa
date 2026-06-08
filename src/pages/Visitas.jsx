@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getAllRecords, getByIndex, getRecord, deleteRecord, saveRecord, registrarLog } from '../lib/db'
 import { useCheckin } from '../hooks/useCheckin'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
 import { TIPOS_PRODUTO, MARCAS, CULTURAS } from '../lib/constants'
-import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, statusLabel } from '../lib/funil'
+import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPERATURAS } from '../lib/funil'
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
 import { maskTelefone } from '../lib/masks'
@@ -32,6 +32,8 @@ const TIPO_COLORS = {
 
 export default function Visitas() {
   const { loading, erroGPS, gpsData, fotoPreview, iniciarCheckin, tirarFoto, salvarVisita, resetCheckin } = useCheckin()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
   const [visitas, setVisitas] = useState([])
   const [clientes, setClientes] = useState([])
@@ -55,6 +57,7 @@ export default function Visitas() {
   const [showNovoNegocio, setShowNovoNegocio] = useState(false)
   const [novoNegocio, setNovoNegocio] = useState({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '', data_fechamento_prevista: '' })
   const [negocioVinculado, setNegocioVinculado] = useState(null)
+  const [negUpdate, setNegUpdate] = useState({ temperatura: '', novo_prazo: '', novo_valor: '' })
   const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm] = useState(null)
   const [veiculosDisp, setVeiculosDisp] = useState([])
@@ -74,6 +77,25 @@ export default function Visitas() {
   })
 
   useEffect(() => { carregar() }, [])
+
+  // Pré-vínculo vindo da aba Negócios ("Registrar visita"): abre o check-in já
+  // com a propriedade selecionada e o negócio vinculado, pronto pra atualizar.
+  useEffect(() => {
+    const st = location.state
+    if (!st?.negocioId) return
+    const neg = negocios.find((n) => String(n.id) === String(st.negocioId))
+    if (!neg) return // espera os negócios carregarem
+    setShowForm(true)
+    iniciarCheckin()
+    setForm((f) => ({ ...f, tipo: 'presencial', data_visita: getLocalDatetime() }))
+    if (st.propriedadeId != null) {
+      const p = propriedadesAll.find((x) => String(x.id) === String(st.propriedadeId))
+      if (p) selecionarPropriedade(p)
+    }
+    vincularNegocio(neg)
+    navigate('.', { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, negocios, propriedadesAll])
 
   async function carregar() {
     setVisitas(await getAllRecords('visitas'))
@@ -140,12 +162,30 @@ export default function Visitas() {
     e.preventDefault()
     try {
       await salvarVisita(form)
+      // Se a visita está ligada a um negócio em andamento, atualiza o estado
+      // do negócio (temperatura obrigatória; novo prazo/valor se informados).
+      if (form.negocio_id && negUpdate.temperatura) {
+        const neg = await getRecord('negocios', Number(form.negocio_id))
+        if (neg) {
+          const novoValor = negUpdate.novo_valor !== '' ? parseFloat(negUpdate.novo_valor) : neg.valor
+          await saveRecord('negocios', {
+            ...neg,
+            temperatura: negUpdate.temperatura,
+            temperatura_anterior: negUpdate.temperatura !== neg.temperatura ? (neg.temperatura || null) : (neg.temperatura_anterior || null),
+            data_fechamento_prevista: negUpdate.novo_prazo || neg.data_fechamento_prevista || null,
+            valor: novoValor,
+            updated_at: new Date().toISOString(),
+          })
+          await registrarLog('alterar', 'negocios', neg.id, `Atualização via visita — temperatura: ${neg.temperatura || '—'} → ${negUpdate.temperatura}`)
+        }
+      }
       setSucesso(true)
       setShowForm(false)
       resetCheckin()
       setClienteSelecionado('')
       setBuscaProp('')
       setNegocioVinculado(null)
+      setNegUpdate({ temperatura: '', novo_prazo: '', novo_valor: '' })
       setForm({ propriedade_id: '', tipo: '', negocio_id: '', pessoa_ids: [], maquina_ids: [], resumo: '', proximos_passos: '', data_proximo_contato: '', acionar_pos_vendas: false, data_visita: '', veiculo: '' })
       carregar()
       setTimeout(() => setSucesso(false), 3000)
@@ -163,6 +203,28 @@ export default function Visitas() {
   const donoNome = clienteSelecionado
     ? (clientes.find((c) => String(c.id) === String(clienteSelecionado))?.nome || '')
     : ''
+
+  // Negócios EM ANDAMENTO da propriedade selecionada (pra destacar no check-in)
+  const negociosAbertosProp = form.propriedade_id
+    ? negocios.filter((n) => String(n.propriedade_id) === String(form.propriedade_id) && isAberto(n.status))
+    : []
+  const negocioAbertoVinculado = negocioVinculado && isAberto(negocioVinculado.status)
+
+  // Vincula um negócio aberto e pré-preenche os campos de atualização da visita
+  function vincularNegocio(n) {
+    setNegocioVinculado(n)
+    setForm((f) => ({ ...f, negocio_id: n.id }))
+    setNegUpdate({
+      temperatura: n.temperatura || '',
+      novo_prazo: n.data_fechamento_prevista || '',
+      novo_valor: n.valor != null ? String(n.valor) : '',
+    })
+  }
+  function desvincularNegocio() {
+    setNegocioVinculado(null)
+    setForm((f) => ({ ...f, negocio_id: '' }))
+    setNegUpdate({ temperatura: '', novo_prazo: '', novo_valor: '' })
+  }
 
   // Resultados da busca de propriedade (limita a 50 pra não pesar no mobile)
   const resultadosBusca = (() => {
@@ -531,6 +593,91 @@ export default function Visitas() {
           )}
           </>)}
 
+          {/* Negócio em andamento deste cliente — destaque + atualização obrigatória */}
+          {form.propriedade_id && (negociosAbertosProp.length > 0 || negocioVinculado) && (
+            <div className="animate-slide-up">
+              {negocioVinculado ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-green-800">Negócio vinculado</p>
+                      <p className="text-xs text-green-600 truncate">
+                        {statusLabel(negocioVinculado.status)}
+                        {negocioVinculado.valor ? ` · R$ ${Number(negocioVinculado.valor).toLocaleString('pt-BR')}` : ''}
+                      </p>
+                    </div>
+                    <button type="button" onClick={desvincularNegocio} className="text-green-600 text-lg px-1 shrink-0">&times;</button>
+                  </div>
+
+                  {negocioAbertoVinculado && (
+                    <div className="space-y-2 pt-1">
+                      <div>
+                        <p className="text-xs text-slate-600 mb-1">Temperatura do negócio <span className="text-red-500">*</span></p>
+                        <div className="flex gap-2">
+                          {TEMPERATURAS.map((t) => (
+                            <button
+                              key={t.key}
+                              type="button"
+                              onClick={() => setNegUpdate({ ...negUpdate, temperatura: t.key })}
+                              className={`flex-1 py-2 rounded-lg text-sm font-medium border ${negUpdate.temperatura === t.key ? t.sel : t.off}`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] text-slate-500 mb-1">Novo prazo</label>
+                          <input
+                            type="date"
+                            value={negUpdate.novo_prazo}
+                            onChange={(e) => setNegUpdate({ ...negUpdate, novo_prazo: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-slate-500 mb-1">Novo valor (R$)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            inputMode="decimal"
+                            value={negUpdate.novo_valor}
+                            onChange={(e) => setNegUpdate({ ...negUpdate, novo_valor: e.target.value })}
+                            placeholder="0,00"
+                            className="w-full border border-slate-300 rounded-lg px-2 py-2 text-sm bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium text-amber-800">⚠ Este cliente tem {negociosAbertosProp.length} negócio(s) em andamento</p>
+                  <div className="space-y-1.5">
+                    {negociosAbertosProp.map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => vincularNegocio(n)}
+                        className="w-full text-left bg-white border border-amber-200 rounded-lg px-3 py-2 active:bg-amber-100"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-slate-700 truncate">
+                            {statusLabel(n.status)}{n.valor ? ` · R$ ${Number(n.valor).toLocaleString('pt-BR')}` : ''}
+                          </span>
+                          <span className="text-xs text-amber-700 font-medium shrink-0">Atualizar →</span>
+                        </div>
+                        {n.notas && <p className="text-xs text-slate-400 truncate">{n.notas}</p>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Pessoas — obrigatória (aparece após selecionar a propriedade) */}
           {form.propriedade_id && (
             <div>
@@ -664,24 +811,9 @@ export default function Visitas() {
             )}
           </div>
 
-          {/* Negócio (opcional) */}
-          <div>
-            {negocioVinculado ? (
-              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                <div>
-                  <p className="text-sm font-medium text-green-800">Negócio vinculado</p>
-                  <p className="text-xs text-green-600">
-                    {negocioVinculado.notas || negocioVinculado.status}
-                    {negocioVinculado.valor ? ` - R$ ${Number(negocioVinculado.valor).toLocaleString('pt-BR')}` : ''}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setNegocioVinculado(null); setForm({ ...form, negocio_id: '' }) }}
-                  className="text-green-600 text-lg px-1"
-                >&times;</button>
-              </div>
-            ) : (
+          {/* Negócio (opcional) — entrada manual; o vinculado e a atualização aparecem acima */}
+          {!negocioVinculado && (
+            <div>
               <button
                 type="button"
                 onClick={() => setShowNegocio(true)}
@@ -689,8 +821,8 @@ export default function Visitas() {
               >
                 + Vincular Negócio
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Máquinas */}
           {form.propriedade_id && (
@@ -868,7 +1000,7 @@ export default function Visitas() {
             </button>
             <button
               type="submit"
-              disabled={!form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim()}
+              disabled={!form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || (negocioAbertoVinculado && !negUpdate.temperatura)}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
               {tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}
@@ -1010,8 +1142,7 @@ export default function Visitas() {
                         })
                         await registrarLog('criar', 'negocios', negId, `Negócio: R$ ${novoNegocio.valor || '0'} (via visita)`)
                         const negCriado = { id: negId, ...novoNegocio, valor: novoNegocio.valor ? parseFloat(novoNegocio.valor) : null }
-                        setNegocioVinculado(negCriado)
-                        setForm((f) => ({ ...f, negocio_id: negId }))
+                        vincularNegocio(negCriado)
                         setNovoNegocio({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '', data_fechamento_prevista: '' })
                         setShowNovoNegocio(false)
                         setShowNegocio(false)
@@ -1033,8 +1164,7 @@ export default function Visitas() {
                       key={n.id}
                       type="button"
                       onClick={() => {
-                        setNegocioVinculado(n)
-                        setForm((f) => ({ ...f, negocio_id: n.id }))
+                        vincularNegocio(n)
                         setShowNegocio(false)
                         setShowNovoNegocio(false)
                       }}
