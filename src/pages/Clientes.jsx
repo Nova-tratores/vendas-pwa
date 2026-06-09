@@ -377,6 +377,14 @@ function IconTrator({ className }) {
     </svg>
   )
 }
+// Relógio com seta de volta = histórico de visitas.
+function IconHistorico({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M13 3a9 9 0 1 0 8.9 10.5h-2.1A6.9 6.9 0 1 1 13 5.1V8l4-4-4-4v3Zm-1 4v5.4l4.3 2.6.8-1.3-3.6-2.1V7H12Z" />
+    </svg>
+  )
+}
 
 function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas = 0, nMaquinas = 0, compact }) {
   const temCultura = Array.isArray(prop.culturas) && prop.culturas.length > 0
@@ -411,6 +419,11 @@ function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas =
           onClick={(e) => { e.stopPropagation(); navigate(`/maquinas/${prop.id}`) }}
           className={nMaquinas > 0 ? aceso : apagado}>
           <IconTrator className="w-5 h-5" />
+        </button>
+        <button type="button" title="Histórico de visitas" aria-label="Histórico de visitas"
+          onClick={(e) => { e.stopPropagation(); navigate(`/historico-visitas/${prop.id}`) }}
+          className="text-slate-500 hover:text-blue-600">
+          <IconHistorico className="w-5 h-5" />
         </button>
         <span className={`w-2 h-2 rounded-full ${prop.status_sync === 'synced' ? 'bg-green-500' : 'bg-yellow-500'}`} />
         <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>

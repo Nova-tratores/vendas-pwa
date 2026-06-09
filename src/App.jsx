@@ -14,6 +14,7 @@ import CatalogoDetalhe from './pages/CatalogoDetalhe'
 import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
 import VisitasMapa from './pages/VisitasMapa'
+import VisitasCliente from './pages/VisitasCliente'
 import ChamadoVeicular from './pages/ChamadoVeicular'
 import Notificacoes from './pages/Notificacoes'
 
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="maquinas/:propriedadeId" element={<Maquinas />} />
         <Route path="visitas" element={<Visitas />} />
         <Route path="visitas/mapa" element={<VisitasMapa />} />
+        <Route path="historico-visitas/:propriedadeId" element={<VisitasCliente />} />
         <Route path="chamado-veicular" element={<ChamadoVeicular />} />
         <Route path="notificacoes" element={<Notificacoes />} />
         <Route path="negocios" element={<Negocios />} />
