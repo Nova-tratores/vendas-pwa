@@ -115,7 +115,17 @@ export default function Layout() {
                   className="fixed inset-0 z-40"
                   onClick={() => setMenuAberto(false)}
                 />
-                <div className="absolute right-0 mt-2 w-44 bg-white text-slate-700 rounded-xl shadow-xl py-1 z-50 animate-scale-in origin-top-right">
+                <div className="absolute right-0 mt-2 w-52 bg-white text-slate-700 rounded-xl shadow-xl py-1 z-50 animate-scale-in origin-top-right">
+                  <button
+                    onClick={() => {
+                      setMenuAberto(false)
+                      navigate('/chamado-veicular')
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
+                  >
+                    <span>🚗</span> Chamado Veicular
+                  </button>
+                  <div className="border-t border-slate-100 my-1" />
                   <button
                     onClick={() => {
                       setMenuAberto(false)

@@ -928,13 +928,14 @@ export default function Visitas() {
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, acionar_pos_vendas: !form.acionar_pos_vendas })}
-                  className={`mt-2 w-full py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                  className={`mt-3 w-full py-3.5 rounded-xl text-base font-bold border-2 shadow-md transition-colors flex items-center justify-center gap-2 ${
                     form.acionar_pos_vendas
-                      ? 'bg-orange-500 text-white border-orange-500'
-                      : 'bg-white text-orange-600 border-orange-300'
+                      ? 'bg-orange-500 text-white border-orange-600'
+                      : 'bg-orange-50 text-orange-700 border-orange-400 animate-pulse-glow'
                   }`}
                 >
-                  {form.acionar_pos_vendas ? '✓ Pós Vendas será acionado' : 'Acionar Pós Vendas'}
+                  <span className="text-xl">🛠️</span>
+                  {form.acionar_pos_vendas ? 'Pós Vendas SERÁ acionado' : 'Acionar Pós Vendas'}
                 </button>
               )}
             </div>

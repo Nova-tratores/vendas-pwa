@@ -14,6 +14,7 @@ import CatalogoDetalhe from './pages/CatalogoDetalhe'
 import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
 import VisitasMapa from './pages/VisitasMapa'
+import ChamadoVeicular from './pages/ChamadoVeicular'
 
 // Supervisor
 import SupervisorLogin from './supervisor/SupervisorLogin'
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="maquinas/:propriedadeId" element={<Maquinas />} />
         <Route path="visitas" element={<Visitas />} />
         <Route path="visitas/mapa" element={<VisitasMapa />} />
+        <Route path="chamado-veicular" element={<ChamadoVeicular />} />
         <Route path="negocios" element={<Negocios />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
