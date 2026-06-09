@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { getAllRecords } from '../lib/db'
+import { PERIODOS, dentroDoPeriodo } from '../lib/tempo'
 
 // Fix icone padrao do leaflet (Vite quebra URLs default)
 delete L.Icon.Default.prototype._getIconUrl
@@ -46,6 +47,7 @@ export default function VisitasMapa() {
   const [propriedades, setPropriedades] = useState([])
   const [clientes, setClientes] = useState([])
   const [loading, setLoading] = useState(true)
+  const [periodo, setPeriodo] = useState('tudo')
 
   useEffect(() => { carregar() }, [])
 
@@ -89,6 +91,12 @@ export default function VisitasMapa() {
       .sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))
   , [visitas, propMap, cliMap])
 
+  // Filtro por período (dropdown). 'tudo' deixa passar todos.
+  const pontosFiltrados = useMemo(
+    () => pontos.filter((p) => dentroDoPeriodo(p.data_visita, periodo)),
+    [pontos, periodo]
+  )
+
   const semGps = visitas.length - pontos.length
   const centroDefault = [-22.32, -49.07]  // Bauru/SP
 
@@ -98,7 +106,8 @@ export default function VisitasMapa() {
         <div>
           <h2 className="text-xl font-bold">Mapa das visitas</h2>
           <p className="text-xs text-slate-500">
-            {pontos.length} com GPS{semGps > 0 && ` · ${semGps} sem GPS (não aparecem)`}
+            {pontosFiltrados.length} no mapa{periodo !== 'tudo' && ` de ${pontos.length} com GPS`}
+            {semGps > 0 && ` · ${semGps} sem GPS (não aparecem)`}
           </p>
         </div>
         <Link
@@ -109,16 +118,34 @@ export default function VisitasMapa() {
         </Link>
       </div>
 
+      {/* Filtro de período */}
+      <div className="mb-2">
+        <select
+          value={periodo}
+          onChange={(e) => setPeriodo(e.target.value)}
+          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
+        >
+          {PERIODOS.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="bg-white rounded-xl shadow overflow-hidden" style={{ height: '70vh', minHeight: 420 }}>
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-6 h-6 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : pontos.length === 0 ? (
+        ) : pontosFiltrados.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-slate-400 text-center px-4">
-              Nenhuma visita com GPS ainda.<br />
-              <span className="text-xs">Visitas presenciais capturam GPS automaticamente.</span>
+              {pontos.length === 0 ? (
+                <>Nenhuma visita com GPS ainda.<br />
+                <span className="text-xs">Visitas presenciais capturam GPS automaticamente.</span></>
+              ) : (
+                <>Nenhuma visita com GPS neste período.<br />
+                <span className="text-xs">Troque o filtro acima.</span></>
+              )}
             </p>
           </div>
         ) : (
@@ -127,8 +154,8 @@ export default function VisitasMapa() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <FitBounds pontos={pontos} />
-            {pontos.map((p) => {
+            <FitBounds pontos={pontosFiltrados} />
+            {pontosFiltrados.map((p) => {
               const data = new Date(p.data_visita)
               const dataStr = data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
               return (

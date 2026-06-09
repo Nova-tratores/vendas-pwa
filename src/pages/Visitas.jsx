@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getAllRecords, getByIndex, getRecord, deleteRecord, saveRecord, registrarLog } from '../lib/db'
 import { useCheckin } from '../hooks/useCheckin'
@@ -10,6 +10,7 @@ import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPE
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
 import { maskTelefone } from '../lib/masks'
+import { sugerirPropriedades } from '../lib/sugestao'
 
 const TIPO_LABELS = {
   presencial: 'Presencial',
@@ -240,6 +241,28 @@ export default function Visitas() {
     }
     return out
   })()
+
+  // Sugestão de cliente já cadastrado enquanto preenche o "+ Novo" — compara
+  // o nome digitado + cidade + GPS atual com as propriedades existentes, para
+  // não duplicar um cliente que já existe.
+  const sugestoesNovoCliente = useMemo(() => {
+    if (!showNovoCliente) return []
+    return sugerirPropriedades({
+      nome: novoCliente.nome_cliente,
+      cidade: novoCliente.cidade,
+      lat: gpsData?.latitude,
+      lng: gpsData?.longitude,
+      propriedades: propriedadesAll,
+      clientes,
+    })
+  }, [showNovoCliente, novoCliente.nome_cliente, novoCliente.cidade, gpsData, propriedadesAll, clientes])
+
+  // Seleciona uma propriedade sugerida e fecha o mini-form de novo cliente.
+  function usarSugestao(p) {
+    setShowNovoCliente(false)
+    setNovoCliente({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '', cultura_principal: '', cultura_secundaria: '' })
+    selecionarPropriedade(p)
+  }
 
   function getLocalDatetime() {
     const now = new Date()
@@ -495,6 +518,35 @@ export default function Visitas() {
           {showNovoCliente && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2 animate-slide-up">
               <p className="text-xs font-medium text-blue-700">Cadastrar cliente novo (primeiro contato)</p>
+
+              {/* Sugestão: já existe um cliente parecido? (evita duplicar) */}
+              {sugestoesNovoCliente.length > 0 && (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-2.5 space-y-1.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                    Já cadastrado? Talvez seja um destes
+                  </p>
+                  {sugestoesNovoCliente.map((s) => (
+                    <button
+                      key={s.propriedade.id}
+                      type="button"
+                      onClick={() => usarSugestao(s.propriedade)}
+                      className="w-full text-left bg-white border border-amber-200 rounded-lg px-3 py-2 active:bg-amber-100"
+                    >
+                      <p className="text-sm font-medium text-slate-700 truncate">
+                        {s.dono?.nome || s.propriedade.nome || s.propriedade.nome_fantasia}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">
+                        {[
+                          s.propriedade.nome || s.propriedade.nome_fantasia,
+                          s.propriedade.cidade,
+                          s.distKm <= 10 ? `~${s.distKm < 1 ? '<1' : s.distKm.toFixed(0)} km` : null,
+                        ].filter(Boolean).join(' · ')}
+                      </p>
+                    </button>
+                  ))}
+                  <p className="text-[11px] text-amber-700">Nenhum é esse? Continue o cadastro abaixo.</p>
+                </div>
+              )}
 
               {/* Bloco CLIENTE (pessoa) */}
               <div className="space-y-2">
