@@ -133,6 +133,18 @@ export async function remapearFilhos(paiStore, oldId, newId) {
   }
 }
 
+// Gera um id LOCAL único e NEGATIVO para registros criados no dispositivo.
+// Ids do servidor (Supabase/Omie) são sempre positivos e começam em 1, então
+// manter os locais no espaço negativo impede que um registro baixado pelo pull
+// (gravado via put no id do servidor) sobrescreva um registro criado localmente
+// que tinha o mesmo id pequeno. A reconciliação local<->servidor (chaveConteudo +
+// id_map + remapearFilhos) continua funcionando com ids negativos.
+let _localSeq = 0
+function nextLocalId() {
+  _localSeq = (_localSeq + 1) % 1000
+  return -(Date.now() * 1000 + _localSeq)
+}
+
 export async function saveRecord(store, record) {
   const db = await openDB()
   return new Promise((res, rej) => {
@@ -140,8 +152,11 @@ export async function saveRecord(store, record) {
     const objStore = tx.objectStore(store)
     const data = { ...record, status_sync: record.status_sync || 'pending' }
 
-    // Se tem id, usa put (update). Se não, usa add (insert com autoIncrement)
-    const req = data.id ? objStore.put(data) : objStore.add(data)
+    // Criação nova (sem id): atribui id local negativo e usa put (não autoIncrement,
+    // que geraria ids pequenos positivos colidindo com os ids do servidor no pull).
+    // Edição ou registro vindo do pull (já tem id): put normal.
+    if (data.id == null) data.id = nextLocalId()
+    const req = objStore.put(data)
     req.onsuccess = () => {
       // Escrita local pendente: avisa o sync pra agendar um push automático.
       // O pull grava com status_sync 'synced', então não dispara (evita loop).
