@@ -105,7 +105,8 @@ let estoqueAtualCache = null
 let overridesCache = null
 
 /**
- * Busca produtos do "Estoque atual" — ambiente=patio, ativos, não arquivados,
+ * Busca produtos do "Estoque atual" — máquinas com estoque em QUALQUER ambiente
+ * (pátio, showroom, fartura, barracão, oficina…), ativos, não arquivados,
  * não-peças. Faz merge com a tabela catalogo_overrides para preço/estoque
  * sobrescritos manualmente pelo admin.
  */
@@ -116,7 +117,6 @@ export async function getEstoqueAtual({ force = false } = {}) {
     supabase
       .from('produtos')
       .select('codigo_produto, codigo, descricao, marca, modelo, familia_nome, estoque, valor_unitario, imagem_url, ambiente, atualizado_em')
-      .eq('ambiente', 'patio')
       .eq('inativo', false)
       .eq('arquivado', false)
       .neq('familia_nome', 'Peças')
@@ -203,8 +203,7 @@ export async function getEstoqueAtualById(codigoProduto) {
 export async function getProdutosAdmin() {
   const { data, error } = await supabase
     .from('produtos')
-    .select('codigo_produto, codigo, descricao, marca, modelo, familia_nome, estoque, valor_unitario, imagem_url, atualizado_em')
-    .eq('ambiente', 'patio')
+    .select('codigo_produto, codigo, descricao, marca, modelo, familia_nome, estoque, valor_unitario, imagem_url, ambiente, atualizado_em')
     .eq('inativo', false)
     .eq('arquivado', false)
     .neq('familia_nome', 'Peças')
@@ -545,4 +544,56 @@ export async function uploadArquivoCatalogo({ slug, file }) {
     .upload(storagePath, file, { contentType: file.type || undefined, upsert: false })
   if (error) throw new Error(`Upload falhou: ${error.message}`)
   return `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${storagePath}`
+}
+
+// ====================================================================
+// COMPARTILHAMENTOS (WhatsApp) — métrica de uso do catálogo pelo vendedor
+// ====================================================================
+
+/**
+ * Registra um compartilhamento de produto pelo WhatsApp. Best-effort: nunca
+ * lança (uma falha aqui não pode atrapalhar o envio em si).
+ *
+ * @param {object} p
+ * @param {number|string|null} p.codigoProduto      - item do estoque atual (Omie)
+ * @param {number|string|null} p.catalogoProdutoId  - item do catálogo curado
+ * @param {string} p.produtoTitulo
+ * @param {string} p.telefone   - só dígitos (pode vir vazio no share nativo)
+ * @param {string} p.canal      - 'whatsapp_wame' | 'whatsapp_share'
+ * @param {string[]} p.itens    - o que foi enviado (titulo, foto, descricao, valor, folheto)
+ */
+export async function registrarCompartilhamento({ codigoProduto, catalogoProdutoId, produtoTitulo, telefone, canal, itens }) {
+  try {
+    let vendedor = {}
+    try { vendedor = JSON.parse(localStorage.getItem('vendedor') || '{}') } catch { /* ignora */ }
+    const { error } = await supabase.from('catalogo_compartilhamentos').insert({
+      vendedor_id: vendedor?.id ?? null,
+      vendedor_nome: vendedor?.nome || null,
+      codigo_produto: codigoProduto != null ? Number(codigoProduto) : null,
+      catalogo_produto_id: catalogoProdutoId != null ? Number(catalogoProdutoId) : null,
+      produto_titulo: produtoTitulo || null,
+      telefone: telefone ? String(telefone).replace(/\D/g, '') : null,
+      canal: canal || 'whatsapp_wame',
+      itens: itens && itens.length ? itens : null,
+    })
+    if (error) console.warn('[compartilhamento]', error.message)
+  } catch (err) {
+    console.warn('[compartilhamento]', err)
+  }
+}
+
+/**
+ * Lista compartilhamentos (supervisor). Traz os mais recentes primeiro.
+ */
+export async function getCompartilhamentos({ limit = 500 } = {}) {
+  const { data, error } = await supabase
+    .from('catalogo_compartilhamentos')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) {
+    console.error('[compartilhamentos]', error.message)
+    return []
+  }
+  return data || []
 }

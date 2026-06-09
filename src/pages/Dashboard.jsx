@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAllRecords } from '../lib/db'
+import { getAllRecords, getRecord } from '../lib/db'
 import { getConfig } from '../lib/supabaseQueries'
 import { STATUS_EM_ANDAMENTO, isAberto } from '../lib/funil'
 import { diasDesde } from '../lib/tempo'
@@ -168,7 +168,7 @@ export default function Dashboard() {
           </p>
           <div className="space-y-2">
             {dados.contatosAtrasados.slice(0, 3).map((v) => (
-              <ContatoCard key={v.id} visita={v} atrasado />
+              <ContatoCard key={v.id} visita={v} atrasado onClick={() => navigate('/visitas')} />
             ))}
           </div>
         </div>
@@ -213,7 +213,7 @@ export default function Dashboard() {
           <p className="text-xs font-bold text-slate-500 uppercase mb-2">Próximos contatos</p>
           <div className="space-y-2">
             {dados.proximosContatos.map((v) => (
-              <ContatoCard key={v.id} visita={v} />
+              <ContatoCard key={v.id} visita={v} onClick={() => navigate('/visitas')} />
             ))}
           </div>
         </div>
@@ -227,19 +227,9 @@ export default function Dashboard() {
             <button onClick={() => navigate('/visitas')} className="text-xs text-blue-600 font-medium">Ver todas</button>
           </div>
           <div className="space-y-2">
-            {dados.ultimasVisitas.map((v) => {
-              const data = new Date(v.data_visita)
-              return (
-                <div key={v.id} className="bg-white rounded-xl shadow p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">{v.resumo || v.tipo}</p>
-                    <p className="text-xs text-slate-400">
-                      {data.toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
+            {dados.ultimasVisitas.map((v) => (
+              <UltimaVisitaCard key={v.id} visita={v} onClick={() => navigate('/visitas')} />
+            ))}
           </div>
         </div>
       )}
@@ -247,7 +237,7 @@ export default function Dashboard() {
   )
 }
 
-function ContatoCard({ visita, atrasado }) {
+function ContatoCard({ visita, atrasado, onClick }) {
   const dataContato = new Date(visita.data_proximo_contato + 'T00:00:00')
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
@@ -260,7 +250,10 @@ function ContatoCard({ visita, atrasado }) {
   else diasLabel = `em ${dias}d`
 
   return (
-    <div className={`rounded-xl shadow p-3 ${atrasado ? 'bg-red-50 border-l-4 border-red-400' : 'bg-white'}`}>
+    <div
+      onClick={onClick}
+      className={`rounded-xl shadow p-3 ${atrasado ? 'bg-red-50 border-l-4 border-red-400' : 'bg-white'} ${onClick ? 'cursor-pointer active:opacity-80' : ''}`}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium">{visita.proximos_passos || 'Contato planejado'}</p>
@@ -275,6 +268,48 @@ function ContatoCard({ visita, atrasado }) {
           </p>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Card de "Últimas visitas": nome do cliente à esquerda, data no extremo
+// direito e a descrição (resumo) logo abaixo.
+function UltimaVisitaCard({ visita, onClick }) {
+  const [clienteNome, setClienteNome] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    getRecord('propriedades', visita.propriedade_id).then((p) => {
+      if (!alive || !p) return
+      if (p.cliente_dono_id) {
+        getRecord('clientes', p.cliente_dono_id).then((c) => {
+          if (alive) setClienteNome(c?.nome || p.razao_social || p.nome || '')
+        })
+      } else {
+        setClienteNome(p.razao_social || p.nome || '')
+      }
+    })
+    return () => { alive = false }
+  }, [visita.propriedade_id])
+
+  const data = new Date(visita.data_visita)
+
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl shadow p-3 ${onClick ? 'cursor-pointer active:opacity-80' : ''}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium truncate">{clienteNome || '...'}</p>
+        <p className="text-xs text-slate-400 whitespace-nowrap shrink-0">
+          {data.toLocaleDateString('pt-BR')}
+        </p>
+      </div>
+      {(visita.resumo || visita.proximos_passos) && (
+        <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+          {visita.resumo || visita.proximos_passos}
+        </p>
+      )}
     </div>
   )
 }

@@ -134,6 +134,7 @@ export default function Visitas() {
     const donoId = propSelecionada?.cliente_dono_id
     if (!donoId) return
     if (!novaProp.nome) { alert('Informe o nome da propriedade'); return }
+    if (!novaProp.cidade?.trim()) { alert('Informe a cidade da propriedade'); return }
     if (!novaProp.cultura_principal) { alert('Selecione a cultura principal'); return }
     const culturas = [novaProp.cultura_principal, novaProp.cultura_secundaria].filter(Boolean)
     const propId = await saveRecord('propriedades', {
@@ -415,7 +416,7 @@ export default function Visitas() {
                   />
                   <input
                     type="text"
-                    placeholder="Cidade (opcional)"
+                    placeholder="Cidade *"
                     value={novaProp.cidade}
                     onChange={(e) => setNovaProp({ ...novaProp, cidade: e.target.value })}
                     className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
@@ -527,7 +528,7 @@ export default function Visitas() {
                 />
                 <input
                   type="text"
-                  placeholder="Cidade (opcional)"
+                  placeholder="Cidade *"
                   value={novoCliente.cidade}
                   onChange={(e) => setNovoCliente({ ...novoCliente, cidade: e.target.value })}
                   className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm"
@@ -554,6 +555,10 @@ export default function Visitas() {
                 onClick={async () => {
                   if (!novoCliente.nome_cliente || !novoCliente.nome_propriedade) {
                     alert('Preencha nome do cliente e da propriedade')
+                    return
+                  }
+                  if (!novoCliente.cidade?.trim()) {
+                    alert('Informe a cidade da propriedade')
                     return
                   }
                   const vendedor = JSON.parse(localStorage.getItem('vendedor'))

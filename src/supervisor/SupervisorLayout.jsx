@@ -10,6 +10,7 @@ const navItems = [
   { to: '/supervisor/catalogo', label: 'Catálogo' },
   { to: '/supervisor/catalogo-admin', label: 'Gerir catálogo' },
   { to: '/supervisor/produtos', label: 'Produtos' },
+  { to: '/supervisor/compartilhamentos', label: 'Compartilhamentos' },
   { to: '/supervisor/visitas', label: 'Visitas' },
   { to: '/supervisor/semana', label: 'Calendário' },
   { to: '/supervisor/propostas', label: 'Propostas' },

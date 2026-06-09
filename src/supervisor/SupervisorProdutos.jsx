@@ -116,7 +116,7 @@ export default function SupervisorProdutos() {
         <div>
           <h2 className="text-xl font-bold">Produtos (admin)</h2>
           <p className="text-sm text-slate-500">
-            Ajuste preço/estoque manual e visibilidade. {produtos.length} itens em estoque (pátio).
+            Ajuste preço/estoque manual e visibilidade. {produtos.length} itens em estoque (todos os ambientes).
           </p>
         </div>
         <BotaoForceResync />

@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import {
   getEstoqueProduto, getEstoqueAtualById, formatBRL, frescorEstoque,
   getMidiasProduto, getMidiasCatalogoProduto, getProdutoCatalogoBySlug,
+  registrarCompartilhamento,
 } from '../lib/catalogoSupabase'
 
 export default function CatalogoDetalhe() {
@@ -87,8 +88,10 @@ function nomeDaUrl(url, fallback) {
   return fallback
 }
 
-function CompartilharWhatsApp({ partes }) {
+function CompartilharWhatsApp({ partes, meta }) {
   // partes: { titulo, cv, descricao, fotoUrl, fotoFetchUrl, folhetoUrl, valor }
+  // meta:   { codigoProduto, catalogoProdutoId, titulo } — identifica o produto
+  //         pra registrar o compartilhamento (métrica de uso do supervisor)
   // Cada campo so vira opcao de checkbox se vier preenchido em partes
   const [open, setOpen] = useState(false)
   const [telefone, setTelefone] = useState(() =>
@@ -176,6 +179,7 @@ function CompartilharWhatsApp({ partes }) {
     const semTelefone = telefone.length < 10
     const queriaFotoOuFolheto =
       (selecoes.foto && partes.fotoUrl) || (selecoes.folheto && partes.folhetoUrl)
+    const itensSelecionados = Object.keys(selecoes).filter((k) => selecoes[k])
 
     // Sem telefone só vale se vamos usar Web Share (que pega contato pelo share sheet do SO)
     if (semTelefone && !shareNativo) {
@@ -214,6 +218,14 @@ function CompartilharWhatsApp({ partes }) {
               files,
             })
             if (telefone) localStorage.setItem('wa_share_last', telefone)
+            registrarCompartilhamento({
+              codigoProduto: meta?.codigoProduto ?? null,
+              catalogoProdutoId: meta?.catalogoProdutoId ?? null,
+              produtoTitulo: meta?.titulo || partes.titulo,
+              telefone,
+              canal: 'whatsapp_share',
+              itens: itensSelecionados,
+            })
             setOpen(false)
             return
           } catch (err) {
@@ -235,6 +247,14 @@ function CompartilharWhatsApp({ partes }) {
       const numero = telefone.startsWith('55') ? telefone : `55${telefone}`
       const texto = encodeURIComponent(montarMensagem({ enviarComoArquivo: false }))
       localStorage.setItem('wa_share_last', telefone)
+      registrarCompartilhamento({
+        codigoProduto: meta?.codigoProduto ?? null,
+        catalogoProdutoId: meta?.catalogoProdutoId ?? null,
+        produtoTitulo: meta?.titulo || partes.titulo,
+        telefone,
+        canal: 'whatsapp_wame',
+        itens: itensSelecionados,
+      })
       window.open(`https://wa.me/${numero}?text=${texto}`, '_blank', 'noopener')
       setOpen(false)
     } finally {
@@ -532,6 +552,7 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
       <GaleriaMidias midias={midias} />
 
       <CompartilharWhatsApp
+        meta={{ catalogoProdutoId: produto.id, titulo: produto.titulo }}
         partes={{
           titulo: produto.titulo,
           cv: produto.subtitulo || null,
@@ -655,6 +676,7 @@ function DetalheEstoque({ item, loading }) {
       <GaleriaMidias midias={midias} />
 
       <CompartilharWhatsApp
+        meta={{ codigoProduto: item.codigo_produto, titulo: item.modelo || item.descricao?.slice(0, 60) || `Código ${item.codigo}` }}
         partes={{
           titulo: item.modelo || item.descricao?.slice(0, 60) || `Código ${item.codigo}`,
           cv: null,
