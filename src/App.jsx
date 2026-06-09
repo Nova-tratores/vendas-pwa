@@ -15,6 +15,7 @@ import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
 import VisitasMapa from './pages/VisitasMapa'
 import ChamadoVeicular from './pages/ChamadoVeicular'
+import Notificacoes from './pages/Notificacoes'
 
 // Supervisor
 import SupervisorLogin from './supervisor/SupervisorLogin'
@@ -31,6 +32,7 @@ import SupervisorConfig from './supervisor/SupervisorConfig'
 import SupervisorMapa from './supervisor/SupervisorMapa'
 import SupervisorClientes from './supervisor/SupervisorClientes'
 import SupervisorCidades from './supervisor/SupervisorCidades'
+import SupervisorNotificacoes from './supervisor/SupervisorNotificacoes'
 import SupervisorSemana from './supervisor/SupervisorSemana'
 import SupervisorPropostas from './supervisor/SupervisorPropostas'
 
@@ -69,6 +71,7 @@ export default function App() {
         <Route path="visitas" element={<Visitas />} />
         <Route path="visitas/mapa" element={<VisitasMapa />} />
         <Route path="chamado-veicular" element={<ChamadoVeicular />} />
+        <Route path="notificacoes" element={<Notificacoes />} />
         <Route path="negocios" element={<Negocios />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
@@ -90,6 +93,7 @@ export default function App() {
         <Route path="vendedores" element={<SupervisorVendedores />} />
         <Route path="clientes" element={<SupervisorClientes />} />
         <Route path="cidades" element={<SupervisorCidades />} />
+        <Route path="notificacoes" element={<SupervisorNotificacoes />} />
         <Route path="evolucao" element={<SupervisorEvolucao />} />
         <Route path="visitas" element={<SupervisorVisitas />} />
         <Route path="semana" element={<SupervisorSemana />} />

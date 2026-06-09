@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { setSyncCallback, setAuthRequiredCallback, syncAll, countPending, supabase } from '../lib/sync'
 import { clearAll } from '../lib/db'
 import ConfigModal from './ConfigModal'
+import { contarNotificacoes } from '../lib/notificacoes'
 
 const navItems = [
   { to: '/dashboard', label: 'Início', icon: '🏠' },
@@ -22,10 +23,27 @@ export default function Layout() {
   const [precisaReentrar, setPrecisaReentrar] = useState(false)
   const [menuAberto, setMenuAberto] = useState(false)
   const [configAberto, setConfigAberto] = useState(false)
+  const [notifCount, setNotifCount] = useState(0)
 
   const updatePending = useCallback(async () => {
     setPending(await countPending())
   }, [])
+
+  const updateNotif = useCallback(async () => {
+    try {
+      const { total } = await contarNotificacoes(vendedor.id)
+      setNotifCount(total)
+    } catch { /* ignora */ }
+  }, [vendedor.id])
+
+  // Recalcula notificações ao montar, periodicamente e ao voltar pro app.
+  useEffect(() => {
+    updateNotif()
+    const t = setInterval(updateNotif, 60000)
+    const onVis = () => { if (document.visibilityState === 'visible') updateNotif() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis) }
+  }, [updateNotif])
 
   useEffect(() => {
     const on = () => setOnline(true)
@@ -100,12 +118,17 @@ export default function Layout() {
           {/* Menu hamburguer */}
           <div className="relative">
             <button
-              onClick={() => setMenuAberto((v) => !v)}
-              className="text-lg leading-none bg-blue-900 px-2.5 py-1.5 rounded active:bg-blue-950"
+              onClick={() => { setMenuAberto((v) => !v); updateNotif() }}
+              className="relative text-lg leading-none bg-blue-900 px-2.5 py-1.5 rounded active:bg-blue-950"
               aria-label="Menu"
               aria-expanded={menuAberto}
             >
               ☰
+              {notifCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                  {notifCount > 9 ? '9+' : notifCount}
+                </span>
+              )}
             </button>
 
             {menuAberto && (
@@ -116,6 +139,20 @@ export default function Layout() {
                   onClick={() => setMenuAberto(false)}
                 />
                 <div className="absolute right-0 mt-2 w-52 bg-white text-slate-700 rounded-xl shadow-xl py-1 z-50 animate-scale-in origin-top-right">
+                  <button
+                    onClick={() => {
+                      setMenuAberto(false)
+                      navigate('/notificacoes')
+                    }}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
+                  >
+                    <span className="flex items-center gap-2"><span>🔔</span> Notificações</span>
+                    {notifCount > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center">
+                        {notifCount > 9 ? '9+' : notifCount}
+                      </span>
+                    )}
+                  </button>
                   <button
                     onClick={() => {
                       setMenuAberto(false)

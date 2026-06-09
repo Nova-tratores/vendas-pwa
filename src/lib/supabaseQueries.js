@@ -159,6 +159,35 @@ export async function removeVendedorCidade(vendedorId, cidade) {
   if (error) throw error
 }
 
+// ============================================
+// Mensagens do supervisor para vendedores (Notificações)
+// ============================================
+
+export async function enviarMensagem({ vendedorId, titulo, corpo, autorNome }) {
+  const { error } = await supabase.from('mensagens_vendedor').insert({
+    vendedor_id: vendedorId ?? null, // null = todos
+    titulo: titulo || null,
+    corpo,
+    created_by: autorNome || 'Supervisor',
+  })
+  if (error) throw error
+}
+
+export async function getMensagensEnviadas() {
+  const { data, error } = await supabase
+    .from('mensagens_vendedor')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (error) { console.warn('[mensagens enviadas]', error.message); return [] }
+  return data || []
+}
+
+export async function deletarMensagem(id) {
+  const { error } = await supabase.from('mensagens_vendedor').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function getMaquinas() {
   const { data } = await supabase.from('maquinas').select('*')
   return data || []

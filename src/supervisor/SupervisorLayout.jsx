@@ -15,6 +15,7 @@ const navItems = [
   { to: '/supervisor/propostas', label: 'Propostas' },
   { to: '/supervisor/pos-vendas', label: 'Pós Vendas' },
   { to: '/supervisor/alertas', label: 'Alertas' },
+  { to: '/supervisor/notificacoes', label: 'Notificações' },
   { to: '/supervisor/config', label: 'Configurações' },
 ]
 
