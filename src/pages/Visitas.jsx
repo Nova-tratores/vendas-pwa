@@ -28,6 +28,7 @@ export default function Visitas() {
   const [sucesso, setSucesso] = useState(false)
   const [clienteSelecionado, setClienteSelecionado] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [dupVisita, setDupVisita] = useState(null)
   const [showNovaPessoa, setShowNovaPessoa] = useState(false)
   const [novaPessoa, setNovaPessoa] = useState({ nome: '', cargo: '', telefone: '' })
   const [showNovaMaquina, setShowNovaMaquina] = useState(false)
@@ -144,6 +145,19 @@ export default function Visitas() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    const alvo = form.data_visita ? localDateKey(form.data_visita) : localDateKey(new Date())
+    const dup = visitas
+      .filter((v) => String(v.propriedade_id) === String(form.propriedade_id)
+                  && localDateKey(v.data_visita) === alvo)
+      .sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))[0]
+    if (dup) {
+      setDupVisita(dup)
+      return
+    }
+    await prosseguirSalvar()
+  }
+
+  async function prosseguirSalvar() {
     try {
       await salvarVisita(form)
       // Se a visita está ligada a um negócio em andamento, atualiza o estado
@@ -244,6 +258,11 @@ export default function Visitas() {
     setShowNovoCliente(false)
     setNovoCliente({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '', cultura_principal: '', cultura_secundaria: '' })
     selecionarPropriedade(p)
+  }
+
+  function localDateKey(d) {
+    const dt = new Date(d)
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
   }
 
   function getLocalDatetime() {
@@ -1074,6 +1093,23 @@ export default function Visitas() {
         message="Tem certeza que deseja excluir esta visita? Essa ação não pode ser desfeita."
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmModal
+        show={!!dupVisita}
+        title="Visita já registrada"
+        message={dupVisita ? (() => {
+          const quando = localDateKey(dupVisita.data_visita) === localDateKey(new Date())
+            ? 'hoje'
+            : `em ${new Date(dupVisita.data_visita).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+          const hora = new Date(dupVisita.data_visita).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          const tipo = TIPO_LABELS[dupVisita.tipo] || dupVisita.tipo
+          return `Você já registrou uma visita neste cliente ${quando} às ${hora} (${tipo}). Registrar mesmo assim?`
+        })() : ''}
+        confirmLabel="Registrar mesmo assim"
+        confirmClass="bg-green-600"
+        onConfirm={() => { setDupVisita(null); prosseguirSalvar() }}
+        onCancel={() => setDupVisita(null)}
       />
 
       {/* Modal vincular/criar negócio */}

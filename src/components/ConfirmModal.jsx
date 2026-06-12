@@ -1,4 +1,4 @@
-export default function ConfirmModal({ show, title, message, onConfirm, onCancel }) {
+export default function ConfirmModal({ show, title, message, onConfirm, onCancel, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', confirmClass = 'bg-red-600' }) {
   if (!show) return null
 
   return (
@@ -11,13 +11,13 @@ export default function ConfirmModal({ show, title, message, onConfirm, onCancel
             onClick={onCancel}
             className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-lg font-medium text-sm"
           >
-            Cancelar
+            {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-medium text-sm"
+            className={`flex-1 ${confirmClass} text-white py-2.5 rounded-lg font-medium text-sm`}
           >
-            Confirmar
+            {confirmLabel}
           </button>
         </div>
       </div>

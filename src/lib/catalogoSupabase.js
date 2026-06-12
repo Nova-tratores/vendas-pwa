@@ -286,6 +286,31 @@ export async function getMidiasCatalogoProduto(catalogoProdutoId) {
 }
 
 /**
+ * Resumo de mídias (1 consulta) pra montar os ícones de conteúdo no admin.
+ * Retorna contagens por tipo agrupadas por dono (curado e estoque).
+ */
+export async function getResumoMidias() {
+  const { data, error } = await supabase
+    .from('catalogo_midia')
+    .select('catalogo_produto_id, codigo_produto, tipo')
+  if (error) {
+    console.error('[Resumo midias]', error.message)
+    return { porCatalogo: {}, porCodigo: {} }
+  }
+  const porCatalogo = {}
+  const porCodigo = {}
+  for (const m of (data || [])) {
+    const alvo = m.catalogo_produto_id != null
+      ? (porCatalogo[m.catalogo_produto_id] ||= { foto: 0, video: 0, pdf: 0 })
+      : m.codigo_produto != null
+        ? (porCodigo[m.codigo_produto] ||= { foto: 0, video: 0, pdf: 0 })
+        : null
+    if (alvo && (m.tipo in alvo)) alvo[m.tipo]++
+  }
+  return { porCatalogo, porCodigo }
+}
+
+/**
  * Upload de arquivo + insert em catalogo_midia.
  * Retorna o registro criado (com url_publica).
  */
