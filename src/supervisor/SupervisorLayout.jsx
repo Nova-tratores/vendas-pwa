@@ -1,34 +1,52 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useState } from 'react'
 import { supabase } from '../lib/sync'
 
-const navItems = [
-  { to: '/supervisor', label: 'Geral', end: true },
-  { to: '/supervisor/vendedores', label: 'Vendedores' },
-  { to: '/supervisor/clientes', label: 'Clientes' },
-  { to: '/supervisor/cidades', label: 'Cidades' },
-  { to: '/supervisor/evolucao', label: 'Evolução' },
-  { to: '/supervisor/catalogo', label: 'Catálogo' },
-  { to: '/supervisor/catalogo-admin', label: 'Gerir catálogo' },
-  { to: '/supervisor/produtos', label: 'Produtos' },
-  { to: '/supervisor/compartilhamentos', label: 'Compartilhamentos' },
-  { to: '/supervisor/visitas', label: 'Visitas' },
-  { to: '/supervisor/semana', label: 'Calendário' },
-  { to: '/supervisor/propostas', label: 'Propostas' },
-  { to: '/supervisor/pos-vendas', label: 'Pós Vendas' },
-  { to: '/supervisor/alertas', label: 'Alertas' },
-  { to: '/supervisor/notificacoes', label: 'Notificações' },
-  { to: '/supervisor/config', label: 'Configurações' },
+const INICIO = { to: '/supervisor', label: 'Início', end: true }
+
+const MENUS = [
+  { label: 'Equipe', items: [
+    { to: '/supervisor/vendedores', label: 'Vendedores' },
+    { to: '/supervisor/clientes', label: 'Clientes' },
+    { to: '/supervisor/cidades', label: 'Cidades' },
+  ] },
+  { label: 'Catálogo', items: [
+    { to: '/supervisor/catalogo', label: 'Catálogo' },
+    { to: '/supervisor/catalogo-admin', label: 'Gerir catálogo' },
+    { to: '/supervisor/produtos', label: 'Produtos' },
+  ] },
+  { label: 'Vendas', items: [
+    { to: '/supervisor/visitas', label: 'Visitas' },
+    { to: '/supervisor/semana', label: 'Calendário' },
+    { to: '/supervisor/propostas', label: 'Propostas' },
+    { to: '/supervisor/pos-vendas', label: 'Pós Vendas' },
+    { to: '/supervisor/compartilhamentos', label: 'Compartilhamentos' },
+  ] },
+  { label: 'Análise', items: [
+    { to: '/supervisor/evolucao', label: 'Evolução' },
+    { to: '/supervisor/alertas', label: 'Alertas' },
+    { to: '/supervisor/notificacoes', label: 'Notificações' },
+  ] },
+  { label: 'Config', items: [
+    { to: '/supervisor/config', label: 'Configurações' },
+  ] },
 ]
 
 export default function SupervisorLayout() {
   const navigate = useNavigate()
+  const location = useLocation()
   const supervisor = JSON.parse(localStorage.getItem('supervisor') || '{}')
+  const [aberto, setAberto] = useState(null) // label do menu aberto
 
   async function handleLogout() {
     await supabase.auth.signOut()
     localStorage.removeItem('supervisor')
     navigate('/supervisor/login')
   }
+
+  const path = location.pathname
+  const inicioAtivo = path === INICIO.to
+  const menuAtivo = (m) => m.items.some((i) => path === i.to)
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -45,24 +63,64 @@ export default function SupervisorLayout() {
         </div>
       </header>
 
-      <nav className="bg-slate-700 flex overflow-x-auto">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              `px-4 py-2.5 text-sm whitespace-nowrap transition-colors ${
-                isActive
-                  ? 'text-white border-b-2 border-white font-bold'
-                  : 'text-slate-300'
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
+      {/* Barra de menus (estilo Windows): clica pra abrir, passa o mouse pra trocar */}
+      <nav className="bg-slate-700 relative z-40 flex items-stretch">
+        <NavLink
+          to={INICIO.to}
+          end
+          onClick={() => setAberto(null)}
+          className={`px-3.5 py-2.5 text-sm whitespace-nowrap ${
+            inicioAtivo ? 'bg-slate-900 text-white font-semibold' : 'text-slate-200 hover:bg-slate-600'
+          }`}
+        >
+          Início
+        </NavLink>
+
+        {MENUS.map((m) => {
+          const open = aberto === m.label
+          return (
+            <div key={m.label} className="relative">
+              <button
+                type="button"
+                onClick={() => setAberto(open ? null : m.label)}
+                onMouseEnter={() => { if (aberto) setAberto(m.label) }}
+                className={`h-full px-3.5 py-2.5 text-sm whitespace-nowrap flex items-center gap-1 ${
+                  open
+                    ? 'bg-slate-900 text-white'
+                    : menuAtivo(m)
+                      ? 'bg-slate-600 text-white font-semibold'
+                      : 'text-slate-200 hover:bg-slate-600'
+                }`}
+              >
+                {m.label}
+                <span className="text-[10px] opacity-70">▾</span>
+              </button>
+
+              {open && (
+                <div className="absolute left-0 top-full min-w-[200px] bg-white text-slate-700 rounded-b-lg shadow-xl border border-slate-200 py-1 z-50 animate-fade-in">
+                  {m.items.map((it) => (
+                    <NavLink
+                      key={it.to}
+                      to={it.to}
+                      onClick={() => setAberto(null)}
+                      className={({ isActive }) =>
+                        `block px-4 py-2 text-sm hover:bg-blue-50 ${
+                          isActive ? 'text-blue-700 font-semibold bg-blue-50' : 'text-slate-700'
+                        }`
+                      }
+                    >
+                      {it.label}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </nav>
+
+      {/* Clicar fora fecha o menu aberto */}
+      {aberto && <div className="fixed inset-0 z-30" onClick={() => setAberto(null)} />}
 
       <main className="flex-1 p-4 overflow-y-auto">
         <Outlet />
