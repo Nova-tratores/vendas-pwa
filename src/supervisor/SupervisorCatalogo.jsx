@@ -20,6 +20,16 @@ function supervisorId() {
   return JSON.parse(localStorage.getItem('supervisor') || '{}').id
 }
 
+// Só produtos de uma família de MÁQUINA (ignora Peças, #N/D e sem família),
+// igual ao "Estoque atual" do vendedor.
+function temFamiliaMaquina(p) {
+  const f = (p.familia_nome || '').trim().toUpperCase()
+  if (!f) return false
+  if (f.startsWith('#') || f.includes('N/D')) return false
+  if (f === 'PEÇAS' || f === 'PECAS') return false
+  return true
+}
+
 export default function SupervisorCatalogo() {
   const [aba, setAba] = useState('maquinas') // maquinas | marcas
   const [marcas, setMarcas] = useState([])
@@ -269,7 +279,8 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange }) {
 
   const q = busca.trim().toLowerCase()
   const curados = produtos.filter((p) => !q || p.titulo.toLowerCase().includes(q) || p.marca?.nome?.toLowerCase().includes(q))
-  const estoqueFiltrado = (estoque || []).filter((p) => !q
+  const estoqueMaquinas = (estoque || []).filter(temFamiliaMaquina)
+  const estoqueFiltrado = estoqueMaquinas.filter((p) => !q
     || (p.descricao || '').toLowerCase().includes(q)
     || (p.modelo || '').toLowerCase().includes(q)
     || (p.marca || '').toLowerCase().includes(q)
@@ -281,7 +292,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange }) {
     <div>
       <div className="flex gap-1 mb-3">
         <SubToggle ativo={modo === 'catalogo'} onClick={() => setModo('catalogo')}>Catálogo ({produtos.length})</SubToggle>
-        <SubToggle ativo={modo === 'estoque'} onClick={() => setModo('estoque')}>Estoque Omie{estoque ? ` (${estoque.length})` : ''}</SubToggle>
+        <SubToggle ativo={modo === 'estoque'} onClick={() => setModo('estoque')}>Estoque Omie{estoque ? ` (${estoqueMaquinas.length})` : ''}</SubToggle>
       </div>
 
       <div className="flex gap-2 mb-3">
