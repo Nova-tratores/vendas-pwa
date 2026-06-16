@@ -274,36 +274,89 @@ const MIDIA_BUCKET = 'catalogo-midia'
 function midiaComUrl(m) {
   return {
     ...m,
-    url_publica: `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${m.storage_path}`,
+    // Linha pendente (vídeo do YouTube ainda baixando) não tem arquivo: url fica null.
+    url_publica: m.storage_path
+      ? `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${m.storage_path}`
+      : null,
   }
 }
 
-async function listarMidias(coluna, valor) {
-  const { data, error } = await supabase
+/**
+ * @param {{contexto?: 'admin'|'vendedor'}} [opts] - admin traz tudo (inclui baixando/erro);
+ *   vendedor traz só mídias prontas e esconde vídeos não liberados (foto/PDF seguem visíveis).
+ */
+async function listarMidias(coluna, valor, { contexto = 'admin' } = {}) {
+  let q = supabase
     .from('catalogo_midia')
     .select('*')
     .eq(coluna, valor)
     .order('ordem', { ascending: true })
     .order('created_at', { ascending: true })
+  if (contexto === 'vendedor') q = q.eq('status', 'pronto')
+
+  const { data, error } = await q
   if (error) {
     console.error('[Midia list]', error.message)
     return []
   }
-  return (data || []).map(midiaComUrl)
+  let lista = (data || []).map(midiaComUrl)
+  // Vídeo só aparece pro vendedor se o supervisor liberou; foto/PDF não têm trava.
+  if (contexto === 'vendedor') lista = lista.filter((m) => m.tipo !== 'video' || m.visivel_vendedor)
+  return lista
 }
 
 /**
  * Lista mídias de um produto do Estoque atual (Omie), por codigo_produto.
  */
-export async function getMidiasProduto(codigoProduto) {
-  return listarMidias('codigo_produto', codigoProduto)
+export async function getMidiasProduto(codigoProduto, opts) {
+  return listarMidias('codigo_produto', codigoProduto, opts)
 }
 
 /**
  * Lista mídias de um produto do catálogo curado, por catalogo_produto_id.
  */
-export async function getMidiasCatalogoProduto(catalogoProdutoId) {
-  return listarMidias('catalogo_produto_id', catalogoProdutoId)
+export async function getMidiasCatalogoProduto(catalogoProdutoId, opts) {
+  return listarMidias('catalogo_produto_id', catalogoProdutoId, opts)
+}
+
+/**
+ * Cria um "pedido" de vídeo do YouTube. A própria linha de catalogo_midia é a fila:
+ * entra como tipo='video', status='pendente'. O worker (Railway) baixa, hospeda no
+ * bucket e marca 'pronto'. Exige supervisor logado (RLS).
+ */
+export async function criarVideoYoutube({ codigoProduto, catalogoProdutoId, url, titulo, supervisorId }) {
+  const link = (url || '').trim()
+  if (!link) throw new Error('Informe o link do YouTube')
+  if (!codigoProduto && !catalogoProdutoId) throw new Error('Informe codigoProduto ou catalogoProdutoId')
+  const { data, error } = await supabase
+    .from('catalogo_midia')
+    .insert({
+      codigo_produto: codigoProduto ?? null,
+      catalogo_produto_id: catalogoProdutoId ?? null,
+      tipo: 'video',
+      origem_url: link,
+      status: 'pendente',
+      storage_path: null,
+      titulo: titulo || null,
+      visivel_vendedor: false,
+      ordem: 0,
+      created_by: supervisorId || null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return midiaComUrl(data)
+}
+
+/**
+ * Libera/esconde um vídeo pros vendedores em campo (toggle do supervisor).
+ */
+export async function setVisivelVendedor(midiaId, valor) {
+  const { error } = await supabase
+    .from('catalogo_midia')
+    .update({ visivel_vendedor: !!valor })
+    .eq('id', midiaId)
+  if (error) throw error
 }
 
 /**
@@ -639,6 +692,25 @@ export async function getCompartilhamentos({ limit = 500 } = {}) {
     .limit(limit)
   if (error) {
     console.error('[compartilhamentos]', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Ranking de máquinas mais vendidas (view vw_maquinas_mais_vendidas, fonte vendas_itens
+ * do Omie — histórico completo, exceto peças). Cada linha já vem agregada por marca+item:
+ * { marca, item, familia, qtd, valor_total, pedidos, em_catalogo }. A flag em_catalogo
+ * indica se o modelo já está no catálogo curado (catalogo_produtos.modelos_supabase),
+ * permitindo priorizar o que falta adicionar.
+ */
+export async function getMaquinasMaisVendidas() {
+  const { data, error } = await supabase
+    .from('vw_maquinas_mais_vendidas')
+    .select('*')
+    .order('qtd', { ascending: false })
+  if (error) {
+    console.error('[maquinas-mais-vendidas]', error.message)
     return []
   }
   return data || []

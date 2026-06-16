@@ -416,7 +416,7 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
   useEffect(() => {
     if (!produto?.id) return
     let alive = true
-    getMidiasCatalogoProduto(produto.id).then((m) => { if (alive) setMidias(m) })
+    getMidiasCatalogoProduto(produto.id, { contexto: 'vendedor' }).then((m) => { if (alive) setMidias(m) })
     return () => { alive = false }
   }, [produto?.id])
 
@@ -598,7 +598,7 @@ function DetalheEstoque({ item, loading }) {
   useEffect(() => {
     if (!item?.codigo_produto) return
     let alive = true
-    getMidiasProduto(item.codigo_produto).then((m) => {
+    getMidiasProduto(item.codigo_produto, { contexto: 'vendedor' }).then((m) => {
       if (alive) setMidias(m)
     })
     return () => { alive = false }

@@ -16,6 +16,14 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
         runtimeCaching: [
           {
+            // Vídeos do bucket: streaming puro, NUNCA cacheia — senão muitos vídeos
+            // pesariam o app do vendedor. (Precisa estar ANTES da regra de mídia abaixo.)
+            urlPattern: ({ url }) =>
+              url.pathname.includes('/storage/v1/object/public/') &&
+              /\.(mp4|webm|mov|m4v)$/i.test(url.pathname),
+            handler: 'NetworkOnly',
+          },
+          {
             // Folhetos técnicos (PDF) e mídias do bucket público do Supabase.
             // CacheFirst: depois de aberto 1x, fica disponível offline.
             urlPattern: ({ url }) => url.pathname.includes('/storage/v1/object/public/'),

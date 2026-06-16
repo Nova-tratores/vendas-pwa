@@ -1,0 +1,13 @@
+{
+  "name": "worker-youtube",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Worker que baixa videos do YouTube (yt-dlp) e hospeda no bucket do catalogo (Supabase).",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
