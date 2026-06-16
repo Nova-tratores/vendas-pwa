@@ -11,6 +11,7 @@ import Negocios from './pages/Negocios'
 import Dashboard from './pages/Dashboard'
 import Catalogo from './pages/Catalogo'
 import CatalogoDetalhe from './pages/CatalogoDetalhe'
+import Showroom from './pages/Showroom'
 import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
 import VisitasMapa from './pages/VisitasMapa'
@@ -50,12 +51,29 @@ function SupervisorRoute({ children }) {
   return children
 }
 
+// Showroom em tela cheia (kiosk): fora do Layout, aceita vendedor OU supervisor logado.
+function ShowroomRoute({ children }) {
+  const logado = localStorage.getItem('vendedor') || localStorage.getItem('supervisor')
+  if (!logado) return <Navigate to="/login" replace />
+  return children
+}
+
 export default function App() {
   return (
     <Routes>
       {/* Vendedor */}
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* Showroom / TV (tela cheia, sem o chrome do Layout) */}
+      <Route
+        path="/showroom"
+        element={
+          <ShowroomRoute>
+            <Showroom />
+          </ShowroomRoute>
+        }
+      />
       <Route
         path="/"
         element={

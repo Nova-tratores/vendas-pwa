@@ -71,9 +71,17 @@ export default function Catalogo() {
   return (
     <PullToRefresh onRefresh={async () => { await getEstoqueAtual({ force: true }).then(setEstoque) }}>
       <div>
-        <div className="mb-3">
-          <h2 className="text-xl font-bold">Catálogo</h2>
-          <p className="text-sm text-slate-500">{produtos.length} no portfólio · {estoque.length} no estoque atual</p>
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <div>
+            <h2 className="text-xl font-bold">Catálogo</h2>
+            <p className="text-sm text-slate-500">{produtos.length} no portfólio · {estoque.length} no estoque atual</p>
+          </div>
+          <Link
+            to="/showroom"
+            className="shrink-0 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium active:scale-[0.98] transition-transform"
+          >
+            ▶ Modo Showroom / TV
+          </Link>
         </div>
 
         <input
