@@ -1,5 +1,7 @@
 # Worker de download de vídeos do YouTube (yt-dlp + ffmpeg) pro bucket do catálogo.
-FROM node:20-bookworm-slim
+# Node 22+ é necessário: o supabase-js (realtime) exige WebSocket nativo, que só
+# existe globalmente a partir do Node 21/22 — no Node 20 o createClient crasha.
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
