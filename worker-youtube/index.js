@@ -70,7 +70,7 @@ async function processar(job) {
       '-f', `bestvideo[height<=${ALTURA}]+bestaudio/best[height<=${ALTURA}]/best`,
       '--merge-output-format', 'mp4',
       '--no-playlist',
-      '--extractor-args', 'youtube:player_client=android,ios,web',
+      '--extractor-args', 'youtube:player_client=tv,android,ios,web',
       '--retries', '5', '--fragment-retries', '5', '--sleep-requests', '1',
       '-o', brutoTpl,
       job.origem_url,
@@ -109,9 +109,13 @@ async function processar(job) {
     await marcar(job.id, { storage_path: path, status: 'pronto', erro: null })
     log(`✓ job ${job.id} pronto (${(buffer.length / 1048576).toFixed(1)} MB) → ${path}`)
   } catch (err) {
-    const msg = String(err?.stderr || err?.message || err).slice(0, 800)
+    // O stderr do yt-dlp tem WARNINGs antes do ERRO real — pega a linha ERROR: de fato.
+    const stderr = String(err?.stderr || '')
+    const linhaErro = stderr.split('\n').reverse().find((l) => /^\s*ERROR:/i.test(l))
+    const msg = (linhaErro || err?.message || String(err)).trim().slice(0, 800)
     await marcar(job.id, { status: 'erro', erro: msg })
     log(`✗ job ${job.id} erro: ${msg.split('\n')[0]}`)
+    if (stderr) log(`  stderr completo:\n${stderr.slice(-1500)}`)
   } finally {
     try { await rm(dir, { recursive: true, force: true }) } catch { /* ignora */ }
   }
