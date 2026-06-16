@@ -64,10 +64,14 @@ async function processar(job) {
 
   try {
     // 1) Download até 720p, mesclando em mp4.
+    // player_client=android,ios dispensa o runtime de JS do YouTube e costuma sofrer
+    // menos bloqueio (429) que o cliente web; retries/sleep ajudam contra rate-limit.
     await execFileP('yt-dlp', [
       '-f', `bestvideo[height<=${ALTURA}]+bestaudio/best[height<=${ALTURA}]/best`,
       '--merge-output-format', 'mp4',
       '--no-playlist',
+      '--extractor-args', 'youtube:player_client=android,ios,web',
+      '--retries', '5', '--fragment-retries', '5', '--sleep-requests', '1',
       '-o', brutoTpl,
       job.origem_url,
     ], { timeout: 1000 * 60 * 20, maxBuffer: 1024 * 1024 * 64 })
