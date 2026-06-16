@@ -13,6 +13,7 @@ const MENUS = [
   { label: 'Catálogo', items: [
     { to: '/supervisor/catalogo', label: 'Catálogo' },
     { to: '/supervisor/catalogo-admin', label: 'Gerir catálogo' },
+    { to: '/supervisor/mais-vendidas', label: 'Mais vendidas' },
     { to: '/supervisor/produtos', label: 'Produtos' },
   ] },
   { label: 'Vendas', items: [

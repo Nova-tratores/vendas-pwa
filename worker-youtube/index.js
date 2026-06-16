@@ -11,7 +11,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readFile, unlink, mkdtemp, rmdir } from 'node:fs/promises'
+import { readFile, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -36,6 +36,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 
 const POLL_MS = Math.max(5000, Number(POLL_INTERVAL) || 15000)
 const ALTURA = Number(MAX_HEIGHT) || 720
+// Tamanho-alvo do vídeo final (MB). Fica abaixo do teto global do Storage (50MB no
+// plano free). O worker calcula a taxa de bits pra caber nesse orçamento.
+const MAX_MB = Number(process.env.MAX_MB) || 45
 
 const log = (...a) => console.log(new Date().toISOString(), ...a)
 
@@ -69,17 +72,29 @@ async function processar(job) {
       job.origem_url,
     ], { timeout: 1000 * 60 * 20, maxBuffer: 1024 * 1024 * 64 })
 
-    // 2) Re-encode pra normalizar (H.264/AAC), garantir <=720p e faststart (streaming web).
-    await execFileP('ffmpeg', [
-      '-y', '-i', bruto,
-      '-vf', `scale='-2:min(${ALTURA},ih)'`,
-      '-c:v', 'libx264', '-crf', '26', '-preset', 'veryfast',
-      '-c:a', 'aac', '-b:a', '128k',
-      '-movflags', '+faststart',
-      saida,
-    ], { timeout: 1000 * 60 * 20, maxBuffer: 1024 * 1024 * 64 })
+    // 2) Descobre a duração pra calcular a taxa de bits que cabe no orçamento de tamanho.
+    const { stdout: durOut } = await execFileP('ffprobe', [
+      '-v', 'error', '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1', bruto,
+    ])
+    const dur = Math.max(1, Math.floor(parseFloat(durOut) || 0))
+    const AUDIO_K = 128
+    const totalK = Math.floor((MAX_MB * 8 * 1024) / dur)   // kbps totais p/ caber em MAX_MB
+    const videoK = Math.max(200, Math.min(totalK - AUDIO_K, 4500))
+    const vf = `scale='-2:min(${ALTURA},ih)'`
+    const baseV = ['-c:v', 'libx264', '-b:v', `${videoK}k`, '-vf', vf, '-preset', 'medium']
+    const optExec = { timeout: 1000 * 60 * 25, maxBuffer: 1024 * 1024 * 64, cwd: dir }
+    log(`  · ${dur}s → vídeo ${videoK}k + áudio ${AUDIO_K}k (alvo ${MAX_MB}MB)`)
 
-    // 3) Upload pro bucket.
+    // 3) Re-encode em 2 passagens (taxa de bits média previsível → tamanho previsível).
+    await execFileP('ffmpeg', ['-y', '-i', bruto, ...baseV, '-pass', '1', '-an', '-f', 'mp4', '/dev/null'], optExec)
+    await execFileP('ffmpeg', [
+      '-y', '-i', bruto, ...baseV, '-pass', '2',
+      '-c:a', 'aac', '-b:a', `${AUDIO_K}k`,
+      '-movflags', '+faststart', saida,
+    ], optExec)
+
+    // 4) Upload pro bucket.
     const buffer = await readFile(saida)
     const path = storagePathDe(job)
     const { error: upErr } = await supabase.storage
@@ -94,8 +109,7 @@ async function processar(job) {
     await marcar(job.id, { status: 'erro', erro: msg })
     log(`✗ job ${job.id} erro: ${msg.split('\n')[0]}`)
   } finally {
-    for (const f of [bruto, saida]) { try { await unlink(f) } catch { /* ignora */ } }
-    try { await rmdir(dir, { recursive: true }) } catch { /* ignora */ }
+    try { await rm(dir, { recursive: true, force: true }) } catch { /* ignora */ }
   }
 }
 
