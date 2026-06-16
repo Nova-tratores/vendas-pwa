@@ -205,8 +205,10 @@ export async function getEstoqueAtualById(codigoProduto) {
  * Lista produtos do escopo (inclui invisíveis) — pra telas admin.
  * Com { somenteComEstoque: true } traz só os que têm saldo no Omie (filtro no BANCO,
  * evitando o teto de 1000 linhas que escondia máquinas com estoque).
+ * Com { busca } a filtragem é feita no BANCO (descricao/modelo/marca/codigo), pra
+ * alcançar produtos além do teto de 1000 linhas — sem busca, traz no máximo 1000.
  */
-export async function getProdutosAdmin({ somenteComEstoque = false } = {}) {
+export async function getProdutosAdmin({ somenteComEstoque = false, busca = '' } = {}) {
   let query = supabase
     .from('produtos')
     .select('codigo_produto, codigo, descricao, marca, modelo, familia_nome, estoque, valor_unitario, imagem_url, ambiente, atualizado_em')
@@ -214,6 +216,18 @@ export async function getProdutosAdmin({ somenteComEstoque = false } = {}) {
     .eq('arquivado', false)
     .neq('familia_nome', 'Peças')
   if (somenteComEstoque) query = query.gt('estoque', 0)
+
+  const termo = (busca || '').trim()
+  if (termo) {
+    // Sanitiza: vírgula/parênteses/asterisco/percent quebram o filtro .or() do PostgREST.
+    const t = termo.replace(/[,()*%]/g, ' ').trim()
+    if (t) {
+      query = query.or(
+        `descricao.ilike.*${t}*,modelo.ilike.*${t}*,marca.ilike.*${t}*,codigo.ilike.*${t}*`
+      ).limit(200)
+    }
+  }
+
   const { data, error } = await query.order('descricao', { ascending: true })
   if (error) throw error
 

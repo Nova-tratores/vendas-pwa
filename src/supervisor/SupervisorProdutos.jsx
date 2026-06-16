@@ -53,12 +53,16 @@ export default function SupervisorProdutos() {
   const [form, setForm] = useState({ preco_override: '', estoque_override: '', visivel: true, notas: '' })
   const [salvando, setSalvando] = useState(false)
 
-  useEffect(() => { carregar() }, [])
+  // Busca no BANCO (não no cliente): debounce no termo. Sem termo, traz a lista padrão.
+  useEffect(() => {
+    const t = setTimeout(() => { carregar(busca) }, busca ? 300 : 0)
+    return () => clearTimeout(t)
+  }, [busca])
 
-  async function carregar() {
+  async function carregar(termo = '') {
     setLoading(true)
     try {
-      const data = await getProdutosAdmin()
+      const data = await getProdutosAdmin({ busca: termo })
       setProdutos(data)
     } catch (err) {
       console.error('[SupervisorProdutos]', err)
@@ -91,7 +95,7 @@ export default function SupervisorProdutos() {
       await salvarOverride(codigoProduto, payload, supervisor.id)
       clearEstoqueCache()
       setEditando(null)
-      await carregar()
+      await carregar(busca)
     } catch (err) {
       alert('Erro ao salvar: ' + err.message)
     } finally {
@@ -99,24 +103,16 @@ export default function SupervisorProdutos() {
     }
   }
 
-  const filtrados = produtos.filter((p) => {
-    if (!busca) return true
-    const q = busca.toLowerCase()
-    return (
-      (p.descricao || '').toLowerCase().includes(q) ||
-      (p.modelo || '').toLowerCase().includes(q) ||
-      (p.marca || '').toLowerCase().includes(q) ||
-      (p.codigo || '').toLowerCase().includes(q)
-    )
-  })
-
   return (
     <div>
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-xl font-bold">Produtos (admin)</h2>
           <p className="text-sm text-slate-500">
-            Ajuste preço/estoque manual e visibilidade. {produtos.length} itens em estoque (todos os ambientes).
+            Ajuste preço/estoque manual e visibilidade.{' '}
+            {busca.trim()
+              ? `${produtos.length} resultado(s) para "${busca.trim()}".`
+              : `${produtos.length} itens (use a busca p/ alcançar todos).`}
           </p>
         </div>
         <BotaoForceResync />
@@ -126,17 +122,17 @@ export default function SupervisorProdutos() {
         type="text"
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
-        placeholder="Buscar por modelo, marca, descriÃ§Ã£o ou cÃ³digo..."
+        placeholder="Buscar por modelo, marca, descrição ou código..."
         className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3 bg-white"
       />
 
       {loading ? (
         <p className="text-sm text-slate-500 text-center py-8">Carregando produtos...</p>
-      ) : filtrados.length === 0 ? (
+      ) : produtos.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-8">Nenhum produto encontrado.</p>
       ) : (
         <div className="space-y-2">
-          {filtrados.map((p) => (
+          {produtos.map((p) => (
             <ProdutoRow
               key={p.codigo_produto}
               produto={p}
