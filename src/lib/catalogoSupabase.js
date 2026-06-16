@@ -120,6 +120,10 @@ export async function getEstoqueAtual({ force = false } = {}) {
       .eq('inativo', false)
       .eq('arquivado', false)
       .neq('familia_nome', 'Peças')
+      // Filtra saldo no BANCO: sem isso, o Supabase corta em 1000 linhas e máquinas
+      // com estoque ficam de fora (eram ~7 invisíveis na vitrine). Como catalogo_overrides
+      // não "levanta" produto zerado hoje, filtrar pelo estoque do Omie é seguro.
+      .gt('estoque', 0)
       .order('familia_nome', { ascending: true })
       .order('descricao', { ascending: true }),
     supabase
@@ -198,16 +202,19 @@ export async function getEstoqueAtualById(codigoProduto) {
 }
 
 /**
- * Lista TODOS produtos do escopo (inclui invisíveis) — pra tela admin.
+ * Lista produtos do escopo (inclui invisíveis) — pra telas admin.
+ * Com { somenteComEstoque: true } traz só os que têm saldo no Omie (filtro no BANCO,
+ * evitando o teto de 1000 linhas que escondia máquinas com estoque).
  */
-export async function getProdutosAdmin() {
-  const { data, error } = await supabase
+export async function getProdutosAdmin({ somenteComEstoque = false } = {}) {
+  let query = supabase
     .from('produtos')
     .select('codigo_produto, codigo, descricao, marca, modelo, familia_nome, estoque, valor_unitario, imagem_url, ambiente, atualizado_em')
     .eq('inativo', false)
     .eq('arquivado', false)
     .neq('familia_nome', 'Peças')
-    .order('descricao', { ascending: true })
+  if (somenteComEstoque) query = query.gt('estoque', 0)
+  const { data, error } = await query.order('descricao', { ascending: true })
   if (error) throw error
 
   const { data: overridesData } = await supabase.from('catalogo_overrides').select('*')

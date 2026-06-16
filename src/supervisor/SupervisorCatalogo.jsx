@@ -237,7 +237,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange }) {
   useEffect(() => {
     if (modo !== 'estoque' || estoque !== null) return
     setLoadingEstoque(true)
-    getProdutosAdmin()
+    getProdutosAdmin({ somenteComEstoque: true })
       .then(setEstoque)
       .catch((err) => alert('Erro ao carregar estoque: ' + err.message))
       .finally(() => setLoadingEstoque(false))
@@ -279,6 +279,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange }) {
 
   const q = busca.trim().toLowerCase()
   const curados = produtos.filter((p) => !q || p.titulo.toLowerCase().includes(q) || p.marca?.nome?.toLowerCase().includes(q))
+  // getProdutosAdmin já traz só itens com saldo (filtro no banco); aqui só restringe a máquinas.
   const estoqueMaquinas = (estoque || []).filter(temFamiliaMaquina)
   const estoqueFiltrado = estoqueMaquinas.filter((p) => !q
     || (p.descricao || '').toLowerCase().includes(q)
