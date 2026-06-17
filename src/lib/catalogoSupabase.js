@@ -656,6 +656,43 @@ export async function getMarcas({ adminMode = false } = {}) {
 }
 
 /**
+ * Marcas pro dropdown de cadastro de máquina (id + nome). Cacheia em localStorage
+ * pra funcionar OFFLINE (o vendedor cadastra máquina em campo sem rede).
+ */
+export async function getMarcasDropdown() {
+  try {
+    const marcas = await getMarcas()
+    const lista = marcas.map((m) => ({ id: m.id, nome: m.nome }))
+    if (lista.length) localStorage.setItem('cache_marcas_dropdown', JSON.stringify(lista))
+    return lista
+  } catch {
+    try { return JSON.parse(localStorage.getItem('cache_marcas_dropdown') || '[]') } catch { return [] }
+  }
+}
+
+/**
+ * Modelos do Omie (família máquinas) de uma marca canônica, pro dropdown/sugestões.
+ * Cacheia por marca em localStorage (offline). Retorna array de strings.
+ */
+export async function getModelosPorMarca(marcaId) {
+  if (!marcaId) return []
+  const cacheKey = `cache_modelos_${marcaId}`
+  try {
+    const { data, error } = await supabase
+      .from('vw_modelos_por_marca')
+      .select('modelo')
+      .eq('marca_id', marcaId)
+      .order('modelo', { ascending: true })
+    if (error) throw error
+    const lista = (data || []).map((r) => r.modelo).filter(Boolean)
+    localStorage.setItem(cacheKey, JSON.stringify(lista))
+    return lista
+  } catch {
+    try { return JSON.parse(localStorage.getItem(cacheKey) || '[]') } catch { return [] }
+  }
+}
+
+/**
  * Lista produtos do catálogo curado, com a marca embutida.
  * Vendedor (adminMode=false): só produto.visivel E marca.visivel.
  */

@@ -142,3 +142,18 @@ on conflict (alias) do update set marca_id = excluded.marca_id;
 -- Suzuki, Can Am, etc.) ficou de fora desta 1ª leva — dá pra adicionar conforme você
 -- for criar fichas. As que parecem "lixo" (nome jurídico solto, sem marca clara) não
 -- entram no catálogo.
+
+-- 5) View de MODELOS por marca canônica (pro dropdown de cadastro de máquina).
+create or replace view public.vw_modelos_por_marca
+with (security_invoker = on) as
+select distinct a.marca_id, upper(btrim(p.modelo)) as modelo
+from produtos p
+join catalogo_marca_alias a on a.alias = upper(btrim(p.marca))
+where p.inativo = false and p.arquivado = false
+  and coalesce(btrim(p.modelo),'') <> ''
+  and p.familia_nome is not null
+  and upper(btrim(p.familia_nome)) not in ('PEÇAS','PECAS')
+  and left(btrim(p.familia_nome),1) <> '#'
+  and upper(p.familia_nome) not like '%N/D%';
+
+grant select on public.vw_modelos_por_marca to anon, authenticated;

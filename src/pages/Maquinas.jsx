@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getByIndex, saveRecord, getRecord, deleteRecord, registrarLog } from '../lib/db'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
+import { getMarcasDropdown, getModelosPorMarca } from '../lib/catalogoSupabase'
 
 import { TIPOS_PRODUTO, MARCAS } from '../lib/constants'
 const ESTADOS = ['otimo', 'bom', 'regular', 'critico']
@@ -24,8 +25,27 @@ export default function Maquinas() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm] = useState(null)
+  // Dropdown de marca (canônicas) + modelos por marca (sugestões do Omie)
+  const [marcasOpcoes, setMarcasOpcoes] = useState([])
+  const [modelosForm, setModelosForm] = useState([])
+  const [modelosEdit, setModelosEdit] = useState([])
 
   useEffect(() => { carregar() }, [propriedadeId])
+  useEffect(() => { getMarcasDropdown().then(setMarcasOpcoes) }, [])
+
+  // Nomes pro <select> (cai pra lista estática se offline sem cache).
+  const nomesMarcas = marcasOpcoes.length ? marcasOpcoes.map((m) => m.nome) : MARCAS
+  const idDaMarca = (nome) => marcasOpcoes.find((m) => m.nome === nome)?.id
+  async function carregarModelos(nome, setter) {
+    const id = idDaMarca(nome)
+    setter(id ? await getModelosPorMarca(id) : [])
+  }
+
+  // Carrega sugestões de modelo da marca atual quando o form de cadastro abre.
+  useEffect(() => {
+    if (showForm) carregarModelos(form.marca, setModelosForm)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, marcasOpcoes])
 
   async function carregar() {
     setMaquinas(await getByIndex('maquinas', 'propriedade_id', propriedadeId))
@@ -59,6 +79,7 @@ export default function Maquinas() {
 
   function abrirEdicao(m) {
     setEditTarget(m)
+    carregarModelos(m.marca, setModelosEdit)
     setEditForm({
       tipo: m.tipo || 'Trator Novo',
       marca: m.marca || '',
@@ -153,13 +174,14 @@ export default function Maquinas() {
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-          <select name="marca" value={form.marca} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
-            {MARCAS.map((m) => (
+          <select name="marca" value={form.marca} onChange={(e) => { setForm({ ...form, marca: e.target.value, modelo: '' }); carregarModelos(e.target.value, setModelosForm) }} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
+            {nomesMarcas.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
           <div className="grid grid-cols-2 gap-2">
-            <input name="modelo" value={form.modelo} onChange={handleChange} placeholder="Modelo" className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
+            <input name="modelo" list="modelos-form" value={form.modelo} onChange={handleChange} placeholder="Modelo" className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
+            <datalist id="modelos-form">{modelosForm.map((m) => <option key={m} value={m} />)}</datalist>
             <input name="tamanho" value={form.tamanho} onChange={handleChange} placeholder="Tamanho" className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -244,20 +266,22 @@ export default function Maquinas() {
               </select>
               <select
                 value={editForm.marca}
-                onChange={(e) => setEditForm({ ...editForm, marca: e.target.value })}
+                onChange={(e) => { setEditForm({ ...editForm, marca: e.target.value }); carregarModelos(e.target.value, setModelosEdit) }}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white"
               >
-                {MARCAS.map((m) => (
+                {(nomesMarcas.includes(editForm.marca) ? nomesMarcas : [editForm.marca, ...nomesMarcas]).map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
               <div className="grid grid-cols-2 gap-2">
                 <input
+                  list="modelos-edit"
                   value={editForm.modelo}
                   onChange={(e) => setEditForm({ ...editForm, modelo: e.target.value })}
                   placeholder="Modelo"
                   className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm"
                 />
+                <datalist id="modelos-edit">{modelosEdit.map((m) => <option key={m} value={m} />)}</datalist>
                 <input
                   value={editForm.tamanho}
                   onChange={(e) => setEditForm({ ...editForm, tamanho: e.target.value })}
