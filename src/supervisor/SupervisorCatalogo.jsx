@@ -511,7 +511,10 @@ function IconArgumentos({ className }) {
 }
 
 function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
-  const novo = !produto.id
+  // Após o 1º salvar de uma ficha nova, guarda o id pra liberar a galeria (foto/vídeo/PDF)
+  // sem fechar o modal.
+  const [idLocal, setIdLocal] = useState(produto.id || null)
+  const novo = !idLocal
   const [form, setForm] = useState({
     marca_id: produto.marca_id || produto.marca?.id || marcas[0]?.id,
     slug: produto.slug || '',
@@ -579,7 +582,7 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
     try {
       const especificacoes = Object.fromEntries(specs.filter(([k]) => k && k.trim()))
       const payload = {
-        ...(produto.id ? { id: produto.id } : {}),
+        ...(idLocal ? { id: idLocal } : {}),
         marca_id: form.marca_id,
         slug: slugEfetivo,
         titulo: form.titulo.trim(),
@@ -598,8 +601,14 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
         visivel: !!form.visivel,
         ordem: Number(form.ordem) || 99,
       }
-      await salvarProdutoCatalogo(payload, supervisorId())
-      onSaved()
+      const salvo = await salvarProdutoCatalogo(payload, supervisorId())
+      if (!idLocal && salvo?.id) {
+        // Ficha nova recém-criada: mantém o modal aberto pra já anexar foto/vídeo/PDF.
+        setIdLocal(salvo.id)
+        alert('Ficha criada! Agora você já pode adicionar fotos, vídeos e PDF abaixo.')
+      } else {
+        onSaved()
+      }
     } catch (err) {
       alert('Erro ao salvar máquina: ' + err.message)
     } finally {
@@ -725,10 +734,10 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
         <input value={form.url_site} onChange={(e) => setForm({ ...form, url_site: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" placeholder="https://..." />
       </Campo>
 
-      {/* Galeria (mídias extras) — só quando a máquina já existe */}
+      {/* Galeria (mídias extras) — libera assim que a máquina existe (após o 1º salvar) */}
       <div ref={secoes.video}>
         {!novo ? (
-          <MidiasEditor catalogoProdutoId={produto.id} />
+          <MidiasEditor catalogoProdutoId={idLocal} />
         ) : (
           <p className="text-[11px] text-slate-400 mt-2">Salve a máquina para poder adicionar fotos/vídeos extras à galeria.</p>
         )}
