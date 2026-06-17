@@ -680,6 +680,10 @@ export async function getProdutosCatalogo({ adminMode = false } = {}) {
   produtos.sort((a, b) => {
     const ma = a.marca?.ordem ?? 99, mb = b.marca?.ordem ?? 99
     if (ma !== mb) return ma - mb
+    // Desempate por NOME da marca: garante que cada marca fique agrupada (não mistura
+    // marcas de mesma "ordem" intercalando por categoria).
+    const na = a.marca?.nome || '', nb = b.marca?.nome || ''
+    if (na !== nb) return na.localeCompare(nb, 'pt-BR')
     const ca = ordCat[a.categoria] ?? 99, cb = ordCat[b.categoria] ?? 99
     if (ca !== cb) return ca - cb
     if ((a.ordem ?? 99) !== (b.ordem ?? 99)) return (a.ordem ?? 99) - (b.ordem ?? 99)
