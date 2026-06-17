@@ -80,7 +80,11 @@ async function processar(job) {
       '-v', 'error', '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1', bruto,
     ])
-    const dur = Math.max(1, Math.floor(parseFloat(durOut) || 0))
+    const durTotal = Math.max(1, Math.floor(parseFloat(durOut) || 0))
+    // Corte do começo (supervisor pula intro). -ss antes do -i = seek rápido; re-encode acerta.
+    const inicio = Math.min(Math.max(0, Number(job.inicio_seg) || 0), durTotal - 1)
+    const seek = inicio > 0 ? ['-ss', String(inicio)] : []
+    const dur = Math.max(1, durTotal - inicio)
     const AUDIO_K = 96
     const totalK = Math.floor((MAX_MB * 8 * 1024) / dur)   // kbps totais p/ caber em MAX_MB
     // Floor baixo (120k) pra vídeo longo nunca estourar o orçamento; teto pra não inflar curto.
@@ -91,12 +95,12 @@ async function processar(job) {
       '-maxrate', `${Math.round(videoK * 1.5)}k`, '-bufsize', `${videoK * 2}k`,
       '-vf', vf, '-preset', 'medium']
     const optExec = { timeout: 1000 * 60 * 25, maxBuffer: 1024 * 1024 * 64, cwd: dir }
-    log(`  · ${dur}s → vídeo ${videoK}k + áudio ${AUDIO_K}k (alvo ${MAX_MB}MB)`)
+    log(`  · ${dur}s${inicio ? ` (corta ${inicio}s do início)` : ''} → vídeo ${videoK}k + áudio ${AUDIO_K}k (alvo ${MAX_MB}MB)`)
 
     // 3) Re-encode em 2 passagens (taxa de bits média previsível → tamanho previsível).
-    await execFileP('ffmpeg', ['-y', '-i', bruto, ...baseV, '-pass', '1', '-an', '-f', 'mp4', '/dev/null'], optExec)
+    await execFileP('ffmpeg', ['-y', ...seek, '-i', bruto, ...baseV, '-pass', '1', '-an', '-f', 'mp4', '/dev/null'], optExec)
     await execFileP('ffmpeg', [
-      '-y', '-i', bruto, ...baseV, '-pass', '2',
+      '-y', ...seek, '-i', bruto, ...baseV, '-pass', '2',
       '-c:a', 'aac', '-b:a', `${AUDIO_K}k`,
       '-movflags', '+faststart', saida,
     ], optExec)
@@ -128,7 +132,7 @@ async function processar(job) {
 async function proximoJob() {
   const { data, error } = await supabase
     .from('catalogo_midia')
-    .select('id, origem_url, codigo_produto, catalogo_produto_id')
+    .select('id, origem_url, inicio_seg, codigo_produto, catalogo_produto_id')
     .eq('tipo', 'video')
     .eq('status', 'pendente')
     .not('origem_url', 'is', null)

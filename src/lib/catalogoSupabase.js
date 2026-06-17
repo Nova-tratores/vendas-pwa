@@ -306,10 +306,36 @@ async function listarMidias(coluna, valor, { contexto = 'admin' } = {}) {
 }
 
 /**
- * Lista mídias de um produto do Estoque atual (Omie), por codigo_produto.
+ * Lista mídias de um produto do Estoque atual (Omie).
+ * Mídia de estoque é compartilhada por MARCA + MODELO (vale pra todos os SKUs da mesma
+ * marca/modelo, sem vazar entre marcas de mesmo número); sem modelo, cai no código da unidade.
+ * @param {{marca?: string, modelo?: string, contexto?: 'admin'|'vendedor'}} [opts]
  */
-export async function getMidiasProduto(codigoProduto, opts) {
-  return listarMidias('codigo_produto', codigoProduto, opts)
+export async function getMidiasProduto(codigoProduto, { marca = null, modelo = null, contexto = 'admin' } = {}) {
+  const modeloNorm = modelo ? String(modelo).trim().toUpperCase() : null
+  const marcaNorm = marca ? String(marca).trim().toUpperCase() : null
+
+  let q = supabase
+    .from('catalogo_midia')
+    .select('*')
+    .order('ordem', { ascending: true })
+    .order('created_at', { ascending: true })
+  if (modeloNorm) {
+    q = q.eq('modelo', modeloNorm)
+    if (marcaNorm) q = q.eq('marca', marcaNorm)
+  } else {
+    q = q.eq('codigo_produto', codigoProduto)
+  }
+  if (contexto === 'vendedor') q = q.eq('status', 'pronto')
+
+  const { data, error } = await q
+  if (error) {
+    console.error('[Midia list]', error.message)
+    return []
+  }
+  let lista = (data || []).map(midiaComUrl)
+  if (contexto === 'vendedor') lista = lista.filter((m) => m.tipo !== 'video' || m.visivel_vendedor)
+  return lista
 }
 
 /**
@@ -319,15 +345,39 @@ export async function getMidiasCatalogoProduto(catalogoProdutoId, opts) {
   return listarMidias('catalogo_produto_id', catalogoProdutoId, opts)
 }
 
+// "1m30s" / "90s" / "90" / "1h2m3s" → segundos. Usado no campo de início e no t= do link.
+export function parseInicioSeg(txt) {
+  if (txt == null) return null
+  const t = String(txt).trim()
+  if (!t) return null
+  if (/^\d+$/.test(t)) return parseInt(t, 10) || null            // só segundos
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(t)) {                       // mm:ss ou hh:mm:ss
+    const p = t.split(':').map(Number)
+    return (p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]) || null
+  }
+  const m = t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i)        // 1h2m3s
+  if (m && (m[1] || m[2] || m[3])) return ((+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0)) || null
+  return null
+}
+
+// Lê o tempo inicial (t= ou start=) de um link do YouTube.
+function startDoLink(url) {
+  try { const u = new URL(url); return parseInicioSeg(u.searchParams.get('t') || u.searchParams.get('start')) }
+  catch { return null }
+}
+
 /**
  * Cria um "pedido" de vídeo do YouTube. A própria linha de catalogo_midia é a fila:
  * entra como tipo='video', status='pendente'. O worker (Railway) baixa, hospeda no
  * bucket e marca 'pronto'. Exige supervisor logado (RLS).
+ * marca/modelo (estoque) fazem a mídia ser compartilhada entre SKUs da mesma marca/modelo.
+ * inicioSeg corta o começo do vídeo (também lido do t= do link, se não informado).
  */
-export async function criarVideoYoutube({ codigoProduto, catalogoProdutoId, url, titulo, supervisorId }) {
+export async function criarVideoYoutube({ codigoProduto, catalogoProdutoId, url, titulo, supervisorId, marca, modelo, inicioSeg }) {
   const link = (url || '').trim()
   if (!link) throw new Error('Informe o link do YouTube')
   if (!codigoProduto && !catalogoProdutoId) throw new Error('Informe codigoProduto ou catalogoProdutoId')
+  const inicio = inicioSeg != null ? inicioSeg : startDoLink(link)
   const { data, error } = await supabase
     .from('catalogo_midia')
     .insert({
@@ -339,6 +389,10 @@ export async function criarVideoYoutube({ codigoProduto, catalogoProdutoId, url,
       storage_path: null,
       titulo: titulo || null,
       visivel_vendedor: false,
+      destaque_showroom: false,
+      marca: marca ? String(marca).trim().toUpperCase() : null,
+      modelo: modelo ? String(modelo).trim().toUpperCase() : null,
+      inicio_seg: inicio || null,
       ordem: 0,
       created_by: supervisorId || null,
     })
@@ -357,6 +411,75 @@ export async function setVisivelVendedor(midiaId, valor) {
     .update({ visivel_vendedor: !!valor })
     .eq('id', midiaId)
   if (error) throw error
+}
+
+/**
+ * Marca/desmarca um vídeo como destaque do reel do Showroom/TV.
+ */
+export async function setDestaqueShowroom(midiaId, valor) {
+  const { error } = await supabase
+    .from('catalogo_midia')
+    .update({ destaque_showroom: !!valor })
+    .eq('id', midiaId)
+  if (error) throw error
+}
+
+/**
+ * Vídeos destacados pro reel do Showroom (prontos), já com o contexto do produto
+ * (título, marca, foto, destino pra abrir). Estoque é deduplicado por marca+modelo.
+ */
+export async function getVideosShowroom() {
+  const { data, error } = await supabase
+    .from('catalogo_midia')
+    .select('id, storage_path, titulo, marca, modelo, inicio_seg, codigo_produto, catalogo_produto_id')
+    .eq('tipo', 'video')
+    .eq('status', 'pronto')
+    .eq('destaque_showroom', true)
+    .order('ordem', { ascending: true })
+    .order('created_at', { ascending: true })
+  if (error) {
+    console.error('[Videos showroom]', error.message)
+    return []
+  }
+  const rows = data || []
+  const catIds = [...new Set(rows.filter((r) => r.catalogo_produto_id).map((r) => r.catalogo_produto_id))]
+  const codIds = [...new Set(rows.filter((r) => r.codigo_produto).map((r) => r.codigo_produto))]
+  const [catsRes, prodsRes] = await Promise.all([
+    catIds.length
+      ? supabase.from('catalogo_produtos').select('id, slug, titulo, subtitulo, foto_principal_url, marca:catalogo_marcas(nome)').in('id', catIds)
+      : Promise.resolve({ data: [] }),
+    codIds.length
+      ? supabase.from('produtos').select('codigo_produto, descricao, modelo, marca, imagem_url').in('codigo_produto', codIds)
+      : Promise.resolve({ data: [] }),
+  ])
+  const catById = new Map((catsRes.data || []).map((c) => [c.id, c]))
+  const prodByCod = new Map((prodsRes.data || []).map((p) => [p.codigo_produto, p]))
+
+  const vistos = new Set()
+  const out = []
+  for (const r of rows) {
+    let ctx
+    if (r.catalogo_produto_id) {
+      const c = catById.get(r.catalogo_produto_id)
+      if (!c) continue
+      ctx = { chave: `cat:${c.id}`, titulo: c.titulo, subtitulo: c.subtitulo, marca: c.marca?.nome || null, foto: c.foto_principal_url, ref: c.slug }
+    } else {
+      const p = prodByCod.get(r.codigo_produto)
+      if (!p) continue
+      const mkey = `${(r.marca || p.marca || '').toUpperCase()}|${(r.modelo || p.modelo || '').toUpperCase()}`
+      ctx = { chave: `mod:${mkey}`, titulo: p.modelo || p.descricao, subtitulo: p.marca, marca: p.marca, foto: p.imagem_url, ref: `sb-${p.codigo_produto}` }
+    }
+    if (vistos.has(ctx.chave)) continue   // 1 vídeo por modelo/produto
+    vistos.add(ctx.chave)
+    out.push({
+      id: r.id,
+      url_publica: midiaComUrl(r).url_publica,
+      titulo: r.titulo,
+      inicio_seg: r.inicio_seg || 0,
+      ...ctx,
+    })
+  }
+  return out
 }
 
 /**
@@ -388,7 +511,7 @@ export async function getResumoMidias() {
  * Upload de arquivo + insert em catalogo_midia.
  * Retorna o registro criado (com url_publica).
  */
-export async function uploadMidia({ codigoProduto, catalogoProdutoId, file, tipo, titulo, supervisorId, onProgress }) {
+export async function uploadMidia({ codigoProduto, catalogoProdutoId, file, tipo, titulo, supervisorId, marca, modelo, onProgress }) {
   if (!file) throw new Error('Arquivo é obrigatório')
   if (!['foto', 'video', 'pdf'].includes(tipo)) throw new Error(`Tipo inválido: ${tipo}`)
   if (!codigoProduto && !catalogoProdutoId) throw new Error('Informe codigoProduto ou catalogoProdutoId')
@@ -422,6 +545,9 @@ export async function uploadMidia({ codigoProduto, catalogoProdutoId, file, tipo
       tipo,
       storage_path: storagePath,
       titulo: titulo || null,
+      // Mídia de estoque é compartilhada por marca+modelo entre os SKUs.
+      marca: marca ? String(marca).trim().toUpperCase() : null,
+      modelo: modelo ? String(modelo).trim().toUpperCase() : null,
       ordem: 0,
       created_by: supervisorId || null,
     })

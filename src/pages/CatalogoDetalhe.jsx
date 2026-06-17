@@ -598,7 +598,7 @@ function DetalheEstoque({ item, loading }) {
   useEffect(() => {
     if (!item?.codigo_produto) return
     let alive = true
-    getMidiasProduto(item.codigo_produto, { contexto: 'vendedor' }).then((m) => {
+    getMidiasProduto(item.codigo_produto, { marca: item.marca, modelo: item.modelo, contexto: 'vendedor' }).then((m) => {
       if (alive) setMidias(m)
     })
     return () => { alive = false }

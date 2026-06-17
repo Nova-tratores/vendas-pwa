@@ -773,7 +773,7 @@ function EstoqueForm({ produto, focoInicial, onClose, onSaved }) {
       </Campo>
 
       <div ref={midiasRef}>
-        <MidiasEditor codigoProduto={produto.codigo_produto} />
+        <MidiasEditor codigoProduto={produto.codigo_produto} marca={produto.marca} modelo={produto.modelo} />
       </div>
 
       <div className="flex justify-end gap-2 mt-4">

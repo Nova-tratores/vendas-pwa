@@ -187,7 +187,7 @@ function ProdutoRow({ produto, editando, form, setForm, salvando, onEditar, onCa
 
       {editando && (
         <>
-        <MidiasEditor codigoProduto={p.codigo_produto} />
+        <MidiasEditor codigoProduto={p.codigo_produto} marca={p.marca} modelo={p.modelo} />
         <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">PreÃ§o override (R$)</label>

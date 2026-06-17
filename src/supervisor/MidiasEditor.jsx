@@ -1,21 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   getMidiasProduto, getMidiasCatalogoProduto, uploadMidia, deletarMidia, resizeFotoParaUpload,
-  criarVideoYoutube, setVisivelVendedor,
+  criarVideoYoutube, setVisivelVendedor, setDestaqueShowroom, parseInicioSeg,
 } from '../lib/catalogoSupabase'
 
 // Editor de mídias (foto/vídeo/PDF) reutilizável.
-// Dono: produto do Estoque atual (codigoProduto) OU produto curado (catalogoProdutoId).
-export default function MidiasEditor({ codigoProduto, catalogoProdutoId }) {
+// Dono: produto do Estoque atual (codigoProduto + marca/modelo) OU produto curado (catalogoProdutoId).
+// Mídia de estoque é compartilhada por marca+modelo entre os SKUs.
+export default function MidiasEditor({ codigoProduto, catalogoProdutoId, marca, modelo }) {
   const [midias, setMidias] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [erro, setErro] = useState('')
   const [ytUrl, setYtUrl] = useState('')
+  const [ytInicio, setYtInicio] = useState('')
   const [addingYt, setAddingYt] = useState(false)
   const pollRef = useRef(null)
 
-  useEffect(() => { carregar() }, [codigoProduto, catalogoProdutoId])
+  useEffect(() => { carregar() }, [codigoProduto, catalogoProdutoId, marca, modelo])
 
   // Enquanto houver vídeo baixando, recarrega sozinho pra mostrar quando ficar pronto.
   useEffect(() => {
@@ -30,8 +32,8 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId }) {
   async function carregar() {
     try {
       const lista = catalogoProdutoId
-        ? await getMidiasCatalogoProduto(catalogoProdutoId)   // admin: traz tudo (inclui baixando/erro)
-        : await getMidiasProduto(codigoProduto)
+        ? await getMidiasCatalogoProduto(catalogoProdutoId)            // admin: traz tudo
+        : await getMidiasProduto(codigoProduto, { marca, modelo })     // estoque: por marca+modelo
       setMidias(lista)
     } catch (err) {
       console.error('[MidiasEditor]', err)
@@ -64,6 +66,8 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId }) {
         tipo,
         titulo: file.name.replace(/\.[^.]+$/, '').slice(0, 60),
         supervisorId: supervisor.id,
+        marca,
+        modelo,
       })
       await carregar()
     } catch (err) {
@@ -80,12 +84,22 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId }) {
       setErro('Cole um link do YouTube (youtube.com ou youtu.be).')
       return
     }
+    if (ytInicio.trim() && parseInicioSeg(ytInicio) == null) {
+      setErro('Início inválido. Use mm:ss (ex: 1:30) ou segundos.')
+      return
+    }
     setErro('')
     setAddingYt(true)
     try {
       const supervisor = JSON.parse(localStorage.getItem('supervisor') || '{}')
-      await criarVideoYoutube({ codigoProduto, catalogoProdutoId, url, supervisorId: supervisor.id })
+      await criarVideoYoutube({
+        codigoProduto, catalogoProdutoId, url,
+        supervisorId: supervisor.id,
+        marca, modelo,
+        inicioSeg: ytInicio.trim() ? parseInicioSeg(ytInicio) : null,
+      })
       setYtUrl('')
+      setYtInicio('')
       await carregar()
     } catch (err) {
       setErro(err.message || 'Falha ao adicionar vídeo')
@@ -95,28 +109,26 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId }) {
   }
 
   async function handleToggleVendedor(midia) {
-    try {
-      await setVisivelVendedor(midia.id, !midia.visivel_vendedor)
-      await carregar()
-    } catch (err) {
-      setErro(err.message || 'Falha ao alterar liberação')
-    }
+    try { await setVisivelVendedor(midia.id, !midia.visivel_vendedor); await carregar() }
+    catch (err) { setErro(err.message || 'Falha ao alterar liberação') }
+  }
+
+  async function handleToggleDestaque(midia) {
+    try { await setDestaqueShowroom(midia.id, !midia.destaque_showroom); await carregar() }
+    catch (err) { setErro(err.message || 'Falha ao alterar destaque') }
   }
 
   async function handleDelete(midia) {
     if (!confirm(`Excluir "${midia.titulo || midia.storage_path || midia.origem_url || 'mídia'}"?`)) return
-    try {
-      await deletarMidia(midia)
-      await carregar()
-    } catch (err) {
-      setErro(err.message || 'Falha ao excluir')
-    }
+    try { await deletarMidia(midia); await carregar() }
+    catch (err) { setErro(err.message || 'Falha ao excluir') }
   }
 
   return (
     <div className="mt-3 pt-3 border-t border-slate-100">
       <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
         Mídias extras ({midias.length})
+        {!catalogoProdutoId && modelo && <span className="ml-1 normal-case tracking-normal text-slate-400">· compartilhadas no modelo {modelo}</span>}
       </p>
 
       {loading ? (
@@ -131,6 +143,7 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId }) {
               midia={m}
               onDelete={() => handleDelete(m)}
               onToggleVendedor={() => handleToggleVendedor(m)}
+              onToggleDestaque={() => handleToggleDestaque(m)}
             />
           ))}
         </div>
@@ -139,72 +152,61 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId }) {
       <div className="grid grid-cols-3 gap-1">
         <label className={`text-xs text-center py-1.5 rounded font-medium cursor-pointer ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-700 active:bg-blue-100'}`}>
           {uploading ? '...' : '+ Foto'}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            disabled={uploading}
-            onChange={(e) => handleUpload(e, 'foto')}
-            className="hidden"
-          />
+          <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(e) => handleUpload(e, 'foto')} className="hidden" />
         </label>
         <label className={`text-xs text-center py-1.5 rounded font-medium cursor-pointer ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-700 active:bg-blue-100'}`}>
           + Vídeo
-          <input
-            type="file"
-            accept="video/*"
-            disabled={uploading}
-            onChange={(e) => handleUpload(e, 'video')}
-            className="hidden"
-          />
+          <input type="file" accept="video/*" disabled={uploading} onChange={(e) => handleUpload(e, 'video')} className="hidden" />
         </label>
         <label className={`text-xs text-center py-1.5 rounded font-medium cursor-pointer ${uploading ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-700 active:bg-blue-100'}`}>
           + PDF
-          <input
-            type="file"
-            accept="application/pdf"
-            disabled={uploading}
-            onChange={(e) => handleUpload(e, 'pdf')}
-            className="hidden"
-          />
+          <input type="file" accept="application/pdf" disabled={uploading} onChange={(e) => handleUpload(e, 'pdf')} className="hidden" />
         </label>
       </div>
 
-      {/* Vídeo do YouTube: cola o link, o worker baixa e hospeda no nosso bucket. */}
-      <div className="flex gap-1 mt-2">
+      {/* Vídeo do YouTube: cola o link (+ início opcional). O worker baixa e hospeda. */}
+      <div className="mt-2">
         <input
           type="url"
           value={ytUrl}
           onChange={(e) => setYtUrl(e.target.value)}
           placeholder="Colar link do YouTube..."
-          className="flex-1 border border-slate-300 rounded px-2 py-1.5 text-sm min-w-0"
+          className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
         />
-        <button
-          type="button"
-          onClick={handleAddYoutube}
-          disabled={addingYt || !ytUrl.trim()}
-          className="text-xs px-3 py-1.5 rounded font-medium bg-red-50 text-red-700 active:bg-red-100 disabled:opacity-50 whitespace-nowrap"
-        >
-          {addingYt ? '...' : '+ YouTube'}
-        </button>
+        <div className="flex gap-1 mt-1">
+          <input
+            type="text"
+            value={ytInicio}
+            onChange={(e) => setYtInicio(e.target.value)}
+            placeholder="Início mm:ss (opcional)"
+            className="flex-1 border border-slate-300 rounded px-2 py-1.5 text-sm min-w-0"
+          />
+          <button
+            type="button"
+            onClick={handleAddYoutube}
+            disabled={addingYt || !ytUrl.trim()}
+            className="text-xs px-3 py-1.5 rounded font-medium bg-red-50 text-red-700 active:bg-red-100 disabled:opacity-50 whitespace-nowrap"
+          >
+            {addingYt ? '...' : '+ YouTube'}
+          </button>
+        </div>
       </div>
 
       <p className="text-[10px] text-slate-400 mt-1">
-        Arquivo: máx 25MB (foto/PDF), 100MB (vídeo). Vídeo do YouTube baixa em ~1-2 min. Vídeos só
-        aparecem pro vendedor depois de você liberar (botão 👁 no canto).
+        Arquivo: máx 25MB (foto/PDF), 100MB (vídeo). Vídeo do YouTube baixa em ~1-2 min.
+        👁 = libera pro vendedor · ⭐ = entra no reel do Showroom/TV.
       </p>
 
-      {erro && (
-        <p className="text-xs text-red-600 mt-2 bg-red-50 rounded p-2">{erro}</p>
-      )}
+      {erro && <p className="text-xs text-red-600 mt-2 bg-red-50 rounded p-2">{erro}</p>}
     </div>
   )
 }
 
-function MidiaThumb({ midia, onDelete, onToggleVendedor }) {
+function MidiaThumb({ midia, onDelete, onToggleVendedor, onToggleDestaque }) {
   const icone = midia.tipo === 'foto' ? null : midia.tipo === 'video' ? '🎬' : '📄'
   const baixando = midia.status === 'pendente' || midia.status === 'baixando'
   const erro = midia.status === 'erro'
+  const videoPronto = midia.tipo === 'video' && midia.status === 'pronto'
 
   return (
     <div className="relative group">
@@ -223,26 +225,29 @@ function MidiaThumb({ midia, onDelete, onToggleVendedor }) {
         )}
       </a>
 
-      {/* Estado do download (vídeo do YouTube) */}
-      {baixando && (
-        <span className="absolute inset-x-0 bottom-0 bg-amber-500/90 text-white text-[9px] text-center py-0.5">⏳ baixando</span>
-      )}
-      {erro && (
-        <span className="absolute inset-x-0 bottom-0 bg-red-600/90 text-white text-[9px] text-center py-0.5" title={midia.erro || ''}>⚠ erro</span>
-      )}
+      {baixando && <span className="absolute inset-x-0 bottom-0 bg-amber-500/90 text-white text-[9px] text-center py-0.5">⏳ baixando</span>}
+      {erro && <span className="absolute inset-x-0 bottom-0 bg-red-600/90 text-white text-[9px] text-center py-0.5" title={midia.erro || ''}>⚠ erro</span>}
 
-      {/* Liberar pro vendedor (só vídeo pronto) */}
-      {midia.tipo === 'video' && midia.status === 'pronto' && (
-        <button
-          type="button"
-          onClick={onToggleVendedor}
-          title={midia.visivel_vendedor ? 'Liberado pro vendedor (clique p/ esconder)' : 'Oculto do vendedor (clique p/ liberar)'}
-          className={`absolute bottom-0 left-0 right-0 text-[9px] text-center py-0.5 ${
-            midia.visivel_vendedor ? 'bg-green-600/90 text-white' : 'bg-slate-700/80 text-white'
-          }`}
-        >
-          {midia.visivel_vendedor ? '👁 liberado' : '🚫 oculto'}
-        </button>
+      {/* Toggles do vídeo pronto: liberar vendedor (👁) e destaque no Showroom (⭐) */}
+      {videoPronto && (
+        <div className="absolute inset-x-0 bottom-0">
+          <button
+            type="button"
+            onClick={onToggleVendedor}
+            title={midia.visivel_vendedor ? 'Liberado pro vendedor (clique p/ esconder)' : 'Oculto do vendedor (clique p/ liberar)'}
+            className={`block w-full text-[9px] text-center py-0.5 ${midia.visivel_vendedor ? 'bg-green-600/90 text-white' : 'bg-slate-700/80 text-white'}`}
+          >
+            {midia.visivel_vendedor ? '👁 liberado' : '🚫 oculto'}
+          </button>
+          <button
+            type="button"
+            onClick={onToggleDestaque}
+            title={midia.destaque_showroom ? 'No reel do Showroom (clique p/ tirar)' : 'Fora do reel (clique p/ destacar)'}
+            className={`block w-full text-[9px] text-center py-0.5 ${midia.destaque_showroom ? 'bg-amber-500/90 text-white' : 'bg-slate-500/70 text-white'}`}
+          >
+            {midia.destaque_showroom ? '⭐ no Showroom' : '☆ Showroom'}
+          </button>
+        </div>
       )}
 
       <button
