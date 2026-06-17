@@ -40,6 +40,7 @@ import SupervisorPropostas from './supervisor/SupervisorPropostas'
 import SupervisorCompartilhamentos from './supervisor/SupervisorCompartilhamentos'
 import SupervisorMaisVendidas from './supervisor/SupervisorMaisVendidas'
 import SupervisorLog from './supervisor/SupervisorLog'
+import SupervisorInfra from './supervisor/SupervisorInfra'
 
 function ProtectedRoute({ children }) {
   const vendedor = localStorage.getItem('vendedor')
@@ -50,6 +51,13 @@ function ProtectedRoute({ children }) {
 function SupervisorRoute({ children }) {
   const supervisor = localStorage.getItem('supervisor')
   if (!supervisor) return <Navigate to="/supervisor/login" replace />
+  return children
+}
+
+// Rotas só de admin: gestor é redirecionado pro início do painel (bloqueia URL direta).
+function AdminRoute({ children }) {
+  const sup = JSON.parse(localStorage.getItem('supervisor') || '{}')
+  if ((sup.tipo || 'admin') !== 'admin') return <Navigate to="/supervisor" replace />
   return children
 }
 
@@ -125,12 +133,13 @@ export default function App() {
         <Route path="alertas" element={<SupervisorAlertas />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
-        <Route path="catalogo-admin" element={<SupervisorCatalogo />} />
+        <Route path="catalogo-admin" element={<AdminRoute><SupervisorCatalogo /></AdminRoute>} />
         <Route path="mais-vendidas" element={<SupervisorMaisVendidas />} />
         <Route path="log" element={<SupervisorLog />} />
-        <Route path="produtos" element={<SupervisorProdutos />} />
+        <Route path="produtos" element={<AdminRoute><SupervisorProdutos /></AdminRoute>} />
         <Route path="compartilhamentos" element={<SupervisorCompartilhamentos />} />
-        <Route path="config" element={<SupervisorConfig />} />
+        <Route path="config" element={<AdminRoute><SupervisorConfig /></AdminRoute>} />
+        <Route path="infra" element={<AdminRoute><SupervisorInfra /></AdminRoute>} />
         <Route path="mapa" element={<SupervisorMapa />} />
       </Route>
     </Routes>

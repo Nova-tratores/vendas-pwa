@@ -39,6 +39,7 @@ export default function SupervisorLogin() {
         id: sup.id,
         nome: sup.nome,
         email: sup.email,
+        tipo: sup.tipo || 'admin',
       }))
 
       navigate('/supervisor')

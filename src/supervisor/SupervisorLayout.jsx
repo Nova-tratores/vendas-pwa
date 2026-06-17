@@ -4,6 +4,8 @@ import { supabase } from '../lib/sync'
 
 const INICIO = { to: '/supervisor', label: 'Início', end: true }
 
+// Itens/grupos marcados com `admin: true` só aparecem para supervisor tipo 'admin'.
+// O 'gestor' vê apenas gestão de vendedores (Equipe, Vendas, Análise) e VER catálogo.
 const MENUS = [
   { label: 'Equipe', items: [
     { to: '/supervisor/vendedores', label: 'Vendedores' },
@@ -12,9 +14,9 @@ const MENUS = [
   ] },
   { label: 'Catálogo', items: [
     { to: '/supervisor/catalogo', label: 'Catálogo' },
-    { to: '/supervisor/catalogo-admin', label: 'Gerir catálogo' },
+    { to: '/supervisor/catalogo-admin', label: 'Gerir catálogo', admin: true },
     { to: '/supervisor/mais-vendidas', label: 'Mais vendidas' },
-    { to: '/supervisor/produtos', label: 'Produtos' },
+    { to: '/supervisor/produtos', label: 'Produtos', admin: true },
   ] },
   { label: 'Vendas', items: [
     { to: '/supervisor/visitas', label: 'Visitas' },
@@ -29,15 +31,28 @@ const MENUS = [
     { to: '/supervisor/notificacoes', label: 'Notificações' },
     { to: '/supervisor/log', label: 'Log de atividades' },
   ] },
-  { label: 'Config', items: [
-    { to: '/supervisor/config', label: 'Configurações' },
+  { label: 'Sistema', admin: true, items: [
+    { to: '/supervisor/config', label: 'Configurações', admin: true },
+    { to: '/supervisor/infra', label: 'Consumo de dados', admin: true },
   ] },
 ]
+
+// Filtra menus/itens conforme o papel; remove grupos que ficarem vazios.
+function menusParaTipo(tipo) {
+  const isAdmin = tipo === 'admin'
+  if (isAdmin) return MENUS
+  return MENUS
+    .filter((m) => !m.admin)
+    .map((m) => ({ ...m, items: m.items.filter((i) => !i.admin) }))
+    .filter((m) => m.items.length > 0)
+}
 
 export default function SupervisorLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const supervisor = JSON.parse(localStorage.getItem('supervisor') || '{}')
+  const isAdmin = (supervisor.tipo || 'admin') === 'admin'
+  const menus = menusParaTipo(supervisor.tipo || 'admin')
   const [aberto, setAberto] = useState(null) // label do menu aberto
 
   async function handleLogout() {
@@ -53,7 +68,7 @@ export default function SupervisorLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <header className="bg-slate-800 text-white px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-bold">Supervisor</h1>
+        <h1 className="text-lg font-bold">{isAdmin ? 'Supervisor' : 'Gestor'}</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm opacity-80">{supervisor.nome}</span>
           <button
@@ -78,7 +93,7 @@ export default function SupervisorLayout() {
           Início
         </NavLink>
 
-        {MENUS.map((m) => {
+        {menus.map((m) => {
           const open = aberto === m.label
           return (
             <div key={m.label} className="relative">

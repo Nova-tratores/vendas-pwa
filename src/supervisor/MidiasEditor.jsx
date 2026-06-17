@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   getMidiasProduto, getMidiasCatalogoProduto, uploadMidia, deletarMidia, resizeFotoParaUpload,
   criarVideoYoutube, setVisivelVendedor, setDestaqueShowroom, parseInicioSeg,
@@ -15,6 +16,7 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId, marca, 
   const [ytUrl, setYtUrl] = useState('')
   const [ytInicio, setYtInicio] = useState('')
   const [addingYt, setAddingYt] = useState(false)
+  const [playing, setPlaying] = useState(null) // mídia de vídeo em reprodução (lightbox)
   const pollRef = useRef(null)
 
   useEffect(() => { carregar() }, [codigoProduto, catalogoProdutoId, marca, modelo])
@@ -141,6 +143,7 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId, marca, 
             <MidiaThumb
               key={m.id}
               midia={m}
+              onPlay={() => setPlaying(m)}
               onDelete={() => handleDelete(m)}
               onToggleVendedor={() => handleToggleVendedor(m)}
               onToggleDestaque={() => handleToggleDestaque(m)}
@@ -198,32 +201,87 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId, marca, 
       </p>
 
       {erro && <p className="text-xs text-red-600 mt-2 bg-red-50 rounded p-2">{erro}</p>}
+
+      {playing && <VideoLightbox midia={playing} onClose={() => setPlaying(null)} />}
     </div>
   )
 }
 
-function MidiaThumb({ midia, onDelete, onToggleVendedor, onToggleDestaque }) {
+// Player do vídeo em tela cheia (lightbox). Renderizado via portal pra escapar do modal de edição.
+function VideoLightbox({ midia, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -top-9 right-0 text-white/80 hover:text-white text-sm flex items-center gap-1"
+        >
+          Fechar ✕
+        </button>
+        <video
+          src={midia.url_publica}
+          controls
+          autoPlay
+          playsInline
+          className="w-full max-h-[80vh] rounded-lg bg-black"
+        />
+        {midia.titulo && <p className="text-white/80 text-sm mt-2 text-center">{midia.titulo}</p>}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaque }) {
   const icone = midia.tipo === 'foto' ? null : midia.tipo === 'video' ? '🎬' : '📄'
   const baixando = midia.status === 'pendente' || midia.status === 'baixando'
   const erro = midia.status === 'erro'
   const videoPronto = midia.tipo === 'video' && midia.status === 'pronto'
+  const podeReproduzir = videoPronto && midia.url_publica
+
+  const conteudoThumb = midia.tipo === 'foto' && midia.url_publica ? (
+    <img src={midia.url_publica} alt={midia.titulo || ''} className="w-full h-full object-cover" loading="lazy" />
+  ) : (
+    <span className="text-2xl">{icone}</span>
+  )
 
   return (
     <div className="relative group">
-      <a
-        href={midia.url_publica || undefined}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => { if (!midia.url_publica) e.preventDefault() }}
-        className="block w-full aspect-square bg-slate-100 rounded overflow-hidden flex items-center justify-center"
-        title={midia.titulo || midia.origem_url || midia.storage_path || ''}
-      >
-        {midia.tipo === 'foto' && midia.url_publica ? (
-          <img src={midia.url_publica} alt={midia.titulo || ''} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <span className="text-2xl">{icone}</span>
-        )}
-      </a>
+      {podeReproduzir ? (
+        // Vídeo pronto: clica pra dar play num lightbox (em vez de baixar o arquivo)
+        <button
+          type="button"
+          onClick={onPlay}
+          className="block w-full aspect-square bg-slate-900 rounded overflow-hidden flex items-center justify-center"
+          title={midia.titulo || midia.storage_path || ''}
+        >
+          <span className="text-2xl opacity-50">{icone}</span>
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-sm shadow">▶</span>
+          </span>
+        </button>
+      ) : (
+        <a
+          href={midia.url_publica || undefined}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => { if (!midia.url_publica) e.preventDefault() }}
+          className="block w-full aspect-square bg-slate-100 rounded overflow-hidden flex items-center justify-center"
+          title={midia.titulo || midia.origem_url || midia.storage_path || ''}
+        >
+          {conteudoThumb}
+        </a>
+      )}
 
       {baixando && <span className="absolute inset-x-0 bottom-0 bg-amber-500/90 text-white text-[9px] text-center py-0.5">⏳ baixando</span>}
       {erro && <span className="absolute inset-x-0 bottom-0 bg-red-600/90 text-white text-[9px] text-center py-0.5" title={midia.erro || ''}>⚠ erro</span>}

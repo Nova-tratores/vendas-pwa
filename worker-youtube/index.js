@@ -11,7 +11,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readFile, mkdtemp, rm } from 'node:fs/promises'
+import { readFile, mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -53,6 +53,15 @@ async function marcar(id, campos) {
   if (error) log('  ! falha ao atualizar linha', id, error.message)
 }
 
+// Registra o que o job consumiu (alimenta o painel de Consumo de dados do admin).
+// Falha aqui nunca derruba o job — métrica é best-effort.
+async function registrarUso(uso) {
+  try {
+    const { error } = await supabase.from('worker_uso').insert([{ worker: 'youtube', ...uso }])
+    if (error) log('  ! falha ao registrar uso', error.message)
+  } catch (e) { log('  ! falha ao registrar uso', e?.message || e) }
+}
+
 async function processar(job) {
   log(`→ job ${job.id}: ${job.origem_url}`)
   await marcar(job.id, { status: 'baixando', erro: null })
@@ -61,6 +70,11 @@ async function processar(job) {
   const brutoTpl = join(dir, 'bruto.%(ext)s')
   const bruto = join(dir, 'bruto.mp4')
   const saida = join(dir, 'saida.mp4')
+
+  const t0 = Date.now()
+  let bytesBaixados = null
+  let bytesFinal = null
+  let duracaoSeg = null
 
   try {
     // 1) Download até 720p, mesclando em mp4.
@@ -81,6 +95,8 @@ async function processar(job) {
       '-of', 'default=noprint_wrappers=1:nokey=1', bruto,
     ])
     const durTotal = Math.max(1, Math.floor(parseFloat(durOut) || 0))
+    duracaoSeg = durTotal
+    try { bytesBaixados = (await stat(bruto)).size } catch { /* ignora */ }
     // Corte do começo (supervisor pula intro). -ss antes do -i = seek rápido; re-encode acerta.
     const inicio = Math.min(Math.max(0, Number(job.inicio_seg) || 0), durTotal - 1)
     const seek = inicio > 0 ? ['-ss', String(inicio)] : []
@@ -107,6 +123,7 @@ async function processar(job) {
 
     // 4) Upload pro bucket.
     const buffer = await readFile(saida)
+    bytesFinal = buffer.length
     log(`  · arquivo final: ${(buffer.length / 1048576).toFixed(1)} MB`)
     const path = storagePathDe(job)
     const { error: upErr } = await supabase.storage
@@ -115,6 +132,12 @@ async function processar(job) {
     if (upErr) throw new Error(`upload: ${upErr.message}`)
 
     await marcar(job.id, { storage_path: path, status: 'pronto', erro: null })
+    await registrarUso({
+      midia_id: job.id, status: 'pronto',
+      bytes_baixados: bytesBaixados, bytes_final: bytesFinal,
+      duracao_video_seg: duracaoSeg,
+      processamento_seg: Number(((Date.now() - t0) / 1000).toFixed(2)),
+    })
     log(`✓ job ${job.id} pronto (${(buffer.length / 1048576).toFixed(1)} MB) → ${path}`)
   } catch (err) {
     // O stderr do yt-dlp tem WARNINGs antes do ERRO real — pega a linha ERROR: de fato.
@@ -122,6 +145,12 @@ async function processar(job) {
     const linhaErro = stderr.split('\n').reverse().find((l) => /^\s*ERROR:/i.test(l))
     const msg = (linhaErro || err?.message || String(err)).trim().slice(0, 800)
     await marcar(job.id, { status: 'erro', erro: msg })
+    await registrarUso({
+      midia_id: job.id, status: 'erro',
+      bytes_baixados: bytesBaixados, bytes_final: bytesFinal,
+      duracao_video_seg: duracaoSeg,
+      processamento_seg: Number(((Date.now() - t0) / 1000).toFixed(2)),
+    })
     log(`✗ job ${job.id} erro: ${msg.split('\n')[0]}`)
     if (stderr) log(`  stderr completo:\n${stderr.slice(-1500)}`)
   } finally {
