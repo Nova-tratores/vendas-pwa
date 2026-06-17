@@ -671,20 +671,29 @@ export async function getMarcasDropdown() {
 }
 
 /**
- * Modelos do Omie (família máquinas) de uma marca canônica, pro dropdown/sugestões.
+ * Modelos de uma marca pro dropdown/sugestões: combina os modelos do Omie (família
+ * máquinas) com os "modelos comuns" de mercado (concorrentes/curados), deduplicado.
  * Cacheia por marca em localStorage (offline). Retorna array de strings.
  */
 export async function getModelosPorMarca(marcaId) {
   if (!marcaId) return []
   const cacheKey = `cache_modelos_${marcaId}`
   try {
-    const { data, error } = await supabase
-      .from('vw_modelos_por_marca')
-      .select('modelo')
-      .eq('marca_id', marcaId)
-      .order('modelo', { ascending: true })
-    if (error) throw error
-    const lista = (data || []).map((r) => r.modelo).filter(Boolean)
+    const [omieRes, comunsRes] = await Promise.all([
+      supabase.from('vw_modelos_por_marca').select('modelo').eq('marca_id', marcaId),
+      supabase.from('modelos_comuns').select('modelo').eq('marca_id', marcaId),
+    ])
+    if (omieRes.error && comunsRes.error) throw omieRes.error
+    const vistos = new Set()
+    const lista = []
+    for (const r of [...(comunsRes.data || []), ...(omieRes.data || [])]) {
+      const m = (r.modelo || '').trim()
+      const k = m.toUpperCase()
+      if (!m || vistos.has(k)) continue
+      vistos.add(k)
+      lista.push(m)
+    }
+    lista.sort((a, b) => a.localeCompare(b, 'pt-BR'))
     localStorage.setItem(cacheKey, JSON.stringify(lista))
     return lista
   } catch {
