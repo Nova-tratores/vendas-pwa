@@ -171,6 +171,7 @@ export default function SupervisorMaisVendidas() {
                       ) : (
                         <Link
                           to="/supervisor/catalogo-admin"
+                          state={{ novoProduto: { marca: r.marca, modelo: r.item, familia: r.familia } }}
                           className="text-xs text-amber-700 font-medium hover:underline"
                         >
                           ❌ Adicionar

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   getMarcas, getProdutosCatalogo, salvarMarca, deletarMarca,
   salvarProdutoCatalogo, deletarProdutoCatalogo, uploadArquivoCatalogo,
@@ -36,6 +37,19 @@ export default function SupervisorCatalogo() {
   const [produtos, setProdutos] = useState([])
   const [resumo, setResumo] = useState({ porCatalogo: {}, porCodigo: {} })
   const [loading, setLoading] = useState(true)
+
+  // Vem do "Adicionar" da tela Mais Vendidas: abre a ficha nova já preenchida.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [prefill, setPrefill] = useState(location.state?.novoProduto || null)
+  useEffect(() => {
+    if (location.state?.novoProduto) {
+      setPrefill(location.state.novoProduto)
+      setAba('maquinas')
+      navigate(location.pathname, { replace: true }) // limpa o state (refresh não reabre)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function carregar() {
     setLoading(true)
@@ -80,7 +94,8 @@ export default function SupervisorCatalogo() {
       ) : aba === 'marcas' ? (
         <SecaoMarcas marcas={marcas} onChange={carregar} />
       ) : (
-        <SecaoMaquinas produtos={produtos} marcas={marcas} resumo={resumo} onChange={carregar} />
+        <SecaoMaquinas produtos={produtos} marcas={marcas} resumo={resumo} onChange={carregar}
+          prefill={prefill} onPrefillConsumed={() => setPrefill(null)} />
       )}
     </div>
   )
@@ -225,8 +240,21 @@ function MarcaForm({ marca, onClose, onSaved }) {
   )
 }
 
+// Família do Omie → categoria do catálogo curado (palpite; o supervisor ajusta).
+function categoriaDeFamilia(familia) {
+  const f = (familia || '').toLowerCase()
+  if (f.includes('pulveriz')) return 'pulverizadores'
+  if (f.includes('trator')) return 'tratores'
+  return 'implementos'
+}
+function marcaIdPorNome(marcas, nome) {
+  const n = (nome || '').trim().toLowerCase()
+  if (!n) return null
+  return marcas.find((x) => (x.nome || '').trim().toLowerCase() === n)?.id || null
+}
+
 // ==================== MÁQUINAS ====================
-function SecaoMaquinas({ produtos, marcas, resumo, onChange }) {
+function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillConsumed }) {
   const [modo, setModo] = useState('catalogo') // catalogo | estoque
   const [busca, setBusca] = useState('')
   const [editando, setEditando] = useState(null) // { kind, item, foco }
@@ -247,14 +275,29 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange }) {
     return <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3">Cadastre uma marca primeiro (aba Marcas) antes de adicionar máquinas.</p>
   }
 
-  function novaMaquina() {
+  function novaMaquina(pre) {
+    const marca = pre?.marca || ''
+    const modelo = pre?.modelo || ''
     setEditando({ kind: 'curado', foco: null, item: {
-      marca_id: marcas[0]?.id, titulo: '', subtitulo: '', categoria: 'tratores',
+      marca_id: marcaIdPorNome(marcas, marca) || marcas[0]?.id,
+      titulo: [marca, modelo].filter(Boolean).join(' ').trim(),
+      subtitulo: modelo || '',
+      categoria: pre ? categoriaDeFamilia(pre.familia) : 'tratores',
       descricao: '', argumentos_de_venda: [], especificacoes: {}, url_site: '',
-      foto_principal_url: '', folheto_url: '', modelos_supabase: [], filtro_supabase: null,
+      foto_principal_url: '', folheto_url: '',
+      modelos_supabase: modelo ? [modelo] : [], filtro_supabase: null,
       visivel: true, ordem: 99,
     } })
   }
+
+  // Abre a ficha nova já preenchida quando veio do "Adicionar" (Mais Vendidas).
+  useEffect(() => {
+    if (!prefill || !marcas.length) return
+    setModo('catalogo')
+    novaMaquina(prefill)
+    onPrefillConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill, marcas])
 
   function presencaCurado(p) {
     const r = resumo.porCatalogo[p.id] || {}
@@ -293,7 +336,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange }) {
     <div>
       <div className="flex gap-1 mb-3">
         <SubToggle ativo={modo === 'catalogo'} onClick={() => setModo('catalogo')}>Catálogo ({produtos.length})</SubToggle>
-        <SubToggle ativo={modo === 'estoque'} onClick={() => setModo('estoque')}>Estoque Omie{estoque ? ` (${estoqueMaquinas.length})` : ''}</SubToggle>
+        <SubToggle ativo={modo === 'estoque'} onClick={() => setModo('estoque')}>Estoque Loja{estoque ? ` (${estoqueMaquinas.length})` : ''}</SubToggle>
       </div>
 
       <div className="flex gap-2 mb-3">
@@ -304,7 +347,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange }) {
           className="flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white"
         />
         {modo === 'catalogo' && (
-          <button onClick={novaMaquina} className="text-sm px-3 py-1.5 bg-blue-700 text-white rounded-lg font-medium whitespace-nowrap">
+          <button onClick={() => novaMaquina()} className="text-sm px-3 py-1.5 bg-blue-700 text-white rounded-lg font-medium whitespace-nowrap">
             + Nova
           </button>
         )}
