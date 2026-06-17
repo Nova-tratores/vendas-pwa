@@ -11,6 +11,7 @@ import { getProdutosCatalogo, getMarcas, getMidiasCatalogoProduto, getVideosShow
 // ====================================================================
 
 const DURACAO_SLIDE = 12000     // ms entre slides de foto (auto-rotação)
+const DURACAO_SEPARADOR = 3500  // ms do slide-título de marca (passa rápido, tipo capítulo)
 const OCIOSIDADE_RETOMA = 30000 // ms parado até voltar a rotacionar sozinho
 const DURACAO_FOTO = 4500       // ms do mini-carrossel de fotos dentro do slide
 const OCULTAR_CURSOR = 4000     // ms até esconder cursor/controles
@@ -55,16 +56,26 @@ export default function Showroom() {
     return () => { alive = false }
   }, [])
 
-  // Slides = fotos dos produtos + vídeos destacados, intercalados.
+  // Slides = produtos agrupados por marca (com slide-título separador) + vídeos intercalados.
   const slides = useMemo(() => {
-    const fotoSlides = produtos.map((p) => ({ kind: 'foto', key: `p${p.id}`, produto: p }))
+    // produtos já vêm ordenados por marca; insere um separador quando a marca muda.
+    const base = []
+    let marcaAtual = null
+    produtos.forEach((p) => {
+      const nomeMarca = p.marca?.nome || null
+      if (nomeMarca && nomeMarca !== marcaAtual) {
+        base.push({ kind: 'separador', key: `sep-${p.id}`, titulo: nomeMarca })
+        marcaAtual = nomeMarca
+      }
+      base.push({ kind: 'foto', key: `p${p.id}`, produto: p })
+    })
     const videoSlides = videos.map((v) => ({ kind: 'video', key: `v${v.id}`, video: v }))
-    if (!videoSlides.length) return fotoSlides
-    if (!fotoSlides.length) return videoSlides
+    if (!videoSlides.length) return base
+    if (!base.length) return videoSlides
     const out = []
-    const gap = Math.max(1, Math.floor(fotoSlides.length / videoSlides.length))
+    const gap = Math.max(1, Math.floor(base.length / videoSlides.length))
     let vi = 0
-    fotoSlides.forEach((s, i) => {
+    base.forEach((s, i) => {
       out.push(s)
       if (vi < videoSlides.length && (i + 1) % gap === 0) out.push(videoSlides[vi++])
     })
@@ -79,12 +90,14 @@ export default function Showroom() {
     setIndice((i) => (total ? (i + delta + total) % total : 0))
   }, [total])
 
-  // ---- Auto-rotação (vídeo controla o próprio avanço; foto usa o timer) ------
+  // ---- Auto-rotação (vídeo controla o próprio avanço; separador passa rápido) ----
   useEffect(() => {
     if (!iniciado || pausado || total <= 1) return
-    if (slides[indice]?.kind === 'video') return
-    const t = setInterval(() => setIndice((i) => (i + 1) % total), DURACAO_SLIDE)
-    return () => clearInterval(t)
+    const kind = slides[indice]?.kind
+    if (kind === 'video') return
+    const dur = kind === 'separador' ? DURACAO_SEPARADOR : DURACAO_SLIDE
+    const t = setTimeout(() => setIndice((i) => (i + 1) % total), dur)
+    return () => clearTimeout(t)
   }, [iniciado, pausado, total, indice, slides])
 
   // Pré-carrega a imagem do próximo slide de foto pra transição sem flash.
@@ -235,6 +248,8 @@ export default function Showroom() {
           onEnded={() => { if (!pausado) avancar(1) }}
           onAbrir={() => abrirProduto(atual.video.ref)}
         />
+      ) : atual?.kind === 'separador' ? (
+        <Separador key={atual.key} titulo={atual.titulo} />
       ) : (
         <Slide key={atual.key} produto={atual.produto} />
       )}
@@ -283,6 +298,16 @@ export default function Showroom() {
       )}
 
       <style>{`@keyframes showroom-progress { from { width: 0 } to { width: 100% } }`}</style>
+    </div>
+  )
+}
+
+// ---- Slide separador (título da marca, tipo capítulo) ---------------
+function Separador({ titulo }) {
+  return (
+    <div className="absolute inset-0 bg-gradient-to-br from-slate-950 to-slate-800 flex flex-col items-center justify-center animate-fade-in">
+      <p className="text-white/40 text-xl uppercase tracking-[0.3em] mb-4">Marca</p>
+      <h2 className="text-white text-6xl lg:text-8xl font-bold tracking-tight uppercase text-center px-6">{titulo}</h2>
     </div>
   )
 }
