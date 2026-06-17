@@ -38,7 +38,7 @@ const POLL_MS = Math.max(5000, Number(POLL_INTERVAL) || 15000)
 const ALTURA = Number(MAX_HEIGHT) || 720
 // Tamanho-alvo do vídeo final (MB). Fica abaixo do teto global do Storage (50MB no
 // plano free). O worker calcula a taxa de bits pra caber nesse orçamento.
-const MAX_MB = Number(process.env.MAX_MB) || 45
+const MAX_MB = Number(process.env.MAX_MB) || 42
 
 const log = (...a) => console.log(new Date().toISOString(), ...a)
 
@@ -81,11 +81,15 @@ async function processar(job) {
       '-of', 'default=noprint_wrappers=1:nokey=1', bruto,
     ])
     const dur = Math.max(1, Math.floor(parseFloat(durOut) || 0))
-    const AUDIO_K = 128
+    const AUDIO_K = 96
     const totalK = Math.floor((MAX_MB * 8 * 1024) / dur)   // kbps totais p/ caber em MAX_MB
-    const videoK = Math.max(200, Math.min(totalK - AUDIO_K, 4500))
+    // Floor baixo (120k) pra vídeo longo nunca estourar o orçamento; teto pra não inflar curto.
+    const videoK = Math.max(120, Math.min(totalK - AUDIO_K, 5000))
     const vf = `scale='-2:min(${ALTURA},ih)'`
-    const baseV = ['-c:v', 'libx264', '-b:v', `${videoK}k`, '-vf', vf, '-preset', 'medium']
+    // maxrate/bufsize limitam picos → tamanho previsível + bom pra streaming web.
+    const baseV = ['-c:v', 'libx264', '-b:v', `${videoK}k`,
+      '-maxrate', `${Math.round(videoK * 1.5)}k`, '-bufsize', `${videoK * 2}k`,
+      '-vf', vf, '-preset', 'medium']
     const optExec = { timeout: 1000 * 60 * 25, maxBuffer: 1024 * 1024 * 64, cwd: dir }
     log(`  · ${dur}s → vídeo ${videoK}k + áudio ${AUDIO_K}k (alvo ${MAX_MB}MB)`)
 
@@ -99,6 +103,7 @@ async function processar(job) {
 
     // 4) Upload pro bucket.
     const buffer = await readFile(saida)
+    log(`  · arquivo final: ${(buffer.length / 1048576).toFixed(1)} MB`)
     const path = storagePathDe(job)
     const { error: upErr } = await supabase.storage
       .from(MIDIA_BUCKET)
