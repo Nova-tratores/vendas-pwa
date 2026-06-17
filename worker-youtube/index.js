@@ -70,7 +70,6 @@ async function processar(job) {
       '-f', `bestvideo[height<=${ALTURA}]+bestaudio/best[height<=${ALTURA}]/best`,
       '--merge-output-format', 'mp4',
       '--no-playlist',
-      '--extractor-args', 'youtube:player_client=tv,android,ios,web',
       '--retries', '5', '--fragment-retries', '5', '--sleep-requests', '1',
       '-o', brutoTpl,
       job.origem_url,
@@ -136,6 +135,12 @@ async function proximoJob() {
 
 async function main() {
   log(`worker-youtube iniciado · bucket=${MIDIA_BUCKET} · poll=${POLL_MS}ms · ${ALTURA}p`)
+
+  // Diagnóstico: confirma que yt-dlp e Deno (runtime de JS p/ nsig) estão no build.
+  for (const [cmd, a] of [['yt-dlp', ['--version']], ['deno', ['--version']], ['ffmpeg', ['-version']]]) {
+    try { const { stdout } = await execFileP(cmd, a); log(`  ${cmd}: ${stdout.trim().split('\n')[0]}`) }
+    catch (e) { log(`  ${cmd}: INDISPONÍVEL — ${e.message}`) }
+  }
 
   // Se o worker reiniciou no meio de um download, reabre as linhas presas.
   const { error: resetErr } = await supabase
