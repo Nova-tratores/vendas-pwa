@@ -2,6 +2,7 @@
 // para trazer estoque agregado e preco em runtime.
 
 import { supabase } from './sync'
+import { registrarLogSupervisor } from './auditoria'
 
 // Cache em memoria por sessao (evita refetch a cada navegacao)
 const cache = new Map()
@@ -258,6 +259,7 @@ export async function salvarOverride(codigoProduto, fields, supervisorId) {
   // Limpa cache pra próximas leituras pegarem o valor novo
   estoqueAtualCache = null
   overridesCache = null
+  registrarLogSupervisor('alterar', 'estoque_override', codigoProduto, `preço/estoque/visibilidade ajustados`)
 }
 
 export function clearEstoqueCache() {
@@ -399,6 +401,7 @@ export async function criarVideoYoutube({ codigoProduto, catalogoProdutoId, url,
     .select()
     .single()
   if (error) throw error
+  registrarLogSupervisor('criar', 'midia', data.id, `Vídeo YouTube${marca || modelo ? ` (${[marca, modelo].filter(Boolean).join(' ')})` : ''}: ${link}`)
   return midiaComUrl(data)
 }
 
@@ -411,6 +414,7 @@ export async function setVisivelVendedor(midiaId, valor) {
     .update({ visivel_vendedor: !!valor })
     .eq('id', midiaId)
   if (error) throw error
+  registrarLogSupervisor('alterar', 'midia', midiaId, `Vídeo ${valor ? 'liberado' : 'ocultado'} pro vendedor`)
 }
 
 /**
@@ -422,6 +426,7 @@ export async function setDestaqueShowroom(midiaId, valor) {
     .update({ destaque_showroom: !!valor })
     .eq('id', midiaId)
   if (error) throw error
+  registrarLogSupervisor('alterar', 'midia', midiaId, `Vídeo ${valor ? 'adicionado ao' : 'removido do'} Showroom`)
 }
 
 /**
@@ -560,6 +565,9 @@ export async function uploadMidia({ codigoProduto, catalogoProdutoId, file, tipo
     throw new Error(`Insert falhou: ${insErr.message}`)
   }
 
+  const alvo = catalogoProdutoId ? `ficha #${catalogoProdutoId}` : `estoque ${codigoProduto}`
+  registrarLogSupervisor('criar', 'midia', data.id, `${tipo}${titulo ? ` "${titulo}"` : ''} em ${alvo}`)
+
   return {
     ...data,
     url_publica: `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${data.storage_path}`,
@@ -577,6 +585,7 @@ export async function deletarMidia(midia) {
   }
   const { error } = await supabase.from('catalogo_midia').delete().eq('id', midia.id)
   if (error) throw new Error(`Delete falhou: ${error.message}`)
+  registrarLogSupervisor('excluir', 'midia', midia.id, `${midia.tipo || 'mídia'}${midia.titulo ? ` "${midia.titulo}"` : ''}`)
 }
 
 /**
@@ -768,6 +777,7 @@ export async function salvarMarca(marca, supervisorId) {
     .single()
   if (error) throw error
   clearCatalogoCache()
+  registrarLogSupervisor(marca.id ? 'alterar' : 'criar', 'marca', data.id, data.nome)
   return data
 }
 
@@ -775,6 +785,7 @@ export async function deletarMarca(id) {
   const { error } = await supabase.from('catalogo_marcas').delete().eq('id', id)
   if (error) throw error
   clearCatalogoCache()
+  registrarLogSupervisor('excluir', 'marca', id, '')
 }
 
 /**
@@ -789,6 +800,7 @@ export async function salvarProdutoCatalogo(produto, supervisorId) {
     .single()
   if (error) throw error
   clearCatalogoCache()
+  registrarLogSupervisor(produto.id ? 'alterar' : 'criar', 'ficha', data.id, data.titulo)
   return data
 }
 
@@ -796,6 +808,7 @@ export async function deletarProdutoCatalogo(id) {
   const { error } = await supabase.from('catalogo_produtos').delete().eq('id', id)
   if (error) throw error
   clearCatalogoCache()
+  registrarLogSupervisor('excluir', 'ficha', id, '')
 }
 
 /**

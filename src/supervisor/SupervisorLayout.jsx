@@ -27,6 +27,7 @@ const MENUS = [
     { to: '/supervisor/evolucao', label: 'Evolução' },
     { to: '/supervisor/alertas', label: 'Alertas' },
     { to: '/supervisor/notificacoes', label: 'Notificações' },
+    { to: '/supervisor/log', label: 'Log de atividades' },
   ] },
   { label: 'Config', items: [
     { to: '/supervisor/config', label: 'Configurações' },
