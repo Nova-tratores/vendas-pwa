@@ -322,6 +322,14 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
 
   const q = busca.trim().toLowerCase()
   const curados = produtos.filter((p) => !q || p.titulo.toLowerCase().includes(q) || p.marca?.nome?.toLowerCase().includes(q))
+  // Agrupa o catálogo por marca (preservando a ordem) pra não misturar as marcas na lista.
+  const curadosPorMarca = []
+  for (const p of curados) {
+    const nome = p.marca?.nome || 'Sem marca'
+    let g = curadosPorMarca[curadosPorMarca.length - 1]
+    if (!g || g.marca !== nome) { g = { marca: nome, itens: [] }; curadosPorMarca.push(g) }
+    g.itens.push(p)
+  }
   // getProdutosAdmin já traz só itens com saldo (filtro no banco); aqui só restringe a máquinas.
   const estoqueMaquinas = (estoque || []).filter(temFamiliaMaquina)
   const estoqueFiltrado = estoqueMaquinas.filter((p) => !q
@@ -354,18 +362,27 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
       </div>
 
       {modo === 'catalogo' ? (
-        <div className="space-y-2">
-          {curados.map((p) => (
-            <MaquinaCard
-              key={p.id}
-              foto={p.foto_principal_url}
-              titulo={p.titulo}
-              subtitulo={[p.marca?.nome, p.categoria].filter(Boolean).join(' · ')}
-              oculta={!p.visivel}
-              presenca={presencaCurado(p)}
-              onFoco={(foco) => setEditando({ kind: 'curado', item: p, foco })}
-              onEditar={() => setEditando({ kind: 'curado', item: p, foco: null })}
-            />
+        <div className="space-y-4">
+          {curadosPorMarca.map((grupo) => (
+            <div key={grupo.marca}>
+              <h3 className="text-sm font-bold text-slate-700 mb-2">
+                {grupo.marca} <span className="text-slate-400 font-normal">({grupo.itens.length})</span>
+              </h3>
+              <div className="space-y-2">
+                {grupo.itens.map((p) => (
+                  <MaquinaCard
+                    key={p.id}
+                    foto={p.foto_principal_url}
+                    titulo={p.titulo}
+                    subtitulo={[p.marca?.nome, p.categoria].filter(Boolean).join(' · ')}
+                    oculta={!p.visivel}
+                    presenca={presencaCurado(p)}
+                    onFoco={(foco) => setEditando({ kind: 'curado', item: p, foco })}
+                    onEditar={() => setEditando({ kind: 'curado', item: p, foco: null })}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
           {curados.length === 0 && <p className="text-sm text-slate-400 text-center py-6">Nenhuma máquina.</p>}
         </div>
