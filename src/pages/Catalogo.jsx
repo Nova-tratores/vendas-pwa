@@ -13,6 +13,7 @@ export default function Catalogo() {
   const [estoque, setEstoque] = useState([])
   const [loadingEstoque, setLoadingEstoque] = useState(true)
   const [aba, setAba] = useState('portfolio') // portfolio | estoque
+  const [modoEstoque, setModoEstoque] = useState('todos') // todos | marca | familia
 
   useEffect(() => {
     let alive = true
@@ -68,13 +69,28 @@ export default function Catalogo() {
     )
   }, [estoque, busca])
 
+  // Agrupa o estoque por marca/família (ou tudo num grupo só) conforme o modo.
+  const estoqueAgrupado = useMemo(() => {
+    if (modoEstoque === 'todos') return [{ titulo: null, itens: estoqueFiltrado }]
+    const campo = modoEstoque === 'marca' ? 'marca' : 'familia_nome'
+    const mapa = new Map()
+    for (const p of estoqueFiltrado) {
+      const chave = ((p[campo] || '').toString().trim()) || '—'
+      if (!mapa.has(chave)) mapa.set(chave, [])
+      mapa.get(chave).push(p)
+    }
+    return [...mapa.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'))
+      .map(([titulo, itens]) => ({ titulo, itens }))
+  }, [estoqueFiltrado, modoEstoque])
+
   return (
     <PullToRefresh onRefresh={async () => { await getEstoqueAtual({ force: true }).then(setEstoque) }}>
       <div>
         <div className="mb-3 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-xl font-bold">Catálogo</h2>
-            <p className="text-sm text-slate-500">{produtos.length} no portfólio · {estoque.length} no estoque atual</p>
+            <p className="text-sm text-slate-500">{produtos.length} no portfólio · {estoque.length} na loja</p>
           </div>
           <Link
             to="/showroom"
@@ -92,13 +108,13 @@ export default function Catalogo() {
           className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3"
         />
 
-        {/* Abas: Portfolio (curado) | Estoque atual */}
+        {/* Abas: Portfolio (curado) | Estoque Loja */}
         <div className="flex gap-1 mb-3 border-b border-slate-200">
           <TabButton ativo={aba === 'portfolio'} onClick={() => setAba('portfolio')}>
             Portfólio ({produtos.length})
           </TabButton>
           <TabButton ativo={aba === 'estoque'} onClick={() => setAba('estoque')}>
-            Estoque atual ({estoque.length})
+            Estoque Loja ({estoque.length})
           </TabButton>
         </div>
 
@@ -150,14 +166,32 @@ export default function Catalogo() {
 
         {aba === 'estoque' && (
           <>
+            {/* Modo de visualização: Todos | Por marca | Por família */}
+            <div className="flex gap-1 overflow-x-auto pb-2 mb-3">
+              <Chip ativo={modoEstoque === 'todos'} onClick={() => setModoEstoque('todos')}>Todos</Chip>
+              <Chip ativo={modoEstoque === 'marca'} onClick={() => setModoEstoque('marca')}>Por marca</Chip>
+              <Chip ativo={modoEstoque === 'familia'} onClick={() => setModoEstoque('familia')}>Por família</Chip>
+            </div>
+
             {loadingEstoque ? (
               <p className="text-sm text-slate-500 text-center py-8">Carregando estoque...</p>
             ) : estoqueFiltrado.length === 0 ? (
               <EmptyState texto="Nenhum produto em estoque" />
             ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {estoqueFiltrado.map((p, i) => (
-                  <CardEstoque key={p.codigo_produto} produto={p} index={i} />
+              <div className="space-y-4">
+                {estoqueAgrupado.map((grupo) => (
+                  <div key={grupo.titulo ?? '__todos'}>
+                    {grupo.titulo && (
+                      <h3 className="text-sm font-bold text-slate-700 mb-2">
+                        {grupo.titulo} <span className="text-slate-400 font-normal">({grupo.itens.length})</span>
+                      </h3>
+                    )}
+                    <div className="grid grid-cols-3 gap-2">
+                      {grupo.itens.map((p, i) => (
+                        <CardEstoque key={p.codigo_produto} produto={p} index={i} />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
