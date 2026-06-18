@@ -133,6 +133,67 @@ export async function remapearFilhos(paiStore, oldId, newId) {
   }
 }
 
+/**
+ * Reparo das visitas que ficaram apontando pra ids LOCAIS (negativos) de
+ * propriedade/pessoa/máquina/negócio que só sincronizaram depois (ex.: o bug em
+ * que propriedades novas não subiam por causa do nome de tabela errado).
+ *
+ * Usa o id_map (local->servidor) pra traduzir as FKs e reenvia a visita como
+ * UPDATE. Só mexe em visitas já reconciliadas com o servidor (id positivo +
+ * _srv), garantindo UPDATE e nunca um INSERT duplicado. Idempotente: depois de
+ * corrigida (sem ids negativos), vira no-op.
+ *
+ * @returns {Promise<number>} quantas visitas foram religadas e marcadas pra reenvio.
+ */
+export async function repararFKsNegativasVisitas() {
+  const visitas = await getAllRecords('visitas')
+  let religadas = 0
+
+  for (const v of visitas) {
+    // Só visitas que já têm id do servidor (positivo) — ids locais são sempre
+    // negativos, então id>0 garante que é uma linha do servidor e o push fará
+    // UPDATE (forçamos _srv:true abaixo), nunca um INSERT duplicado.
+    if (!(v.id > 0)) continue
+
+    const patch = { ...v }
+    let mudou = false
+
+    // FKs escalares
+    if (v.propriedade_id < 0) {
+      const sid = await getServerId('propriedades', v.propriedade_id)
+      if (sid != null) { patch.propriedade_id = sid; mudou = true }
+    }
+    if (v.negocio_id != null && v.negocio_id < 0) {
+      const sid = await getServerId('negocios', v.negocio_id)
+      if (sid != null) { patch.negocio_id = sid; mudou = true }
+    }
+
+    // FKs em array (pessoa_ids / maquina_ids)
+    for (const [campo, store] of [['pessoa_ids', 'pessoas'], ['maquina_ids', 'maquinas']]) {
+      const arr = v[campo]
+      if (!Array.isArray(arr) || !arr.some((x) => x < 0)) continue
+      const novo = []
+      let arrMudou = false
+      for (const id of arr) {
+        if (id < 0) {
+          const sid = await getServerId(store, id)
+          if (sid != null) { novo.push(sid); arrMudou = true; continue }
+        }
+        novo.push(id)
+      }
+      if (arrMudou) { patch[campo] = novo; mudou = true }
+    }
+
+    if (mudou) {
+      // _srv=true força o caminho de UPDATE no push; pending agenda o reenvio.
+      await saveRecord('visitas', { ...patch, _srv: true, status_sync: 'pending' })
+      religadas++
+    }
+  }
+
+  return religadas
+}
+
 // Gera um id LOCAL único e NEGATIVO para registros criados no dispositivo.
 // Ids do servidor (Supabase/Omie) são sempre positivos e começam em 1, então
 // manter os locais no espaço negativo impede que um registro baixado pelo pull

@@ -4,6 +4,7 @@ import {
   getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs,
   clearAll, clearSyncedOnly, clearStore,
   FK_REFS, chaveConteudo, getServerId, mapearId, remapearFilhos,
+  repararFKsNegativasVisitas,
 } from './db'
 
 export const supabase = createClient(
@@ -468,6 +469,22 @@ export async function syncAll() {
       pushed = res.pushed
       falhas = res.failed.length
       await pushFotos()
+
+      // 1b. Reparo: agora que o push subiu propriedades/pessoas que faltavam, o
+      //     id_map tem o de->para. Religa as visitas que ainda apontam pra ids
+      //     locais (negativos) e reenvia como UPDATE. Rodar ANTES do pull, com
+      //     os negativos ainda intactos. (Cobre as visitas quebradas pelo bug
+      //     da tabela de propriedades.)
+      try {
+        const religadas = await repararFKsNegativasVisitas()
+        if (religadas > 0) {
+          console.log(`[Sync] ${religadas} visita(s) religada(s), reenviando...`)
+          const res2 = await pushRecords()
+          pushed += res2.pushed
+        }
+      } catch (e) {
+        console.warn('[Sync] reparo de FKs das visitas:', e)
+      }
     }
 
     // 2. Pull: baixar dados do Supabase para o IndexedDB
