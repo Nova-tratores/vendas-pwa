@@ -192,7 +192,7 @@ export default function Showroom() {
   // ---- Render -------------------------------------------------------
   if (carregando) {
     return (
-      <div className="fixed inset-0 bg-slate-950 text-white flex items-center justify-center">
+      <div className="fixed inset-0 bg-[#1a060c] text-white flex items-center justify-center">
         <p className="text-2xl opacity-70">Carregando catálogo…</p>
       </div>
     )
@@ -200,7 +200,7 @@ export default function Showroom() {
 
   if (total === 0) {
     return (
-      <div className="fixed inset-0 bg-slate-950 text-white flex flex-col items-center justify-center gap-4">
+      <div className="fixed inset-0 bg-[#1a060c] text-white flex flex-col items-center justify-center gap-4">
         <p className="text-3xl">Nada pra exibir no Showroom ainda</p>
         <button onClick={() => navigate(-1)} className="px-5 py-3 rounded-xl bg-white/10 text-lg">Voltar</button>
       </div>
@@ -209,14 +209,14 @@ export default function Showroom() {
 
   if (!iniciado) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-950 to-slate-800 text-white flex flex-col items-center justify-center gap-8 px-6 text-center">
+      <div className="fixed inset-0 bg-gradient-to-br from-[#1a060c] to-[#4a0f1e] text-white flex flex-col items-center justify-center gap-8 px-6 text-center">
         <div>
           <p className="text-4xl md:text-5xl font-bold mb-3">Vitrine Nova Tratores</p>
           <p className="text-xl opacity-70">
             {produtos.length} máquinas{videos.length ? ` · ${videos.length} vídeos` : ''}
           </p>
         </div>
-        <button onClick={iniciar} className="px-10 py-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-2xl font-semibold shadow-lg active:scale-95 transition">
+        <button onClick={iniciar} className="px-10 py-5 rounded-2xl bg-rose-800 hover:bg-rose-700 text-2xl font-semibold shadow-lg active:scale-95 transition">
           ▶ Iniciar apresentação
         </button>
         <p className="text-sm opacity-50 max-w-md">
@@ -229,7 +229,7 @@ export default function Showroom() {
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950 overflow-hidden select-none"
+      className="fixed inset-0 bg-[#1a060c] overflow-hidden select-none"
       style={{ cursor: controlesVisiveis ? 'auto' : 'none' }}
       onMouseMove={registrarInteracao}
       onTouchStart={(e) => { touchStartX.current = e.touches[0]?.clientX ?? null }}
@@ -261,7 +261,7 @@ export default function Showroom() {
       {/* Barra de progresso (só em slide de foto) */}
       {!pausado && total > 1 && atual?.kind === 'foto' && (
         <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 z-30">
-          <div key={indice} className="h-full bg-blue-500" style={{ animation: `showroom-progress ${DURACAO_SLIDE}ms linear forwards` }} />
+          <div key={indice} className="h-full bg-rose-500" style={{ animation: `showroom-progress ${DURACAO_SLIDE}ms linear forwards` }} />
         </div>
       )}
 
@@ -305,7 +305,7 @@ export default function Showroom() {
 // ---- Slide separador (título da marca, tipo capítulo) ---------------
 function Separador({ titulo }) {
   return (
-    <div className="absolute inset-0 bg-gradient-to-br from-slate-950 to-slate-800 flex flex-col items-center justify-center animate-fade-in">
+    <div className="absolute inset-0 bg-gradient-to-br from-[#1a060c] to-[#4a0f1e] flex flex-col items-center justify-center animate-fade-in">
       <p className="text-white/40 text-xl uppercase tracking-[0.3em] mb-4">Marca</p>
       <h2 className="text-white text-6xl lg:text-8xl font-bold tracking-tight uppercase text-center px-6">{titulo}</h2>
     </div>
@@ -363,7 +363,7 @@ function ListaVideos({ videos, onFechar, onEscolher }) {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {videos.map((v) => (
           <button key={v.id} onClick={() => onEscolher(v)} className="text-left bg-white/5 rounded-xl overflow-hidden active:scale-[0.98] transition">
-            <div className="aspect-video bg-slate-800 flex items-center justify-center overflow-hidden">
+            <div className="aspect-video bg-[#3d1018] flex items-center justify-center overflow-hidden">
               {v.foto ? <img src={v.foto} alt="" className="w-full h-full object-cover" /> : <span className="text-4xl">🎬</span>}
             </div>
             <div className="p-3">
@@ -400,7 +400,7 @@ function Slide({ produto }) {
 
   return (
     <div className="absolute inset-0 flex flex-col lg:flex-row animate-fade-in">
-      <div className="relative flex-1 bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center p-6 lg:p-12">
+      <div className="relative flex-1 bg-gradient-to-br from-[#2a0a12] to-[#1a060c] flex items-center justify-center p-6 lg:p-12">
         {produto.marca?.nome && (
           <span className="absolute top-6 left-6 text-white/50 text-lg font-semibold tracking-wide uppercase">{produto.marca.nome}</span>
         )}
@@ -414,13 +414,13 @@ function Slide({ produto }) {
         )}
       </div>
 
-      <div className="lg:w-[38%] xl:w-[34%] bg-slate-900/95 text-white flex flex-col justify-center gap-5 p-8 lg:p-12">
+      <div className="lg:w-[38%] xl:w-[34%] bg-[#26090f]/95 text-white flex flex-col justify-center gap-5 p-8 lg:p-12">
         <div>
           {produto.categoria && CAT_LABEL[produto.categoria] && (
-            <span className="inline-block px-3 py-1 rounded-full bg-blue-600/20 text-blue-300 text-sm font-medium mb-3">{CAT_LABEL[produto.categoria]}</span>
+            <span className="inline-block px-3 py-1 rounded-full bg-rose-600/20 text-rose-300 text-sm font-medium mb-3">{CAT_LABEL[produto.categoria]}</span>
           )}
           <h1 className="text-4xl xl:text-5xl font-bold leading-tight">{produto.titulo}</h1>
-          {produto.subtitulo && <p className="text-xl xl:text-2xl text-blue-300 mt-2">{produto.subtitulo}</p>}
+          {produto.subtitulo && <p className="text-xl xl:text-2xl text-rose-300 mt-2">{produto.subtitulo}</p>}
         </div>
 
         {produto.descricao && <p className="text-base xl:text-lg text-white/70 leading-relaxed line-clamp-4">{produto.descricao}</p>}
