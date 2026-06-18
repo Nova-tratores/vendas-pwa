@@ -14,7 +14,7 @@ export const supabase = createClient(
 // Mapeamento: IndexedDB store -> Supabase table
 const TABLE_MAP = {
   clientes: 'clientes_vendas',
-  propriedades: 'Clientes',
+  propriedades: 'portal_nt_clientes_PRINCIPAL',
   pessoas: 'pessoas',
   maquinas: 'maquinas',
   negocios: 'negocios',
@@ -311,14 +311,14 @@ async function pullRecords() {
     return savePulled(store, data, mapFn)
   }
 
-  // Busca em "Clientes" filtrando por uma coluna com lista de valores,
-  // em lotes pra não estourar o tamanho da URL.
+  // Busca em "portal_nt_clientes_PRINCIPAL" filtrando por uma coluna com lista
+  // de valores, em lotes pra não estourar o tamanho da URL.
   async function fetchClientesIn(coluna, valores) {
     const out = []
     for (let i = 0; i < valores.length; i += 200) {
       const chunk = valores.slice(i, i + 200)
-      const { data, error } = await supabase.from('Clientes').select('*').in(coluna, chunk)
-      if (error) { console.error(`[Pull] Clientes por ${coluna}:`, error.message); continue }
+      const { data, error } = await supabase.from('portal_nt_clientes_PRINCIPAL').select('*').in(coluna, chunk)
+      if (error) { console.error(`[Pull] propriedades por ${coluna}:`, error.message); continue }
       if (data) out.push(...data)
     }
     return out

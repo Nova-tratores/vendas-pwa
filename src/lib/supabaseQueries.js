@@ -141,7 +141,7 @@ export async function getClientes() {
 }
 
 export async function getPropriedades() {
-  const { data } = await supabase.from('Clientes').select('*')
+  const { data } = await supabase.from('portal_nt_clientes_PRINCIPAL').select('*')
   return data || []
 }
 
@@ -156,7 +156,7 @@ export async function getPessoas() {
 
 // Cidades distintas da base de clientes (ERP) com contagem de propriedades.
 export async function getCidadesContagem() {
-  const { data, error } = await supabase.from('Clientes').select('cidade')
+  const { data, error } = await supabase.from('portal_nt_clientes_PRINCIPAL').select('cidade')
   if (error) { console.warn('[cidades]', error.message); return [] }
   const mapa = new Map()
   for (const r of data || []) {

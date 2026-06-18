@@ -145,7 +145,7 @@ export default function MapaClientes() {
     setLoading(true)
     try {
       const { data, error } = await supabase
-        .from('Clientes')
+        .from('portal_nt_clientes_PRINCIPAL')
         .select('id,nome_fantasia,razao_social,cidade,estado,lat,lng')
         .not('lat', 'is', null)
         .not('lng', 'is', null)
@@ -207,7 +207,7 @@ export default function MapaClientes() {
       const lat = pos.latitude
       const lng = pos.longitude
       const { error } = await supabase
-        .from('Clientes')
+        .from('portal_nt_clientes_PRINCIPAL')
         .update({ lat, lng })
         .eq('id', c.id)
       if (error) throw error
@@ -435,7 +435,7 @@ function ClientePicker({ modo, onSelect, onClose }) {
       const limpo = t.replace(/[(),%]/g, ' ').trim()
       try {
         const { data, error } = await supabase
-          .from('Clientes')
+          .from('portal_nt_clientes_PRINCIPAL')
           .select('id,nome_fantasia,razao_social,cidade,estado,lat,lng')
           .or(`nome_fantasia.ilike.%${limpo}%,razao_social.ilike.%${limpo}%,cidade.ilike.%${limpo}%`)
           .limit(30)
