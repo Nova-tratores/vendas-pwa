@@ -11,7 +11,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readFile, mkdtemp, rm, stat } from 'node:fs/promises'
+import { readFile, writeFile, mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -23,11 +23,45 @@ const {
   MIDIA_BUCKET = 'catalogo-midia',
   POLL_INTERVAL = '15000',
   MAX_HEIGHT = '720',
+  // Conteúdo de um cookies.txt (formato Netscape) de uma conta Google logada.
+  // É o que fura o "Sign in to confirm you're not a bot" e a maioria dos 403 em IP de
+  // datacenter (Railway). Cole o arquivo inteiro nesta variável no Railway. Opcional.
+  YT_COOKIES = '',
+  // player_client do yt-dlp (ex.: "tv", "web_safari", "tv,web_safari"). O YouTube vive
+  // mudando qual cliente passa; deixar configurável evita ter que reeditar código.
+  // Vazio = yt-dlp escolhe sozinho. "tv" costuma ser o mais resistente sem cookies.
+  YT_PLAYER_CLIENTS = 'tv',
 } = process.env
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('Faltam SUPABASE_URL e/ou SUPABASE_SERVICE_ROLE_KEY no ambiente.')
   process.exit(1)
+}
+
+// Se vierem cookies por env, grava num arquivo e devolve o caminho (pra --cookies).
+// Mantém SÓ no disco efêmero do container, nunca no repo.
+const COOKIES_PATH = join(tmpdir(), 'yt-cookies.txt')
+let cookiesProntos = false
+async function prepararCookies() {
+  if (!YT_COOKIES.trim()) return false
+  try {
+    await writeFile(COOKIES_PATH, YT_COOKIES.replace(/\\n/g, '\n'), 'utf8')
+    cookiesProntos = true
+    return true
+  } catch (e) {
+    log('! falha ao gravar cookies:', e?.message || e)
+    return false
+  }
+}
+
+// Args extras do yt-dlp comuns a todo download: cookies (se houver) e player_client.
+function ytExtras() {
+  const extras = []
+  if (cookiesProntos) extras.push('--cookies', COOKIES_PATH)
+  if (YT_PLAYER_CLIENTS.trim()) {
+    extras.push('--extractor-args', `youtube:player_client=${YT_PLAYER_CLIENTS.trim()}`)
+  }
+  return extras
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -78,12 +112,13 @@ async function processar(job) {
 
   try {
     // 1) Download até 720p, mesclando em mp4.
-    // player_client=android,ios dispensa o runtime de JS do YouTube e costuma sofrer
-    // menos bloqueio (429) que o cliente web; retries/sleep ajudam contra rate-limit.
+    // cookies (conta logada) + player_client configurável furam o bloqueio de robô e os
+    // 403 em IP de datacenter; retries/sleep ajudam contra rate-limit (429).
     await execFileP('yt-dlp', [
       '-f', `bestvideo[height<=${ALTURA}]+bestaudio/best[height<=${ALTURA}]/best`,
       '--merge-output-format', 'mp4',
       '--no-playlist',
+      ...ytExtras(),
       '--retries', '5', '--fragment-retries', '5', '--sleep-requests', '1',
       '-o', brutoTpl,
       job.origem_url,
@@ -173,6 +208,10 @@ async function proximoJob() {
 
 async function main() {
   log(`worker-youtube iniciado · bucket=${MIDIA_BUCKET} · poll=${POLL_MS}ms · ${ALTURA}p`)
+
+  await prepararCookies()
+  log(`  cookies: ${cookiesProntos ? 'ATIVOS' : 'ausentes (sem YT_COOKIES — sujeito a bloqueio de robô)'}` +
+      ` · player_client: ${YT_PLAYER_CLIENTS.trim() || '(padrão do yt-dlp)'}`)
 
   // Diagnóstico: confirma que yt-dlp e Deno (runtime de JS p/ nsig) estão no build.
   for (const [cmd, a] of [['yt-dlp', ['--version']], ['deno', ['--version']], ['ffmpeg', ['-version']]]) {
