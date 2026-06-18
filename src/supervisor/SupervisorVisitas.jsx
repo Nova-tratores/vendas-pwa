@@ -6,6 +6,7 @@ import {
 } from '../lib/supabaseQueries'
 import VendedorAvatar from '../components/VendedorAvatar'
 import ComentariosModal from './ComentariosModal'
+import MiniMapaModal from './MiniMapaModal'
 
 const TIPOS = [
   { key: '', label: 'Todos' },
@@ -30,6 +31,7 @@ export default function SupervisorVisitas() {
   const [comentCount, setComentCount] = useState({})
 
   const [comentarioAlvo, setComentarioAlvo] = useState(null) // visita p/ comentar
+  const [mapaAlvo, setMapaAlvo] = useState(null)             // visita p/ ver no mapa
   const [mostrarOcultas, setMostrarOcultas] = useState(false)
   const [modoJuntar, setModoJuntar] = useState(false)
   const [selecao, setSelecao] = useState([])                 // ids selecionados (juntar)
@@ -221,9 +223,9 @@ export default function SupervisorVisitas() {
                     <VendedorAvatar id={v.vendedor_id} nome={v.vendedor_nome} size={30} />
                     <div className="min-w-0">
                       <p className="font-bold text-sm leading-tight truncate">
-                        {v.sinalizada && <span title="Sinalizada">🚩 </span>}{v.cliente_nome || '—'}
+                        {v.sinalizada && <span title="Sinalizada">🚩 </span>}{v.cliente_nome || v.propriedade_nome || '—'}
                       </p>
-                      {v.propriedade_nome && <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>}
+                      {v.propriedade_nome && v.cliente_nome && <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -268,15 +270,12 @@ export default function SupervisorVisitas() {
                 )}
 
                 {v.latitude ? (
-                  <a
-                    href={`https://www.google.com/maps?q=${v.latitude},${v.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setMapaAlvo(v) }}
                     className="inline-flex items-center gap-1 text-xs text-blue-600 underline mt-2"
                   >
                     📍 {v.latitude.toFixed(4)}, {v.longitude.toFixed(4)} · ver no mapa
-                  </a>
+                  </button>
                 ) : v.tipo === 'presencial' ? (
                   <p className="text-xs text-red-500 mt-1 font-medium">Sem GPS</p>
                 ) : null}
@@ -363,6 +362,14 @@ export default function SupervisorVisitas() {
         titulo={comentarioAlvo ? `${comentarioAlvo.cliente_nome || '—'} · ${new Date(comentarioAlvo.data_visita).toLocaleDateString('pt-BR')}` : ''}
         onClose={() => setComentarioAlvo(null)}
         onChanged={carregar}
+      />
+
+      <MiniMapaModal
+        show={!!mapaAlvo}
+        lat={mapaAlvo?.latitude}
+        lng={mapaAlvo?.longitude}
+        titulo={mapaAlvo ? (mapaAlvo.cliente_nome || mapaAlvo.propriedade_nome || 'Visita') : ''}
+        onClose={() => setMapaAlvo(null)}
       />
     </div>
   )

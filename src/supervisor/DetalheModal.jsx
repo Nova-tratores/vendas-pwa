@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import VendedorAvatar from '../components/VendedorAvatar'
 import ComentariosModal from './ComentariosModal'
+import MiniMapaModal from './MiniMapaModal'
 import { statusLabel, statusColor } from '../lib/funil'
 
 const TIPO_COLORS = {
@@ -19,7 +20,9 @@ function fmtData(iso, comHora = true) {
   return data + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function LinhaVisita({ v, onComentar }) {
+function LinhaVisita({ v, onComentar, onMapa }) {
+  // Cliente: usa o dono; se for propriedade do ERP (sem dono), cai pro nome da propriedade
+  const titulo = v.cliente_nome || v.propriedade_nome || '—'
   return (
     <div className={`bg-white border border-slate-100 rounded-xl p-3 ${v.retroativa ? 'border-l-4 border-l-amber-400' : ''} ${v.sinalizada ? 'ring-1 ring-red-300' : ''}`}>
       <div className="flex items-start justify-between mb-1 gap-2">
@@ -28,9 +31,11 @@ function LinhaVisita({ v, onComentar }) {
           <VendedorAvatar id={v.vendedor_id} nome={v.vendedor_nome} size={28} />
           <div className="min-w-0">
             <p className="font-bold text-sm leading-tight truncate">
-              {v.sinalizada && <span title="Sinalizada">🚩 </span>}{v.cliente_nome || '—'}
+              {v.sinalizada && <span title="Sinalizada">🚩 </span>}{titulo}
             </p>
-            {v.propriedade_nome && <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>}
+            {v.propriedade_nome && v.cliente_nome && (
+              <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -47,9 +52,48 @@ function LinhaVisita({ v, onComentar }) {
       </div>
       <p className="text-xs text-slate-500">{fmtData(v.data_visita)}</p>
       {v.resumo && <p className="text-sm text-slate-700 mt-1">{v.resumo}</p>}
-      {onComentar && (
-        <button onClick={() => onComentar(v)} className="text-xs text-blue-600 mt-2 font-medium">💬 Comentar</button>
+
+      {/* Campos preenchidos na visita */}
+      {v.pessoas?.length > 0 && (
+        <p className="text-xs text-slate-600 mt-2">
+          <span className="text-slate-400">👤 Pessoas: </span>
+          {v.pessoas.map((p) => p.cargo ? `${p.nome} (${p.cargo})` : p.nome).join(', ')}
+        </p>
       )}
+      {v.maquinas?.length > 0 && (
+        <p className="text-xs text-slate-600 mt-1">
+          <span className="text-slate-400">🚜 Máquinas: </span>
+          {v.maquinas.map((m) => [m.marca, m.modelo].filter(Boolean).join(' ')).join(', ')}
+        </p>
+      )}
+      {v.veiculo && (
+        <p className="text-xs text-slate-600 mt-1">
+          <span className="text-slate-400">🚗 Veículo: </span>{v.veiculo}
+        </p>
+      )}
+      {v.proximos_passos && (
+        <p className="text-xs text-slate-600 mt-1">
+          <span className="text-slate-400">➡️ Próximos passos: </span>{v.proximos_passos}
+        </p>
+      )}
+      {v.data_proximo_contato && (
+        <p className="text-xs text-blue-600 mt-1 font-medium">
+          📅 Próximo contato: {new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}
+        </p>
+      )}
+
+      <div className="flex items-center gap-3 mt-2">
+        {v.latitude != null && v.longitude != null ? (
+          <button onClick={() => onMapa(v)} className="text-xs text-blue-600 font-medium">
+            📍 Ver no mapa
+          </button>
+        ) : v.tipo === 'presencial' ? (
+          <span className="text-xs text-red-500 font-medium">Sem GPS</span>
+        ) : null}
+        {onComentar && (
+          <button onClick={() => onComentar(v)} className="text-xs text-blue-600 font-medium">💬 Comentar</button>
+        )}
+      </div>
     </div>
   )
 }
@@ -87,6 +131,7 @@ function LinhaNegocio({ n, onComentar }) {
  */
 export default function DetalheModal({ show, titulo, tipo, itens = [], onClose }) {
   const [comentarioAlvo, setComentarioAlvo] = useState(null)
+  const [mapaAlvo, setMapaAlvo] = useState(null) // visita p/ ver no mapa
   if (!show) return null
 
   const entidadeComent = tipo === 'negocios' ? 'negocio' : 'visita'
@@ -122,7 +167,7 @@ export default function DetalheModal({ show, titulo, tipo, itens = [], onClose }
             itens.map((item) =>
               tipo === 'negocios'
                 ? <LinhaNegocio key={item.id} n={item} onComentar={setComentarioAlvo} />
-                : <LinhaVisita key={item.id} v={item} onComentar={setComentarioAlvo} />
+                : <LinhaVisita key={item.id} v={item} onComentar={setComentarioAlvo} onMapa={setMapaAlvo} />
             )
           )}
         </div>
@@ -135,6 +180,14 @@ export default function DetalheModal({ show, titulo, tipo, itens = [], onClose }
       entidadeId={comentarioAlvo?.id}
       titulo={comentarioAlvo?.cliente_nome || ''}
       onClose={() => setComentarioAlvo(null)}
+    />
+
+    <MiniMapaModal
+      show={!!mapaAlvo}
+      lat={mapaAlvo?.latitude}
+      lng={mapaAlvo?.longitude}
+      titulo={mapaAlvo ? (mapaAlvo.cliente_nome || mapaAlvo.propriedade_nome || 'Visita') : ''}
+      onClose={() => setMapaAlvo(null)}
     />
     </>
   )
