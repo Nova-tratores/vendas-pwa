@@ -237,12 +237,49 @@ export default function SupervisorVisitas() {
                   <p className="text-xs text-red-600 mt-1">🚩 {v.sinalizada_motivo}</p>
                 )}
                 {v.resumo && <p className="text-sm text-slate-700 mt-2">{v.resumo}</p>}
-                {v.latitude && (
-                  <p className="text-xs text-slate-400 mt-1">GPS: {v.latitude?.toFixed(4)}, {v.longitude?.toFixed(4)}</p>
+
+                {/* Campos preenchidos na visita */}
+                {v.pessoas?.length > 0 && (
+                  <p className="text-xs text-slate-600 mt-2">
+                    <span className="text-slate-400">👤 Pessoas: </span>
+                    {v.pessoas.map((p) => p.cargo ? `${p.nome} (${p.cargo})` : p.nome).join(', ')}
+                  </p>
                 )}
-                {!v.latitude && v.tipo === 'presencial' && (
+                {v.maquinas?.length > 0 && (
+                  <p className="text-xs text-slate-600 mt-1">
+                    <span className="text-slate-400">🚜 Máquinas: </span>
+                    {v.maquinas.map((m) => [m.marca, m.modelo].filter(Boolean).join(' ')).join(', ')}
+                  </p>
+                )}
+                {v.veiculo && (
+                  <p className="text-xs text-slate-600 mt-1">
+                    <span className="text-slate-400">🚗 Veículo: </span>{v.veiculo}
+                  </p>
+                )}
+                {v.proximos_passos && (
+                  <p className="text-xs text-slate-600 mt-1">
+                    <span className="text-slate-400">➡️ Próximos passos: </span>{v.proximos_passos}
+                  </p>
+                )}
+                {v.data_proximo_contato && (
+                  <p className="text-xs text-blue-600 mt-1 font-medium">
+                    📅 Próximo contato: {new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  </p>
+                )}
+
+                {v.latitude ? (
+                  <a
+                    href={`https://www.google.com/maps?q=${v.latitude},${v.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 underline mt-2"
+                  >
+                    📍 {v.latitude.toFixed(4)}, {v.longitude.toFixed(4)} · ver no mapa
+                  </a>
+                ) : v.tipo === 'presencial' ? (
                   <p className="text-xs text-red-500 mt-1 font-medium">Sem GPS</p>
-                )}
+                ) : null}
 
                 {/* Ações do supervisor */}
                 {!modoJuntar && (

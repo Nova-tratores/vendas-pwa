@@ -25,8 +25,36 @@ export async function getVisitas({ vendedorId, dateFrom, dateTo, tipo, retroativ
   const { data } = await query
   // Esconde as visitas juntadas (marcadas como duplicada de outra). Filtro client-side
   // pra não quebrar caso a coluna ainda não exista (migração não rodada).
-  if (incluirDuplicadas) return data || []
-  return (data || []).filter((v) => !v.duplicada_de)
+  const visitas = incluirDuplicadas
+    ? (data || [])
+    : (data || []).filter((v) => !v.duplicada_de)
+  return enriquecerVisitas(visitas)
+}
+
+// Resolve os ids de pessoas/máquinas das visitas para nomes legíveis, para o
+// supervisor ver "com quem conversou" e "máquinas tratadas" direto na lista.
+async function enriquecerVisitas(visitas) {
+  if (!visitas.length) return visitas
+  const pessoaIds = [...new Set(visitas.flatMap((v) => v.pessoa_ids || []))]
+  const maquinaIds = [...new Set(visitas.flatMap((v) => v.maquina_ids || []))]
+
+  const [pessoasRes, maquinasRes] = await Promise.all([
+    pessoaIds.length
+      ? supabase.from('pessoas').select('id, nome, cargo').in('id', pessoaIds)
+      : Promise.resolve({ data: [] }),
+    maquinaIds.length
+      ? supabase.from('maquinas').select('id, marca, modelo, tipo').in('id', maquinaIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const pessoasMap = new Map((pessoasRes.data || []).map((p) => [p.id, p]))
+  const maquinasMap = new Map((maquinasRes.data || []).map((m) => [m.id, m]))
+
+  return visitas.map((v) => ({
+    ...v,
+    pessoas: (v.pessoa_ids || []).map((id) => pessoasMap.get(id)).filter(Boolean),
+    maquinas: (v.maquina_ids || []).map((id) => maquinasMap.get(id)).filter(Boolean),
+  }))
 }
 
 // Liga/desliga a sinalização de uma visita (com motivo opcional).
