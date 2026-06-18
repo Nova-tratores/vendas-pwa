@@ -637,10 +637,33 @@ export const CATEGORIAS = [
 
 let marcasCache = null
 let produtosCatalogoCache = null
+let categoriasAplicacaoCache = null
 
 export function clearCatalogoCache() {
   marcasCache = null
   produtosCatalogoCache = null
+  categoriasAplicacaoCache = null
+}
+
+/**
+ * Categorias de APLICAÇÃO/operação curadas (catalogo_categorias) — o eixo
+ * "por operação" do showroom (preparo de solo, plantio, pulverização…).
+ * Traz só as ativas (esconde as ocultas: peças, uso interno), já ordenadas.
+ * Cada item: { id, nome, ordem, icone }.
+ */
+export async function getCategoriasAplicacao() {
+  if (categoriasAplicacaoCache) return categoriasAplicacaoCache
+  const { data, error } = await supabase
+    .from('catalogo_categorias')
+    .select('id, nome, ordem, icone, ativo')
+    .eq('ativo', true)
+    .order('ordem', { ascending: true })
+  if (error) {
+    console.error('[catalogo categorias]', error.message)
+    return []
+  }
+  categoriasAplicacaoCache = data || []
+  return categoriasAplicacaoCache
 }
 
 /**
