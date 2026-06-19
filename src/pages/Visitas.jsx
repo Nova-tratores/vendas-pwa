@@ -292,17 +292,18 @@ export default function Visitas() {
     iniciarCheckin()
   }
 
-  // Inicia um check-in NOVO já com a propriedade da visita escolhida pré-selecionada.
-  // É o caminho claro para "registrar outra visita neste mesmo cliente" (sem
-  // confundir com editar a visita antiga).
+  // Inicia uma visita NOVA já com a propriedade da visita escolhida pré-selecionada
+  // e pedindo o tipo (campo limpo). É o caminho claro para "registrar outra visita
+  // neste mesmo cliente" — sem cair no check-in genérico de buscar cliente de novo.
   async function novaVisitaNeste(visita) {
-    const p = propriedadesAll.find((x) => String(x.id) === String(visita.propriedade_id))
-    if (!p) return
+    let p = propriedadesAll.find((x) => String(x.id) === String(visita.propriedade_id))
+    if (!p) p = await getRecord('propriedades', visita.propriedade_id) // garante abrir mesmo fora da lista local
     setForm((f) => ({ ...f, tipo: '', data_visita: getLocalDatetime() }))
     setShowForm(true)
     iniciarCheckin()
-    await selecionarPropriedade(p)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (p) await selecionarPropriedade(p)
+    // O scroll real é no <main> (overflow-y-auto), não na window.
+    requestAnimationFrame(() => document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' }))
   }
 
   function podeEditar(visita) {

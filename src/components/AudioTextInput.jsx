@@ -50,14 +50,24 @@ export default function AudioTextInput({ value, onChange, placeholder, rows = 3 
 
     rec.onresult = (event) => {
       // event.results e cumulativo: reconstroi o texto inteiro da sessao.
-      // Cada slot aparece UMA vez aqui, sem duplicacao possivel.
-      let texto = ''
+      // No Android Chrome o MESMO trecho final as vezes chega repetido (2x
+      // seguidos no array) -- e a causa do "gago"/palavras duplicadas. Por isso
+      // deduplicamos finais consecutivos identicos ao reconstruir.
+      const partes = []
+      let interim = ''
       for (let i = 0; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript
-        texto += (i > 0 ? ' ' : '') + t
+        const t = event.results[i][0].transcript.trim()
+        if (!t) continue
+        if (event.results[i].isFinal) {
+          if (partes[partes.length - 1] !== t) partes.push(t)
+        } else {
+          interim = t
+        }
       }
+      // o interim as vezes repete o ultimo final -- evita "x x" no fim
+      if (interim && partes[partes.length - 1] !== interim) partes.push(interim)
       const base = baseValueRef.current.trim()
-      const sess = texto.trim()
+      const sess = partes.join(' ').trim()
       onChange(base && sess ? `${base} ${sess}` : (base || sess))
     }
 
