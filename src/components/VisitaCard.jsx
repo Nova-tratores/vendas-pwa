@@ -22,7 +22,7 @@ export const TIPO_COLORS = {
 
 // Card de uma visita. onEdit/onDelete são opcionais: sem eles (e/ou editavel
 // falso), o card fica somente-leitura — usado no histórico por cliente.
-export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editavel }) {
+export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editavel, onNovaVisita }) {
   const [propNome, setPropNome] = useState('')
   const [clienteNome, setClienteNome] = useState('')
 
@@ -59,7 +59,7 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
             {TIPO_LABELS[visita.tipo] || visita.tipo}
           </span>
           {editavel && onEdit && (
-            <button onClick={onEdit} className="text-slate-400 hover:text-blue-600 text-sm px-1">✎</button>
+            <button onClick={onEdit} className="text-xs text-slate-500 hover:text-blue-600 border border-slate-200 rounded px-1.5 py-0.5">✎ editar</button>
           )}
           {onDelete && (
             <button onClick={onDelete} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>
@@ -88,6 +88,14 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
         </span>
         <span className={`w-2 h-2 rounded-full ${visita.status_sync === 'synced' ? 'bg-green-500' : 'bg-yellow-500'}`} />
       </div>
+      {onNovaVisita && (
+        <button
+          onClick={onNovaVisita}
+          className="mt-3 w-full text-sm font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg py-1.5 active:bg-blue-100"
+        >
+          + Nova visita neste cliente
+        </button>
+      )}
     </div>
   )
 }

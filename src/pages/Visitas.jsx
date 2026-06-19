@@ -21,6 +21,7 @@ export default function Visitas() {
   const [visitas, setVisitas] = useState([])
   const [clientes, setClientes] = useState([])
   const [propriedadesAll, setPropriedadesAll] = useState([])
+  const [pessoasAll, setPessoasAll] = useState([])
   const [buscaProp, setBuscaProp] = useState('')
   const [pessoasDisp, setPessoasDisp] = useState([])
   const [maquinasDisp, setMaquinasDisp] = useState([])
@@ -85,6 +86,7 @@ export default function Visitas() {
     setVisitas(await getAllRecords('visitas'))
     setClientes(await getAllRecords('clientes'))
     setPropriedadesAll(await getAllRecords('propriedades'))
+    setPessoasAll(await getAllRecords('pessoas'))
     setNegocios(await getAllRecords('negocios'))
     // Veículos (placas) para o campo "veículo utilizado"
     try {
@@ -224,15 +226,29 @@ export default function Visitas() {
     setNegUpdate({ temperatura: '', novo_prazo: '', novo_valor: '' })
   }
 
-  // Resultados da busca de propriedade (limita a 50 pra não pesar no mobile)
+  // Resultados da busca de propriedade (limita a 50 pra não pesar no mobile).
+  // Casa por dados da propriedade E pelo nome do contato/pessoa cadastrada
+  // (ex: digitar "Valter" acha as propriedades onde o Valter é contato).
   const resultadosBusca = (() => {
     const t = buscaProp.trim().toLowerCase()
     if (!t) return []
+    // Mapa propriedade_id -> nome do contato que casou com a busca
+    const contatoPorProp = new Map()
+    for (const ps of pessoasAll) {
+      if (!ps.nome) continue
+      if (String(ps.nome).toLowerCase().includes(t) && !contatoPorProp.has(ps.propriedade_id)) {
+        contatoPorProp.set(ps.propriedade_id, ps.nome)
+      }
+    }
     const out = []
     for (const p of propriedadesAll) {
       const campos = [p.nome, p.nome_fantasia, p.razao_social, p.cidade, p.cnpj_cpf]
         .filter(Boolean).map((s) => String(s).toLowerCase())
-      if (campos.some((s) => s.includes(t))) out.push(p)
+      const matchProp = campos.some((s) => s.includes(t))
+      const contato = contatoPorProp.get(p.id)
+      // Só anota o contato quando o match veio dele (não polui quando o nome
+      // da própria propriedade já bateu).
+      if (matchProp || contato) out.push(matchProp ? p : { ...p, _contato: contato })
       if (out.length >= 50) break
     }
     return out
@@ -274,6 +290,19 @@ export default function Visitas() {
     setForm((f) => ({ ...f, data_visita: getLocalDatetime() }))
     setShowForm(true)
     iniciarCheckin()
+  }
+
+  // Inicia um check-in NOVO já com a propriedade da visita escolhida pré-selecionada.
+  // É o caminho claro para "registrar outra visita neste mesmo cliente" (sem
+  // confundir com editar a visita antiga).
+  async function novaVisitaNeste(visita) {
+    const p = propriedadesAll.find((x) => String(x.id) === String(visita.propriedade_id))
+    if (!p) return
+    setForm((f) => ({ ...f, tipo: '', data_visita: getLocalDatetime() }))
+    setShowForm(true)
+    iniciarCheckin()
+    await selecionarPropriedade(p)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function podeEditar(visita) {
@@ -504,6 +533,9 @@ export default function Visitas() {
                       >
                         <span className="font-medium">{p.nome || p.nome_fantasia}</span>
                         {p.cidade && <span className="text-slate-400"> — {p.cidade}</span>}
+                        {p._contato && (
+                          <span className="block text-xs text-blue-600">contato: {p._contato}</span>
+                        )}
                       </button>
                     ))
                   )}
@@ -1082,7 +1114,7 @@ export default function Visitas() {
       ) : (
         <div className="space-y-2">
           {visitasOrdenadas.map((v, i) => (
-            <VisitaCard key={v.id} visita={v} index={i} onDelete={() => setDeleteTarget(v)} onEdit={() => abrirEdicao(v)} editavel={podeEditar(v)} />
+            <VisitaCard key={v.id} visita={v} index={i} onDelete={() => setDeleteTarget(v)} onEdit={() => abrirEdicao(v)} editavel={podeEditar(v)} onNovaVisita={() => novaVisitaNeste(v)} />
           ))}
         </div>
       )}
