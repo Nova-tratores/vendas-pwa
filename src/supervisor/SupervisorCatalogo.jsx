@@ -304,6 +304,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
     return {
       foto: !!p.foto_principal_url || r.foto > 0,
       video: r.video > 0,
+      videoShowroom: r.videoShowroom > 0,
       folheto: !!p.folheto_url || r.pdf > 0,
       descricao: !!(p.descricao && p.descricao.trim()),
       argumentos: Array.isArray(p.argumentos_de_venda) && p.argumentos_de_venda.length > 0,
@@ -314,6 +315,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
     return {
       foto: !!p.imagem_url || r.foto > 0,
       video: r.video > 0,
+      videoShowroom: r.videoShowroom > 0,
       folheto: r.pdf > 0,
       descricao: !!(p.descricao && p.descricao.trim()),
       argumentos: null, // não se aplica ao estoque
@@ -460,6 +462,7 @@ function MaquinaCard({ foto, titulo, subtitulo, oculta, presenca, onFoco, onEdit
 }
 
 // Fileira de ícones de conteúdo (preto = tem, cinza = falta; tocar abre o editor naquela parte)
+// Vídeo em dourado = está no reel do Showroom; preto = tem vídeo mas nenhum em destaque.
 function IconesConteudo({ presenca, onFoco }) {
   const itens = [
     { key: 'foto', label: 'Foto', Icon: IconFoto },
@@ -473,14 +476,18 @@ function IconesConteudo({ presenca, onFoco }) {
       {itens.map(({ key, label, Icon }) => {
         const val = presenca[key]
         if (val === null || val === undefined) return null // não se aplica
+        const noShowroom = key === 'video' && presenca.videoShowroom
+        const cor = noShowroom
+          ? 'text-amber-500 opacity-100'
+          : val ? 'text-black opacity-100' : 'text-slate-400 opacity-80'
         return (
           <button
             key={key}
             type="button"
-            title={label}
+            title={noShowroom ? `${label} · no Showroom` : label}
             aria-label={label}
             onClick={() => onFoco(key)}
-            className={val ? 'text-black opacity-100' : 'text-slate-400 opacity-80'}
+            className={cor}
           >
             <Icon className="w-5 h-5" />
           </button>

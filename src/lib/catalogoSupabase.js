@@ -494,7 +494,7 @@ export async function getVideosShowroom() {
 export async function getResumoMidias() {
   const { data, error } = await supabase
     .from('catalogo_midia')
-    .select('catalogo_produto_id, codigo_produto, tipo')
+    .select('catalogo_produto_id, codigo_produto, tipo, status, destaque_showroom')
   if (error) {
     console.error('[Resumo midias]', error.message)
     return { porCatalogo: {}, porCodigo: {} }
@@ -503,11 +503,13 @@ export async function getResumoMidias() {
   const porCodigo = {}
   for (const m of (data || [])) {
     const alvo = m.catalogo_produto_id != null
-      ? (porCatalogo[m.catalogo_produto_id] ||= { foto: 0, video: 0, pdf: 0 })
+      ? (porCatalogo[m.catalogo_produto_id] ||= { foto: 0, video: 0, pdf: 0, videoShowroom: 0 })
       : m.codigo_produto != null
-        ? (porCodigo[m.codigo_produto] ||= { foto: 0, video: 0, pdf: 0 })
+        ? (porCodigo[m.codigo_produto] ||= { foto: 0, video: 0, pdf: 0, videoShowroom: 0 })
         : null
     if (alvo && (m.tipo in alvo)) alvo[m.tipo]++
+    // Vídeo que efetivamente entra no reel do Showroom (mesma regra de getVideosShowroom)
+    if (alvo && m.tipo === 'video' && m.status === 'pronto' && m.destaque_showroom) alvo.videoShowroom++
   }
   return { porCatalogo, porCodigo }
 }
