@@ -638,11 +638,13 @@ export const CATEGORIAS = [
 let marcasCache = null
 let produtosCatalogoCache = null
 let categoriasAplicacaoCache = null
+let cultivosCache = null
 
 export function clearCatalogoCache() {
   marcasCache = null
   produtosCatalogoCache = null
   categoriasAplicacaoCache = null
+  cultivosCache = null
 }
 
 /**
@@ -664,6 +666,26 @@ export async function getCategoriasAplicacao() {
   }
   categoriasAplicacaoCache = data || []
   return categoriasAplicacaoCache
+}
+
+/**
+ * Cultivos/manejos curados (catalogo_cultivos) — o eixo "por cultivo" do showroom
+ * (grãos, café, cana, pastagem…). Multivalorado: cada máquina tem catalogo_produtos.cultivos[].
+ * Cada item: { id, nome, icone, ordem }.
+ */
+export async function getCultivos() {
+  if (cultivosCache) return cultivosCache
+  const { data, error } = await supabase
+    .from('catalogo_cultivos')
+    .select('id, nome, icone, ordem, ativo')
+    .eq('ativo', true)
+    .order('ordem', { ascending: true })
+  if (error) {
+    console.error('[catalogo cultivos]', error.message)
+    return []
+  }
+  cultivosCache = data || []
+  return cultivosCache
 }
 
 /**
@@ -812,16 +834,42 @@ export async function deletarMarca(id) {
 }
 
 /**
+ * Gera um slug único pra catalogo_produtos: se `base` já existir em outra ficha,
+ * acrescenta sufixo -2, -3, … até achar um livre. `idAtual` é ignorado na busca
+ * (caso de edição, pra não colidir com a própria ficha).
+ */
+export async function gerarSlugUnico(base, idAtual = null) {
+  const limpo = (base || '').trim()
+  if (!limpo) return limpo
+  let q = supabase.from('catalogo_produtos').select('id, slug').like('slug', limpo + '%')
+  if (idAtual) q = q.neq('id', idAtual)
+  const { data, error } = await q
+  if (error) throw error
+  const usados = new Set((data || []).map((r) => r.slug))
+  if (!usados.has(limpo)) return limpo
+  let n = 2
+  while (usados.has(`${limpo}-${n}`)) n++
+  return `${limpo}-${n}`
+}
+
+/**
  * Upsert de produto curado (admin). Sem id = insert; com id = update.
  */
 export async function salvarProdutoCatalogo(produto, supervisorId) {
-  const payload = { ...produto, updated_at: new Date().toISOString(), updated_by: supervisorId }
+  // Ficha nova: garante slug único pra não bater na constraint UNIQUE.
+  const slug = produto.id ? produto.slug : await gerarSlugUnico(produto.slug, null)
+  const payload = { ...produto, slug, updated_at: new Date().toISOString(), updated_by: supervisorId }
   const { data, error } = await supabase
     .from('catalogo_produtos')
     .upsert(payload)
     .select()
     .single()
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505' || /catalogo_produtos_slug_key/.test(error.message || '')) {
+      throw new Error(`Já existe uma máquina com o slug "${slug}". Altere o título ou o campo Slug (URL) e salve de novo.`)
+    }
+    throw error
+  }
   clearCatalogoCache()
   registrarLogSupervisor(produto.id ? 'alterar' : 'criar', 'ficha', data.id, data.titulo)
   return data

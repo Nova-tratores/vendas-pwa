@@ -9,7 +9,7 @@ import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
 import {
   getProdutosCatalogo, getMarcas, getMidiasCatalogoProduto,
-  getVideosShowroom, getCategoriasAplicacao,
+  getVideosShowroom, getCategoriasAplicacao, getCultivos,
 } from '../lib/catalogoSupabase'
 
 // ====================================================================
@@ -33,6 +33,7 @@ const VOLTA_ATRACAO = 60000       // ms sem interação na navegação → volta
 const DURACAO_FOTO = 4500         // ms do mini-carrossel dentro do slide de atração
 const OCULTAR_CURSOR = 4000       // ms até esconder cursor/controles
 const VIDEO_SEGURANCA = 120000    // ms máx num vídeo do reel (evita travar)
+const SHOWROOM_PIN_PADRAO = '2024' // PIN pra sair do quiosque (override: localStorage 'showroom_pin')
 
 // Emoji por categoria de aplicação (fallback do ícone até termos um set próprio).
 const ICONE_CATEGORIA = {
@@ -70,6 +71,7 @@ export default function Showroom() {
   const [produtos, setProdutos] = useState([])
   const [videos, setVideos] = useState([])
   const [categorias, setCategorias] = useState([])
+  const [cultivos, setCultivos] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [iniciado, setIniciado] = useState(false)   // gesto inicial (fullscreen + wake lock)
 
@@ -85,6 +87,7 @@ export default function Showroom() {
   const [contexto, setContexto] = useState(null) // { tipo, id, label } da listagem
   const [fichaProduto, setFichaProduto] = useState(null)
   const [busca, setBusca] = useState('')
+  const [pedindoPin, setPedindoPin] = useState(false)   // trava quiosque: PIN pra sair
 
   const wakeLockRef = useRef(null)
   const ociosoTimerRef = useRef(null)
@@ -95,14 +98,15 @@ export default function Showroom() {
   // ---- Carregamento -------------------------------------------------
   useEffect(() => {
     let alive = true
-    Promise.all([getProdutosCatalogo(), getMarcas(), getVideosShowroom(), getCategoriasAplicacao()])
-      .then(([prods, marcas, vids, cats]) => {
+    Promise.all([getProdutosCatalogo(), getMarcas(), getVideosShowroom(), getCategoriasAplicacao(), getCultivos()])
+      .then(([prods, marcas, vids, cats, culs]) => {
         if (!alive) return
         const marcaById = new Map(marcas.map((m) => [m.id, m]))
         const lista = prods.map((p) => ({ ...p, marca: p.marca || marcaById.get(p.marca_id) || null }))
         setProdutos(lista)
         setVideos(vids || [])
         setCategorias(cats || [])
+        setCultivos(culs || [])
         setCarregando(false)
       })
     return () => { alive = false }
@@ -123,6 +127,17 @@ export default function Showroom() {
       .map((c) => ({ ...c, qtd: cont.get(c.id) }))
   }, [produtos, categorias])
 
+  // Cultivos/manejos que de fato têm máquina marcada (não mostra porta vazia).
+  const cultivosPresentes = useMemo(() => {
+    const cont = new Map()
+    for (const p of produtos) {
+      for (const c of (p.cultivos || [])) cont.set(c, (cont.get(c) || 0) + 1)
+    }
+    return cultivos
+      .filter((c) => cont.has(c.id))
+      .map((c) => ({ ...c, qtd: cont.get(c.id) }))
+  }, [produtos, cultivos])
+
   // Marcas que têm ficha.
   const marcasPresentes = useMemo(() => {
     const mapa = new Map()
@@ -139,6 +154,7 @@ export default function Showroom() {
   const produtosListados = useMemo(() => {
     if (!contexto) return []
     if (contexto.tipo === 'categoria') return produtos.filter((p) => p.categoria_aplicacao === contexto.id)
+    if (contexto.tipo === 'cultivo') return produtos.filter((p) => (p.cultivos || []).includes(contexto.id))
     if (contexto.tipo === 'marca') return produtos.filter((p) => p.marca?.id === contexto.id)
     if (contexto.tipo === 'busca') {
       const q = (busca || '').trim().toLowerCase()
@@ -182,6 +198,14 @@ export default function Showroom() {
   const total = slides.length
   const atual = slides[Math.min(indice, total - 1)] || null
   const naAtracao = view === 'atracao'
+
+  // Máquina do slide atual (foto = direto; vídeo = pelo ref/slug). Separador não tem.
+  const produtoAtual = useMemo(() => {
+    if (!atual) return null
+    if (atual.kind === 'foto') return atual.produto
+    if (atual.kind === 'video') return produtos.find((x) => x.slug === atual.video.ref) || null
+    return null
+  }, [atual, produtos])
 
   const avancar = useCallback((delta) => {
     setIndice((i) => (total ? (i + delta + total) % total : 0))
@@ -284,6 +308,15 @@ export default function Showroom() {
 
   const sair = useCallback(() => { liberarTela(); navigate(-1) }, [liberarTela, navigate])
 
+  // Trava de quiosque: sair só com PIN (o cliente não deve voltar ao app do vendedor).
+  // PIN configurável via localStorage 'showroom_pin' (padrão SHOWROOM_PIN_PADRAO).
+  const solicitarSaida = useCallback(() => setPedindoPin(true), [])
+  const confirmarPin = useCallback((pin) => {
+    const correto = localStorage.getItem('showroom_pin') || SHOWROOM_PIN_PADRAO
+    if (pin === correto) { setPedindoPin(false); sair(); return true }
+    return false
+  }, [sair])
+
   const iniciar = useCallback(async () => {
     try { await document.documentElement.requestFullscreen?.() } catch { /* ignora */ }
     await pedirWakeLock()
@@ -295,7 +328,7 @@ export default function Showroom() {
   useEffect(() => {
     if (!iniciado) return
     const onKey = (e) => {
-      if (e.key === 'Escape') { naAtracao ? sair() : voltar(); return }
+      if (e.key === 'Escape') { naAtracao ? solicitarSaida() : voltar(); return }
       if (!naAtracao) return
       if (e.key === 'ArrowRight') irPara(1)
       else if (e.key === 'ArrowLeft') irPara(-1)
@@ -303,7 +336,7 @@ export default function Showroom() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [iniciado, naAtracao, irPara, togglePausa, sair, voltar])
+  }, [iniciado, naAtracao, irPara, togglePausa, solicitarSaida, voltar])
 
   // Esconde cursor/controles depois da ociosidade na atração.
   useEffect(() => {
@@ -403,10 +436,10 @@ export default function Showroom() {
 
           {/* Convite central pra entrar na navegação */}
           <button
-            onClick={() => abrirBrowse('operacao')}
+            onClick={() => (produtoAtual ? abrirFicha(produtoAtual) : abrirBrowse('operacao'))}
             className={`absolute left-1/2 bottom-24 -translate-x-1/2 z-30 px-6 py-3 rounded-full bg-[#E11B22] text-white text-base font-semibold shadow-lg active:scale-95 transition-opacity duration-500 ${controlesVisiveis ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           >
-            Explorar máquinas →
+            {produtoAtual ? 'Explorar esta máquina →' : 'Explorar máquinas →'}
           </button>
 
           {/* Barra de progresso (só em slide de foto) */}
@@ -418,7 +451,7 @@ export default function Showroom() {
 
           {/* Controles inferiores */}
           <div className={`absolute inset-x-0 bottom-0 z-30 flex items-center justify-between px-6 pb-5 transition-opacity duration-500 ${controlesVisiveis ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <button onClick={sair} className="px-4 py-2 rounded-full bg-black/40 text-[#B5ADA3] text-sm backdrop-blur">✕ Sair</button>
+            <button onClick={solicitarSaida} className="px-4 py-2 rounded-full bg-black/40 text-[#B5ADA3] text-sm backdrop-blur">🔒 Sair</button>
             <div className="flex items-center gap-3">
               {videos.length > 0 && (
                 <button onClick={() => { setListaAberta(true); registrarInteracaoAtracao() }} className="px-4 py-2 rounded-full bg-black/40 text-[#B5ADA3] text-sm backdrop-blur">
@@ -452,10 +485,12 @@ export default function Showroom() {
           eixo={eixo}
           setEixo={setEixo}
           categorias={categoriasPresentes}
+          cultivos={cultivosPresentes}
           marcas={marcasPresentes}
           busca={busca}
           setBusca={setBusca}
           onAbrirCategoria={(c) => abrirLista({ tipo: 'categoria', id: c.id, label: c.nome })}
+          onAbrirCultivo={(c) => abrirLista({ tipo: 'cultivo', id: c.id, label: c.nome })}
           onAbrirMarca={(m) => abrirLista({ tipo: 'marca', id: m.id, label: m.nome })}
           onBuscar={() => abrirLista({ tipo: 'busca', id: null, label: 'Busca' })}
           onSair={resetNavegacao}
@@ -473,7 +508,51 @@ export default function Showroom() {
         <FichaView produto={fichaProduto} onVoltar={voltar} onInteracao={adiarVoltaAtracao} />
       ) : null}
 
+      {pedindoPin && <PinSaidaModal onConfirmar={confirmarPin} onCancelar={() => setPedindoPin(false)} />}
+
       <FontesShowroom />
+    </div>
+  )
+}
+
+// ---- Modal: PIN pra sair do quiosque --------------------------------
+// Impede o cliente de voltar ao app do vendedor. Combine com a "Fixação de
+// tela" do Android pra travar de verdade (web sozinho não bloqueia o gesto home).
+function PinSaidaModal({ onConfirmar, onCancelar }) {
+  const [pin, setPin] = useState('')
+  const [erro, setErro] = useState(false)
+
+  const digitar = (d) => {
+    setErro(false)
+    setPin((p) => {
+      const novo = (p + d).slice(0, 6)
+      return novo
+    })
+  }
+  const apagar = () => { setErro(false); setPin((p) => p.slice(0, -1)) }
+  const ok = () => { if (!onConfirmar(pin)) { setErro(true); setPin('') } }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-6 animate-fade-in" onClick={onCancelar}>
+      <div className="bg-[#211C17] rounded-3xl p-8 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-xl font-bold sw-display text-[#F5F1EC]">Sair do Showroom</h3>
+        <p className="text-[#8C8478] text-sm mt-1 mb-5">Digite o PIN para liberar</p>
+        <div className={`flex justify-center gap-2 mb-5 ${erro ? 'animate-pulse' : ''}`}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <span key={i} className={`w-3.5 h-3.5 rounded-full ${i < pin.length ? (erro ? 'bg-[#E11B22]' : 'bg-[#F5F1EC]') : 'bg-white/20'}`} />
+          ))}
+        </div>
+        {erro && <p className="text-[#E11B22] text-sm mb-3">PIN incorreto</p>}
+        <div className="grid grid-cols-3 gap-2.5">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+            <button key={n} onClick={() => digitar(String(n))} className="py-3.5 rounded-xl bg-[#2C261F] text-[#F5F1EC] text-xl font-semibold active:scale-95 transition">{n}</button>
+          ))}
+          <button onClick={apagar} className="py-3.5 rounded-xl bg-[#2C261F]/60 text-[#B5ADA3] text-lg active:scale-95 transition">⌫</button>
+          <button onClick={() => digitar('0')} className="py-3.5 rounded-xl bg-[#2C261F] text-[#F5F1EC] text-xl font-semibold active:scale-95 transition">0</button>
+          <button onClick={ok} className="py-3.5 rounded-xl bg-[#E11B22] text-white text-lg font-semibold active:scale-95 transition">OK</button>
+        </div>
+        <button onClick={onCancelar} className="mt-5 text-[#8C8478] text-sm underline">Cancelar</button>
+      </div>
     </div>
   )
 }
@@ -492,7 +571,7 @@ function FontesShowroom() {
 // ====================================================================
 // NAVEGAÇÃO — Browse (operação ↔ marca)
 // ====================================================================
-function BrowseView({ eixo, setEixo, categorias, marcas, busca, setBusca, onAbrirCategoria, onAbrirMarca, onBuscar, onSair }) {
+function BrowseView({ eixo, setEixo, categorias, cultivos, marcas, busca, setBusca, onAbrirCategoria, onAbrirCultivo, onAbrirMarca, onBuscar, onSair }) {
   return (
     <div className="absolute inset-0 bg-[#15110E] text-[#F5F1EC] flex flex-col animate-fade-in">
       {/* Header */}
@@ -508,6 +587,7 @@ function BrowseView({ eixo, setEixo, categorias, marcas, busca, setBusca, onAbri
       <div className="px-8 lg:px-12 pb-5 flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-full bg-[#211C17] p-1">
           <SegBtn ativo={eixo === 'operacao'} onClick={() => setEixo('operacao')}>Por operação</SegBtn>
+          {cultivos.length > 0 && <SegBtn ativo={eixo === 'cultivo'} onClick={() => setEixo('cultivo')}>Por cultivo</SegBtn>}
           <SegBtn ativo={eixo === 'marca'} onClick={() => setEixo('marca')}>Por marca</SegBtn>
         </div>
         <form
@@ -539,6 +619,24 @@ function BrowseView({ eixo, setEixo, categorias, marcas, busca, setBusca, onAbri
                   className="group bg-[#211C17] hover:bg-[#2C261F] rounded-2xl p-6 text-left transition active:scale-[0.98] border border-transparent hover:border-[#E11B22]/40"
                 >
                   <div className="text-5xl mb-4">{ICONE_CATEGORIA[c.id] || '🔧'}</div>
+                  <p className="text-xl font-semibold sw-display leading-tight">{c.nome}</p>
+                  <p className="text-[#8C8478] text-sm mt-1">{c.qtd} {c.qtd === 1 ? 'máquina' : 'máquinas'}</p>
+                </button>
+              ))}
+            </div>
+          )
+        ) : eixo === 'cultivo' ? (
+          cultivos.length === 0 ? (
+            <Vazio texto="Nenhum cultivo com máquina ainda" />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {cultivos.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => onAbrirCultivo(c)}
+                  className="group bg-[#211C17] hover:bg-[#2C261F] rounded-2xl p-6 text-left transition active:scale-[0.98] border border-transparent hover:border-[#E11B22]/40"
+                >
+                  <div className="text-5xl mb-4">{c.icone || '🌱'}</div>
                   <p className="text-xl font-semibold sw-display leading-tight">{c.nome}</p>
                   <p className="text-[#8C8478] text-sm mt-1">{c.qtd} {c.qtd === 1 ? 'máquina' : 'máquinas'}</p>
                 </button>
@@ -601,7 +699,7 @@ function ListaView({ contexto, produtos, busca, setBusca, onAbrir, onVoltar }) {
       <div className="flex items-center gap-4 px-8 lg:px-12 pt-8 pb-4">
         <button onClick={onVoltar} className="px-4 py-2.5 rounded-full bg-[#211C17] text-[#B5ADA3] text-sm">← Voltar</button>
         <div className="flex-1">
-          <p className="text-[#8C8478] text-sm uppercase tracking-[0.2em]">{contexto?.tipo === 'marca' ? 'Marca' : contexto?.tipo === 'busca' ? 'Busca' : 'Operação'}</p>
+          <p className="text-[#8C8478] text-sm uppercase tracking-[0.2em]">{contexto?.tipo === 'marca' ? 'Marca' : contexto?.tipo === 'cultivo' ? 'Cultivo' : contexto?.tipo === 'busca' ? 'Busca' : 'Operação'}</p>
           <h1 className="text-2xl lg:text-3xl font-bold sw-display leading-tight">{contexto?.label}</h1>
         </div>
         <span className="text-[#8C8478] text-sm">{produtos.length} {produtos.length === 1 ? 'máquina' : 'máquinas'}</span>

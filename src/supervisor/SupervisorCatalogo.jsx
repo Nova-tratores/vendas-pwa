@@ -4,7 +4,7 @@ import {
   getMarcas, getProdutosCatalogo, salvarMarca, deletarMarca,
   salvarProdutoCatalogo, deletarProdutoCatalogo, uploadArquivoCatalogo,
   resizeFotoParaUpload, CATEGORIAS,
-  getProdutosAdmin, getResumoMidias, salvarOverride,
+  getProdutosAdmin, getResumoMidias, salvarOverride, getCultivos,
 } from '../lib/catalogoSupabase'
 import MidiasEditor from './MidiasEditor'
 
@@ -547,6 +547,8 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
   })
   const [argumentos, setArgumentos] = useState(produto.argumentos_de_venda || [])
   const [specs, setSpecs] = useState(Object.entries(produto.especificacoes || {}))
+  const [cultivosOpcoes, setCultivosOpcoes] = useState([])
+  const [cultivosSel, setCultivosSel] = useState(produto.cultivos || [])
   const [modelos, setModelos] = useState(produto.modelos_supabase || [])
   const [cruzaOmie, setCruzaOmie] = useState(!!produto.filtro_supabase)
   const [familias, setFamilias] = useState(produto.filtro_supabase?.familia_nome || ['Trator Novo', 'Trator Seminovo'])
@@ -571,6 +573,10 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focoInicial])
+
+  useEffect(() => { getCultivos().then(setCultivosOpcoes) }, [])
+  const toggleCultivo = (id) =>
+    setCultivosSel((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]))
 
   const slugEfetivo = form.slug.trim() || slugify(form.titulo)
 
@@ -605,6 +611,7 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
         titulo: form.titulo.trim(),
         subtitulo: form.subtitulo.trim() || null,
         categoria: form.categoria || null,
+        cultivos: cultivosSel,
         descricao: form.descricao.trim() || null,
         argumentos_de_venda: argumentos.filter((a) => a && a.trim()),
         especificacoes,
@@ -622,6 +629,8 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
       if (!idLocal && salvo?.id) {
         // Ficha nova recém-criada: mantém o modal aberto pra já anexar foto/vídeo/PDF.
         setIdLocal(salvo.id)
+        // Reflete o slug realmente gravado (pode ter ganho sufixo -2, -3…) pra UI e uploads.
+        if (salvo.slug) setForm((f) => ({ ...f, slug: salvo.slug }))
         alert('Ficha criada! Agora você já pode adicionar fotos, vídeos e PDF abaixo.')
       } else {
         onSaved()
@@ -663,6 +672,26 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
           </datalist>
         </Campo>
       </div>
+
+      {cultivosOpcoes.length > 0 && (
+        <Campo label="Cultivos / manejo (Showroom)">
+          <div className="flex flex-wrap gap-1.5">
+            {cultivosOpcoes.map((c) => {
+              const sel = cultivosSel.includes(c.id)
+              return (
+                <button
+                  type="button"
+                  key={c.id}
+                  onClick={() => toggleCultivo(c.id)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition ${sel ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-slate-300 text-slate-600'}`}
+                >
+                  {c.icone ? `${c.icone} ` : ''}{c.nome}
+                </button>
+              )
+            })}
+          </div>
+        </Campo>
+      )}
 
       <Campo label="Título">
         <input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" placeholder="Ex: MAHINDRA 6075" />
