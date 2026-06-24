@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/sync'
 
 const INICIO = { to: '/supervisor', label: 'Início', end: true }
@@ -54,6 +54,23 @@ export default function SupervisorLayout() {
   const isAdmin = (supervisor.tipo || 'admin') === 'admin'
   const menus = menusParaTipo(supervisor.tipo || 'admin')
   const [aberto, setAberto] = useState(null) // label do menu aberto
+
+  // Mantém a sessão do supervisor sempre fresca: renova ao abrir o painel e toda vez
+  // que o app volta ao foco. Num PWA o auto-refresh do supabase pausa em segundo plano,
+  // então sem isso o token vencia "sozinho". Com isso, o login só cai mesmo no logout
+  // (enquanto o refresh token estiver válido).
+  useEffect(() => {
+    const renovar = () => {
+      if (document.visibilityState === 'visible') supabase.auth.refreshSession()
+    }
+    renovar()
+    document.addEventListener('visibilitychange', renovar)
+    window.addEventListener('focus', renovar)
+    return () => {
+      document.removeEventListener('visibilitychange', renovar)
+      window.removeEventListener('focus', renovar)
+    }
+  }, [])
 
   async function handleLogout() {
     await supabase.auth.signOut()
