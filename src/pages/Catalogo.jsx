@@ -92,12 +92,20 @@ export default function Catalogo() {
             <h2 className="text-xl font-bold">Catálogo</h2>
             <p className="text-sm text-slate-500">{produtos.length} no portfólio · {estoque.length} na loja</p>
           </div>
-          <Link
-            to="/showroom"
-            className="shrink-0 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium active:scale-[0.98] transition-transform"
-          >
-            ▶ Modo Showroom / TV
-          </Link>
+          <div className="shrink-0 flex flex-col gap-1.5">
+            <Link
+              to="/showroom"
+              className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium text-center active:scale-[0.98] transition-transform"
+            >
+              ▶ Modo Showroom / TV
+            </Link>
+            <Link
+              to="comparativo"
+              className="px-3 py-2 rounded-lg bg-emerald-700 text-white text-xs font-medium text-center active:scale-[0.98] transition-transform"
+            >
+              ⚖️ Comparar tratores
+            </Link>
+          </div>
         </div>
 
         <input

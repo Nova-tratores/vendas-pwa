@@ -531,10 +531,10 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
         </div>
       )}
 
-      {/* Especificacoes */}
+      {/* Destaques (especificações resumidas, chave→valor plano) */}
       {produto.especificacoes && Object.keys(produto.especificacoes).length > 0 && (
         <div className="bg-white rounded-xl shadow p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Especificações</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Destaques</h3>
           <dl className="grid grid-cols-1 gap-x-3 gap-y-1.5">
             {Object.entries(produto.especificacoes)
               .filter(([, v]) => v && v !== '')
@@ -545,6 +545,32 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
                 </div>
               ))}
           </dl>
+        </div>
+      )}
+
+      {/* Ficha técnica detalhada (specs agrupadas por categoria) */}
+      {Array.isArray(produto.especificacoes_detalhadas) && produto.especificacoes_detalhadas.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-4 mb-3 animate-fade-in" style={{ animationDelay: '0.25s' }}>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Ficha técnica</h3>
+          <div className="space-y-3">
+            {produto.especificacoes_detalhadas
+              .filter((g) => g && Array.isArray(g.itens) && g.itens.length > 0)
+              .map((g, gi) => (
+                <div key={gi}>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{g.grupo}</p>
+                  <dl className="grid grid-cols-1 gap-y-1.5">
+                    {g.itens
+                      .filter((it) => it && it.valor && it.valor !== '')
+                      .map((it, ii) => (
+                        <div key={ii} className="flex justify-between border-b border-slate-100 pb-1.5">
+                          <dt className="text-xs text-slate-500">{it.label}</dt>
+                          <dd className="text-xs text-slate-700 font-medium text-right ml-2">{it.valor}</dd>
+                        </div>
+                      ))}
+                  </dl>
+                </div>
+              ))}
+          </div>
         </div>
       )}
 

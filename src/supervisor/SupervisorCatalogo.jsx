@@ -567,6 +567,9 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
   })
   const [argumentos, setArgumentos] = useState(produto.argumentos_de_venda || [])
   const [specs, setSpecs] = useState(Object.entries(produto.especificacoes || {}))
+  const [grupos, setGrupos] = useState(() =>
+    (produto.especificacoes_detalhadas || []).map((g) => ({ grupo: g.grupo || '', itens: g.itens || [] }))
+  )
   const [cultivosOpcoes, setCultivosOpcoes] = useState([])
   const [cultivosSel, setCultivosSel] = useState(produto.cultivos || [])
   const [modelos, setModelos] = useState(produto.modelos_supabase || [])
@@ -635,6 +638,12 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
         descricao: form.descricao.trim() || null,
         argumentos_de_venda: argumentos.filter((a) => a && a.trim()),
         especificacoes,
+        especificacoes_detalhadas: grupos
+          .map((g) => ({
+            grupo: (g.grupo || '').trim(),
+            itens: (g.itens || []).filter((i) => (i.label || '').trim()).map((i) => ({ label: i.label.trim(), valor: (i.valor || '').trim() })),
+          }))
+          .filter((g) => g.grupo && g.itens.length),
         url_site: form.url_site.trim() || null,
         foto_principal_url: form.foto_principal_url.trim() || null,
         folheto_url: form.folheto_url.trim() || null,
@@ -767,6 +776,8 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
       </div>
 
       <SpecsEditor specs={specs} setSpecs={setSpecs} />
+
+      <SpecsGruposEditor grupos={grupos} setGrupos={setGrupos} />
 
       {/* Cross-ref Omie */}
       <Campo label="Estoque/preço ao vivo (Omie)">
@@ -962,6 +973,45 @@ function SpecsEditor({ specs, setSpecs }) {
         ))}
       </div>
       <button type="button" onClick={add} className="text-xs text-blue-700 font-medium mt-1">+ adicionar</button>
+    </Campo>
+  )
+}
+
+// Editor da Ficha técnica detalhada: grupos (Motor, Transmissão…) com linhas label/valor.
+// Alimenta `especificacoes_detalhadas` (seção "Ficha técnica" do detalhe + Comparativo).
+function SpecsGruposEditor({ grupos, setGrupos }) {
+  const upd = (gi, fn) => setGrupos(grupos.map((g, i) => (i === gi ? fn(g) : g)))
+  const setGrupoNome = (gi, nome) => upd(gi, (g) => ({ ...g, grupo: nome }))
+  const setItem = (gi, ii, campo, val) =>
+    upd(gi, (g) => ({ ...g, itens: g.itens.map((it, i) => (i === ii ? { ...it, [campo]: val } : it)) }))
+  const addItem = (gi) => upd(gi, (g) => ({ ...g, itens: [...g.itens, { label: '', valor: '' }] }))
+  const remItem = (gi, ii) => upd(gi, (g) => ({ ...g, itens: g.itens.filter((_, i) => i !== ii) }))
+  const addGrupo = () => setGrupos([...grupos, { grupo: '', itens: [{ label: '', valor: '' }] }])
+  const remGrupo = (gi) => setGrupos(grupos.filter((_, i) => i !== gi))
+  return (
+    <Campo label="Ficha técnica (specs agrupadas)">
+      <p className="text-[10px] text-slate-400 mb-1">Grupos como Motor, Transmissão, etc. Aparece no detalhe e no Comparativo.</p>
+      <div className="space-y-2">
+        {grupos.map((g, gi) => (
+          <div key={gi} className="border border-slate-200 rounded p-2">
+            <div className="flex gap-1 mb-1">
+              <input value={g.grupo} onChange={(e) => setGrupoNome(gi, e.target.value)} placeholder="Grupo (ex: Motor)" className="flex-1 border border-slate-300 rounded px-2 py-1.5 text-xs font-semibold" />
+              <button type="button" onClick={() => remGrupo(gi)} className="w-8 bg-red-50 text-red-600 rounded text-sm" title="Remover grupo">×</button>
+            </div>
+            <div className="space-y-1 pl-2">
+              {g.itens.map((it, ii) => (
+                <div key={ii} className="flex gap-1">
+                  <input value={it.label} onChange={(e) => setItem(gi, ii, 'label', e.target.value)} placeholder="campo" className="w-2/5 border border-slate-300 rounded px-2 py-1.5 text-xs" />
+                  <input value={it.valor} onChange={(e) => setItem(gi, ii, 'valor', e.target.value)} placeholder="valor" className="flex-1 border border-slate-300 rounded px-2 py-1.5 text-xs" />
+                  <button type="button" onClick={() => remItem(gi, ii)} className="w-8 bg-red-50 text-red-600 rounded text-sm">×</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => addItem(gi)} className="text-[11px] text-blue-700 font-medium">+ linha</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button type="button" onClick={addGrupo} className="text-xs text-blue-700 font-medium mt-1">+ adicionar grupo</button>
     </Campo>
   )
 }

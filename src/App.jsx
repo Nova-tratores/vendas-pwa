@@ -11,6 +11,7 @@ import Negocios from './pages/Negocios'
 import Dashboard from './pages/Dashboard'
 import Catalogo from './pages/Catalogo'
 import CatalogoDetalhe from './pages/CatalogoDetalhe'
+import CatalogoComparativo from './pages/CatalogoComparativo'
 import Showroom from './pages/Showroom'
 import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
@@ -106,6 +107,7 @@ export default function App() {
         <Route path="negocios" element={<Negocios />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
+        <Route path="comparativo" element={<CatalogoComparativo />} />
         <Route path="agenda" element={<Agenda />} />
         <Route path="mapa" element={<MapaClientes />} />
       </Route>
@@ -133,6 +135,7 @@ export default function App() {
         <Route path="alertas" element={<SupervisorAlertas />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoDetalhe />} />
+        <Route path="comparativo" element={<CatalogoComparativo />} />
         <Route path="catalogo-admin" element={<AdminRoute><SupervisorCatalogo /></AdminRoute>} />
         <Route path="mais-vendidas" element={<SupervisorMaisVendidas />} />
         <Route path="log" element={<SupervisorLog />} />
