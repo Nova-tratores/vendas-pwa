@@ -354,6 +354,38 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
 
   const refrescar = () => { setEditando(null); setEstoque(null); onChange() }
 
+  // Ocultar/exibir direto no card, sem abrir a ficha. `alternando` = chave do item em curso.
+  const [alternando, setAlternando] = useState(null)
+
+  async function toggleVisivelCurado(p) {
+    setAlternando('c' + p.id)
+    try {
+      await salvarProdutoCatalogo({ id: p.id, slug: p.slug, visivel: !p.visivel }, supervisorId())
+      onChange()
+    } catch (err) {
+      alert('Erro ao alterar visibilidade: ' + err.message)
+    } finally {
+      setAlternando(null)
+    }
+  }
+
+  async function toggleVisivelEstoque(p) {
+    const visivelAtual = p.override?.visivel !== false
+    setAlternando('e' + p.codigo_produto)
+    try {
+      await salvarOverride(p.codigo_produto, { visivel: !visivelAtual }, supervisorId())
+      // estoque é estado local (não recarrega no onChange): atualiza só o override deste item.
+      setEstoque((arr) => (arr || []).map((x) =>
+        x.codigo_produto === p.codigo_produto
+          ? { ...x, override: { ...(x.override || {}), visivel: !visivelAtual } }
+          : x))
+    } catch (err) {
+      alert('Erro ao alterar visibilidade: ' + err.message)
+    } finally {
+      setAlternando(null)
+    }
+  }
+
   return (
     <div>
       <div className="flex gap-1 mb-3">
@@ -391,6 +423,8 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
                     subtitulo={[p.marca?.nome, p.categoria].filter(Boolean).join(' · ')}
                     oculta={!p.visivel}
                     presenca={presencaCurado(p)}
+                    alternando={alternando === 'c' + p.id}
+                    onToggleVisivel={() => toggleVisivelCurado(p)}
                     onFoco={(foco) => setEditando({ kind: 'curado', item: p, foco })}
                     onEditar={() => setEditando({ kind: 'curado', item: p, foco: null })}
                   />
@@ -412,6 +446,8 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
               subtitulo={[p.marca, p.familia_nome].filter(Boolean).join(' · ')}
               oculta={p.override?.visivel === false}
               presenca={presencaEstoque(p)}
+              alternando={alternando === 'e' + p.codigo_produto}
+              onToggleVisivel={() => toggleVisivelEstoque(p)}
               onFoco={(foco) => setEditando({ kind: 'estoque', item: p, foco })}
               onEditar={() => setEditando({ kind: 'estoque', item: p, foco: null })}
             />
@@ -452,7 +488,7 @@ function SubToggle({ ativo, onClick, children }) {
   )
 }
 
-function MaquinaCard({ foto, titulo, subtitulo, oculta, presenca, onFoco, onEditar }) {
+function MaquinaCard({ foto, titulo, subtitulo, oculta, presenca, alternando, onToggleVisivel, onFoco, onEditar }) {
   return (
     <div className="bg-white rounded-xl shadow p-3">
       <div className="flex items-center gap-3">
@@ -464,6 +500,15 @@ function MaquinaCard({ foto, titulo, subtitulo, oculta, presenca, onFoco, onEdit
           <p className="text-xs text-slate-500 truncate">{subtitulo || '—'}</p>
           {oculta && <span className="text-[10px] text-red-600 font-medium">oculta</span>}
         </div>
+        <button
+          onClick={onToggleVisivel}
+          disabled={alternando}
+          title={oculta ? 'Mostrar pros vendedores' : 'Ocultar dos vendedores'}
+          aria-label={oculta ? 'Mostrar pros vendedores' : 'Ocultar dos vendedores'}
+          className={`p-1.5 rounded disabled:opacity-40 ${oculta ? 'text-slate-400' : 'text-green-600'}`}
+        >
+          {oculta ? <IconOlhoFechado className="w-5 h-5" /> : <IconOlho className="w-5 h-5" />}
+        </button>
         <button onClick={onEditar} className="text-xs px-3 py-1 bg-blue-50 text-blue-700 rounded font-medium">
           Editar
         </button>
@@ -542,6 +587,20 @@ function IconArgumentos({ className }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
       <path fill="currentColor" d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm3 5h10V7H7v2zm0 4h7v-2H7v2z" />
+    </svg>
+  )
+}
+function IconOlho({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M12 5c-5 0-9 4.5-10 7 1 2.5 5 7 10 7s9-4.5 10-7c-1-2.5-5-7-10-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-2a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+    </svg>
+  )
+}
+function IconOlhoFechado({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M2 4.3L3.3 3 21 20.7 19.7 22l-3-3a12 12 0 0 1-4.7 1C7 20 3 15.5 2 13a13.4 13.4 0 0 1 3.6-4.7L2 4.3zm5 5l1.5 1.5a4 4 0 0 0 5.4 5.4l1.4 1.4A6 6 0 0 1 7 9.3zM12 6c5 0 9 4.5 10 7a13.6 13.6 0 0 1-2.2 3.2l-2.9-2.9a6 6 0 0 0-7.2-7.2L7.6 6.4A12 12 0 0 1 12 6z" />
     </svg>
   )
 }
@@ -682,7 +741,16 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
   }
 
   return (
-    <Modal onClose={onClose} titulo={novo ? 'Nova máquina' : 'Editar máquina'}>
+    <Modal
+      onClose={onClose}
+      duploClique
+      titulo={novo ? 'Nova máquina' : 'Editar máquina'}
+      acao={
+        <button onClick={salvar} disabled={salvando} className="text-sm px-4 py-1.5 bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 whitespace-nowrap">
+          {salvando ? 'Salvando...' : 'Salvar'}
+        </button>
+      }
+    >
       <div className="grid grid-cols-2 gap-2">
         <Campo label="Marca">
           <select value={form.marca_id} onChange={(e) => setForm({ ...form, marca_id: e.target.value ? Number(e.target.value) : '' })} className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm">
@@ -872,7 +940,16 @@ function EstoqueForm({ produto, focoInicial, onClose, onSaved }) {
   const titulo = produto.modelo || (produto.descricao || '').slice(0, 40) || 'Produto'
 
   return (
-    <Modal onClose={onClose} titulo={titulo}>
+    <Modal
+      onClose={onClose}
+      duploClique
+      titulo={titulo}
+      acao={
+        <button onClick={salvar} disabled={salvando} className="text-sm px-4 py-1.5 bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 whitespace-nowrap">
+          {salvando ? 'Salvando...' : 'Salvar'}
+        </button>
+      }
+    >
       <p className="text-xs text-slate-500 mb-2">
         {[produto.marca, produto.familia_nome].filter(Boolean).join(' · ')} · cód {produto.codigo}
       </p>
@@ -917,13 +994,34 @@ function EstoqueForm({ produto, focoInicial, onClose, onSaved }) {
 }
 
 // ==================== HELPERS DE UI ====================
-function Modal({ titulo, children, onClose }) {
+// `acao` renderiza um botão (ex.: Salvar) ao lado do título.
+// `duploClique` exige tocar duas vezes fora da ficha pra sair (evita fechar sem querer).
+function Modal({ titulo, children, onClose, acao, duploClique }) {
+  const [armado, setArmado] = useState(false)
+  const timer = useRef(null)
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  function fecharPeloFundo() {
+    if (!duploClique) { onClose(); return }
+    if (armado) { clearTimeout(timer.current); onClose(); return }
+    setArmado(true)
+    timer.current = setTimeout(() => setArmado(false), 2500)
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-2 sm:p-4" onClick={fecharPeloFundo}>
       <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl w-full max-w-lg p-4 max-h-[92vh] overflow-y-auto">
-        <h3 className="text-lg font-bold mb-3">{titulo}</h3>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h3 className="text-lg font-bold">{titulo}</h3>
+          {acao}
+        </div>
         {children}
       </div>
+      {duploClique && armado && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs px-3 py-1.5 rounded-full pointer-events-none">
+          Toque de novo fora da ficha para sair
+        </div>
+      )}
     </div>
   )
 }
