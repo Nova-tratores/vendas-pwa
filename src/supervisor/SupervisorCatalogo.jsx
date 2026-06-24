@@ -4,7 +4,7 @@ import {
   getMarcas, getProdutosCatalogo, salvarMarca, deletarMarca,
   salvarProdutoCatalogo, deletarProdutoCatalogo, uploadArquivoCatalogo,
   resizeFotoParaUpload, CATEGORIAS,
-  getProdutosAdmin, getResumoMidias, salvarOverride, getCultivos,
+  getProdutosAdmin, getResumoMidias, salvarOverride, getCultivos, getMarcaAliasMap,
 } from '../lib/catalogoSupabase'
 import MidiasEditor from './MidiasEditor'
 
@@ -247,10 +247,16 @@ function categoriaDeFamilia(familia) {
   if (f.includes('trator')) return 'tratores'
   return 'implementos'
 }
-function marcaIdPorNome(marcas, nome) {
-  const n = (nome || '').trim().toLowerCase()
+// Resolve a marca (nome cru do Omie OU canônico) pra um marca_id:
+// 1) tenta o mapa de aliases do Omie (nome jurídico/variações), 2) nome exato canônico.
+// Retorna null quando não casa — aí o form força a escolha manual em vez de cair no
+// Mahindra (ordem 0), que era o que marcava ficha errada em massa.
+function resolverMarcaId(marcas, aliasMap, nome) {
+  const n = (nome || '').trim()
   if (!n) return null
-  return marcas.find((x) => (x.nome || '').trim().toLowerCase() === n)?.id || null
+  const viaAlias = aliasMap?.get(n.toUpperCase())
+  if (viaAlias) return viaAlias
+  return marcas.find((x) => (x.nome || '').trim().toLowerCase() === n.toLowerCase())?.id || null
 }
 
 // ==================== MÁQUINAS ====================
@@ -260,6 +266,10 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
   const [editando, setEditando] = useState(null) // { kind, item, foco }
   const [estoque, setEstoque] = useState(null)    // produtos do Omie (lazy)
   const [loadingEstoque, setLoadingEstoque] = useState(false)
+  const [aliasMap, setAliasMap] = useState(null)  // mapa marca Omie → marca canônica
+
+  // Mapa de aliases pra resolver a marca crua do Omie ao criar ficha pelo "Adicionar".
+  useEffect(() => { getMarcaAliasMap().then(setAliasMap) }, [])
 
   // Estoque do Omie só carrega quando o supervisor abre essa visão
   useEffect(() => {
@@ -279,7 +289,9 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
     const marca = pre?.marca || ''
     const modelo = pre?.modelo || ''
     setEditando({ kind: 'curado', foco: null, item: {
-      marca_id: marcaIdPorNome(marcas, marca) || marcas[0]?.id,
+      // null quando não casa: o form mostra "— Selecione a marca —" e exige a escolha,
+      // em vez de assumir Mahindra silenciosamente.
+      marca_id: resolverMarcaId(marcas, aliasMap, marca),
       titulo: [marca, modelo].filter(Boolean).join(' ').trim(),
       subtitulo: modelo || '',
       categoria: pre ? categoriaDeFamilia(pre.familia) : 'tratores',
@@ -540,7 +552,8 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
   const [idLocal, setIdLocal] = useState(produto.id || null)
   const novo = !idLocal
   const [form, setForm] = useState({
-    marca_id: produto.marca_id || produto.marca?.id || marcas[0]?.id,
+    // '' (sem marca) força a escolha no select; não cai mais no marcas[0] (Mahindra).
+    marca_id: produto.marca_id ?? produto.marca?.id ?? '',
     slug: produto.slug || '',
     titulo: produto.titulo || '',
     subtitulo: produto.subtitulo || '',
@@ -663,7 +676,8 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
     <Modal onClose={onClose} titulo={novo ? 'Nova máquina' : 'Editar máquina'}>
       <div className="grid grid-cols-2 gap-2">
         <Campo label="Marca">
-          <select value={form.marca_id} onChange={(e) => setForm({ ...form, marca_id: Number(e.target.value) })} className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm">
+          <select value={form.marca_id} onChange={(e) => setForm({ ...form, marca_id: e.target.value ? Number(e.target.value) : '' })} className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm">
+            <option value="">— Selecione a marca —</option>
             {marcas.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
           </select>
         </Campo>

@@ -8,6 +8,28 @@ import { registrarLogSupervisor } from './auditoria'
 const cache = new Map()
 
 /**
+ * Garante que há uma sessão de supervisor válida antes de operações que dependem
+ * da policy RLS do bucket (auth.uid()). Tenta renovar o token quando está perto de
+ * vencer; se não houver sessão, lança um erro amigável em vez do RLS críptico.
+ */
+async function garantirSessaoSupervisor() {
+  let { data: { session } } = await supabase.auth.getSession()
+  // Sem sessão: tenta uma última renovação (refresh token ainda pode estar válido).
+  if (!session) {
+    const { data } = await supabase.auth.refreshSession()
+    session = data?.session || null
+  }
+  // Token vencido ou prestes a vencer (margem de 60s): força refresh.
+  else if (session.expires_at && session.expires_at * 1000 - Date.now() < 60_000) {
+    const { data } = await supabase.auth.refreshSession()
+    session = data?.session || session
+  }
+  if (!session) {
+    throw new Error('Sua sessão expirou. Saia e entre de novo no painel do supervisor para enviar mídias.')
+  }
+}
+
+/**
  * Busca SKUs no Supabase que casam com o produto do catalogo curado.
  * Retorna agregado pronto pra UI.
  *
@@ -523,6 +545,10 @@ export async function uploadMidia({ codigoProduto, catalogoProdutoId, file, tipo
   if (!['foto', 'video', 'pdf'].includes(tipo)) throw new Error(`Tipo inválido: ${tipo}`)
   if (!codigoProduto && !catalogoProdutoId) throw new Error('Informe codigoProduto ou catalogoProdutoId')
 
+  // A policy RLS do bucket exige supervisor logado (auth.uid()). A sessão pode
+  // ter expirado entre um upload e outro — tenta renovar e, se não houver, avisa claro.
+  await garantirSessaoSupervisor()
+
   // path único: {dono}/{timestamp}-{slug do nome}. Produto curado usa prefixo cat-.
   const ts = Date.now()
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
@@ -638,15 +664,37 @@ export const CATEGORIAS = [
 ]
 
 let marcasCache = null
+let marcaAliasCache = null
 let produtosCatalogoCache = null
 let categoriasAplicacaoCache = null
 let cultivosCache = null
 
 export function clearCatalogoCache() {
   marcasCache = null
+  marcaAliasCache = null
   produtosCatalogoCache = null
   categoriasAplicacaoCache = null
   cultivosCache = null
+}
+
+/**
+ * Mapa de aliases do Omie → marca canônica (catalogo_marca_alias). A chave é o nome
+ * do Omie normalizado (UPPER+TRIM); o valor é o marca_id canônico. Serve pra resolver
+ * a marca "suja" do Omie (nome jurídico longo, variações) ao criar ficha. Cacheado.
+ */
+export async function getMarcaAliasMap() {
+  if (marcaAliasCache) return marcaAliasCache
+  const { data, error } = await supabase
+    .from('catalogo_marca_alias')
+    .select('alias, marca_id')
+  if (error) {
+    console.error('[catalogo marca alias]', error.message)
+    return new Map()
+  }
+  const map = new Map()
+  for (const r of (data || [])) map.set((r.alias || '').toUpperCase().trim(), r.marca_id)
+  marcaAliasCache = map
+  return map
 }
 
 /**
