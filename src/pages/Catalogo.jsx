@@ -100,7 +100,7 @@ export default function Catalogo() {
               ▶ Modo Showroom / TV
             </Link>
             <Link
-              to="comparativo"
+              to="../comparativo"
               className="px-3 py-2 rounded-lg bg-emerald-700 text-white text-xs font-medium text-center active:scale-[0.98] transition-transform"
             >
               ⚖️ Comparar tratores
