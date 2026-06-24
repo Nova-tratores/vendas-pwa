@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getAllRecords, saveRecord, deleteRecord, getByIndex, registrarLog } from '../lib/db'
 import { maskCPFouCNPJ, maskTelefone } from '../lib/masks'
 import { CULTURAS } from '../lib/constants'
+import { completudePropriedade } from '../lib/completude'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -23,6 +24,7 @@ export default function Clientes() {
   const [maquinasCount, setMaquinasCount] = useState({})
   const [culturaTarget, setCulturaTarget] = useState(null)
   const [culturaSel, setCulturaSel] = useState([])
+  const [incompletasPrimeiro, setIncompletasPrimeiro] = useState(false)
 
   useEffect(() => { carregar() }, [])
 
@@ -93,6 +95,12 @@ export default function Clientes() {
     setAgenda({ atrasados, hoje, semana })
   }
 
+  // Quantos campos (cultivos/pessoas/máquinas) faltam numa propriedade — fonte única.
+  function faltamDe(prop) {
+    return completudePropriedade(prop, pessoasCount[prop.id] || 0, maquinasCount[prop.id] || 0).faltam.length
+  }
+  const totalIncompletas = propriedades.filter((p) => faltamDe(p) > 0).length
+
   // Agrupar propriedades: donos com +1 prop ficam agrupados
   const clienteMap = Object.fromEntries(clientes.map((c) => [c.id, c]))
 
@@ -136,7 +144,15 @@ export default function Clientes() {
   for (const [donoId, props] of Object.entries(grupos)) {
     listaFinal.push({ type: 'group', donoId: parseInt(donoId), dono: clienteMap[parseInt(donoId)], props })
   }
+  // Nº de campos faltando no item (single = da prop; group = soma das props do dono)
+  const faltamDoItem = (item) =>
+    item.type === 'single' ? faltamDe(item.prop) : item.props.reduce((acc, p) => acc + faltamDe(p), 0)
+
   listaFinal.sort((a, b) => {
+    if (incompletasPrimeiro) {
+      const fb = faltamDoItem(b) - faltamDoItem(a)
+      if (fb !== 0) return fb
+    }
     const nomeA = a.type === 'single' ? (a.prop.nome || '') : (a.dono?.nome || '')
     const nomeB = b.type === 'single' ? (b.prop.nome || '') : (b.dono?.nome || '')
     return nomeA.localeCompare(nomeB)
@@ -229,8 +245,18 @@ export default function Clientes() {
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
         placeholder="Buscar propriedade, cidade ou dono..."
-        className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm mb-3"
+        className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm mb-2"
       />
+
+      {totalIncompletas > 0 && (
+        <button
+          onClick={() => setIncompletasPrimeiro((v) => !v)}
+          className={`flex items-center justify-between w-full text-xs rounded-lg px-3 py-2 mb-3 border ${incompletasPrimeiro ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}
+        >
+          <span className="font-medium">{totalIncompletas} para completar</span>
+          <span className="opacity-80">{incompletasPrimeiro ? 'Incompletas primeiro ✓' : 'Incompletas primeiro'}</span>
+        </button>
+      )}
 
       {listaFinal.length === 0 ? (
         <div className="text-center py-12">
@@ -387,7 +413,7 @@ function IconHistorico({ className }) {
 }
 
 function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas = 0, nMaquinas = 0, compact }) {
-  const temCultura = Array.isArray(prop.culturas) && prop.culturas.length > 0
+  const { temCultura, temPessoas, temMaquinas } = completudePropriedade(prop, nPessoas, nMaquinas)
   const aceso = 'text-black opacity-100'
   const apagado = 'text-slate-400 opacity-80'
   return (
@@ -412,12 +438,12 @@ function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas =
         </button>
         <button type="button" title="Pessoas" aria-label="Pessoas"
           onClick={(e) => { e.stopPropagation(); navigate(`/pessoas/${prop.id}`) }}
-          className={nPessoas > 0 ? aceso : apagado}>
+          className={temPessoas ? aceso : apagado}>
           <IconPessoas className="w-5 h-5" />
         </button>
         <button type="button" title="Máquinas" aria-label="Máquinas"
           onClick={(e) => { e.stopPropagation(); navigate(`/maquinas/${prop.id}`) }}
-          className={nMaquinas > 0 ? aceso : apagado}>
+          className={temMaquinas ? aceso : apagado}>
           <IconTrator className="w-5 h-5" />
         </button>
         <button type="button" title="Histórico de visitas" aria-label="Histórico de visitas"

@@ -3,6 +3,7 @@ import {
   getClientes, getPropriedades, getPessoas, getMaquinas, getVisitas, getVendedores,
 } from '../lib/supabaseQueries'
 import VendedorAvatar, { primeiroNome } from '../components/VendedorAvatar'
+import { completudePropriedade } from '../lib/completude'
 
 const TIPO_LABELS = {
   presencial: 'Presencial', mensagem: 'Mensagem', telefonema: 'Telefonema', email: 'E-mail',
@@ -70,9 +71,11 @@ export default function SupervisorClientes() {
         .slice()
         .sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))
 
-      const temCulturas = props.some((p) => p.culturas.length > 0)
-      const temPessoas = props.some((p) => p.pessoas.length > 0)
-      const temMaquinas = props.some((p) => p.maquinas.length > 0)
+      // Cliente "tem X" se qualquer propriedade dele tem X (fonte única: completude.js)
+      const compPorProp = props.map((p) => completudePropriedade(p, p.pessoas.length, p.maquinas.length))
+      const temCulturas = compPorProp.some((c) => c.temCultura)
+      const temPessoas = compPorProp.some((c) => c.temPessoas)
+      const temMaquinas = compPorProp.some((c) => c.temMaquinas)
 
       return {
         cliente: c,

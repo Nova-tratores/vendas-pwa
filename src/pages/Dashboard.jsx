@@ -4,6 +4,7 @@ import { getAllRecords, getRecord } from '../lib/db'
 import { getConfig } from '../lib/supabaseQueries'
 import { STATUS_EM_ANDAMENTO, isAberto } from '../lib/funil'
 import { diasDesde } from '../lib/tempo'
+import { completudePropriedade, FALTA_INFO } from '../lib/completude'
 
 // Lê o X dias de lembrete: online busca da config e cacheia; offline usa o cache.
 async function getDiasLembrete() {
@@ -31,11 +32,13 @@ export default function Dashboard() {
   async function carregar() {
     setLoading(true)
     try {
-      const [visitas, negocios, clientes, propriedades] = await Promise.all([
+      const [visitas, negocios, clientes, propriedades, pessoas, maquinas] = await Promise.all([
         getAllRecords('visitas'),
         getAllRecords('negocios'),
         getAllRecords('clientes'),
         getAllRecords('propriedades'),
+        getAllRecords('pessoas'),
+        getAllRecords('maquinas'),
       ])
 
       const hoje = new Date()
@@ -78,6 +81,15 @@ export default function Dashboard() {
         .filter((n) => diasDesde(n.updated_at || n.created_at) >= diasLembrete)
         .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at))
 
+      // Completude de cadastro: propriedades sem cultivos / pessoas / máquinas
+      const nPessoasPorProp = {}; for (const x of pessoas) nPessoasPorProp[x.propriedade_id] = (nPessoasPorProp[x.propriedade_id] || 0) + 1
+      const nMaquinasPorProp = {}; for (const x of maquinas) nMaquinasPorProp[x.propriedade_id] = (nMaquinasPorProp[x.propriedade_id] || 0) + 1
+      const propriedadesIncompletas = propriedades
+        .map((p) => ({ prop: p, comp: completudePropriedade(p, nPessoasPorProp[p.id] || 0, nMaquinasPorProp[p.id] || 0) }))
+        .filter((x) => !x.comp.completa)
+        .sort((a, b) => b.comp.faltam.length - a.comp.faltam.length)
+      const totalCompletas = propriedades.length - propriedadesIncompletas.length
+
       setDados({
         visitasHoje,
         visitasSemana,
@@ -90,6 +102,8 @@ export default function Dashboard() {
         contatosAtrasados,
         ultimasVisitas,
         negociosParaAtualizar,
+        propriedadesIncompletas,
+        totalCompletas,
       })
     } catch (err) {
       console.error('[Dashboard]', err)
@@ -199,6 +213,42 @@ export default function Dashboard() {
                     <p className="text-xs font-bold text-amber-700 whitespace-nowrap ml-2">
                       parado há {dias}d
                     </p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Propriedades para completar (nudge de cadastro) */}
+      {dados.propriedadesIncompletas?.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-bold text-indigo-600 uppercase mb-2">
+            Propriedades para completar ({dados.propriedadesIncompletas.length})
+          </p>
+          <p className="text-[11px] text-slate-500 mb-2">
+            {dados.totalCompletas} de {dados.totalPropriedades} propriedades completas
+          </p>
+          <div className="space-y-2">
+            {dados.propriedadesIncompletas.slice(0, 5).map(({ prop, comp }) => {
+              const primeiroFalta = comp.faltam[0]
+              const rota = FALTA_INFO[primeiroFalta]?.rota(prop.id) || '/clientes'
+              return (
+                <div
+                  key={prop.id}
+                  onClick={() => navigate(rota)}
+                  className="rounded-xl shadow p-3 bg-indigo-50 border-l-4 border-indigo-400 cursor-pointer active:bg-indigo-100"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium truncate min-w-0">{prop.nome_fantasia || prop.razao_social || prop.nome || 'Propriedade'}</p>
+                    <div className="flex gap-1 shrink-0">
+                      {comp.faltam.map((f) => (
+                        <span key={f} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white text-indigo-700 font-medium whitespace-nowrap">
+                          {FALTA_INFO[f]?.icon} {f}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )
