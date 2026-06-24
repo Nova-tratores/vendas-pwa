@@ -25,7 +25,7 @@ async function garantirSessaoSupervisor() {
     session = data?.session || session
   }
   if (!session) {
-    throw new Error('Sua sessão expirou. Saia e entre de novo no painel do supervisor para enviar mídias.')
+    throw new Error('Sua sessão expirou. Saia e entre de novo no painel do supervisor para continuar.')
   }
 }
 
@@ -268,6 +268,7 @@ export async function getProdutosAdmin({ somenteComEstoque = false, busca = '' }
  * Upsert de override (admin).
  */
 export async function salvarOverride(codigoProduto, fields, supervisorId) {
+  await garantirSessaoSupervisor()
   const payload = {
     codigo_produto: codigoProduto,
     ...fields,
@@ -874,6 +875,7 @@ export async function getProdutoCatalogoBySlug(slug) {
  * Upsert de marca (admin). Sem id = insert; com id = update.
  */
 export async function salvarMarca(marca, supervisorId) {
+  await garantirSessaoSupervisor()
   const payload = { ...marca, updated_at: new Date().toISOString(), updated_by: supervisorId }
   const { data, error } = await supabase
     .from('catalogo_marcas')
@@ -887,6 +889,7 @@ export async function salvarMarca(marca, supervisorId) {
 }
 
 export async function deletarMarca(id) {
+  await garantirSessaoSupervisor()
   const { error } = await supabase.from('catalogo_marcas').delete().eq('id', id)
   if (error) throw error
   clearCatalogoCache()
@@ -916,6 +919,9 @@ export async function gerarSlugUnico(base, idAtual = null) {
  * Upsert de produto curado (admin). Sem id = insert; com id = update.
  */
 export async function salvarProdutoCatalogo(produto, supervisorId) {
+  // RLS de catalogo_produtos exige supervisor logado: renova/checa a sessão antes
+  // de gravar pra não estourar o "row-level security policy" críptico.
+  await garantirSessaoSupervisor()
   // Ficha nova: garante slug único pra não bater na constraint UNIQUE.
   const slug = produto.id ? produto.slug : await gerarSlugUnico(produto.slug, null)
   const payload = { ...produto, slug, updated_at: new Date().toISOString(), updated_by: supervisorId }
@@ -936,6 +942,7 @@ export async function salvarProdutoCatalogo(produto, supervisorId) {
 }
 
 export async function deletarProdutoCatalogo(id) {
+  await garantirSessaoSupervisor()
   const { error } = await supabase.from('catalogo_produtos').delete().eq('id', id)
   if (error) throw error
   clearCatalogoCache()
