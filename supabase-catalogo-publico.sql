@@ -40,7 +40,7 @@ select
   -- Fotos extras da galeria (Storage)
   coalesce((
     select jsonb_agg(jsonb_build_object('titulo', mid.titulo,
-             'url', 'https://citrhumdkfivdzbmayde.supabase.co/storage/v1/object/public/catalogo-midia/' || mid.storage_path)
+             'url', 'https://midia.novatratores.com/storage/v1/object/public/catalogo-midia/' || mid.storage_path)
              order by mid.ordem, mid.created_at)
     from catalogo_midia mid
     where mid.catalogo_produto_id = p.id and mid.tipo = 'foto' and mid.storage_path is not null
@@ -48,7 +48,7 @@ select
   -- Vídeos prontos (Storage) — reusa o pipeline do worker-youtube
   coalesce((
     select jsonb_agg(jsonb_build_object('titulo', mid.titulo,
-             'url', 'https://citrhumdkfivdzbmayde.supabase.co/storage/v1/object/public/catalogo-midia/' || mid.storage_path)
+             'url', 'https://midia.novatratores.com/storage/v1/object/public/catalogo-midia/' || mid.storage_path)
              order by mid.ordem, mid.created_at)
     from catalogo_midia mid
     where mid.catalogo_produto_id = p.id and mid.tipo = 'video' and mid.status = 'pronto' and mid.storage_path is not null

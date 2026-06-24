@@ -295,13 +295,23 @@ export function clearEstoqueCache() {
 
 const MIDIA_BUCKET = 'catalogo-midia'
 
+// Domínio próprio (CDN) que serve os arquivos públicos do Storage. Só troca o host:
+// o resto do path (/storage/v1/object/public/...) é idêntico ao do Supabase.
+// Mantém a API (banco/login) em supabase.supabaseUrl — aqui é SÓ pra mídia pública.
+// Pode ser sobrescrito por VITE_MIDIA_PUBLIC_URL; senão usa o domínio próprio.
+const MIDIA_PUBLIC_BASE = (import.meta.env.VITE_MIDIA_PUBLIC_URL || 'https://midia.novatratores.com').replace(/\/+$/, '')
+
+// Monta a URL pública de um arquivo do Storage usando o domínio próprio.
+export function urlPublicaMidia(storagePath, bucket = MIDIA_BUCKET) {
+  if (!storagePath) return null
+  return `${MIDIA_PUBLIC_BASE}/storage/v1/object/public/${bucket}/${storagePath}`
+}
+
 function midiaComUrl(m) {
   return {
     ...m,
     // Linha pendente (vídeo do YouTube ainda baixando) não tem arquivo: url fica null.
-    url_publica: m.storage_path
-      ? `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${m.storage_path}`
-      : null,
+    url_publica: urlPublicaMidia(m.storage_path),
   }
 }
 
@@ -598,7 +608,7 @@ export async function uploadMidia({ codigoProduto, catalogoProdutoId, file, tipo
 
   return {
     ...data,
-    url_publica: `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${data.storage_path}`,
+    url_publica: urlPublicaMidia(data.storage_path),
   }
 }
 
@@ -952,7 +962,7 @@ export async function uploadArquivoCatalogo({ slug, file }) {
     .from(MIDIA_BUCKET)
     .upload(storagePath, file, { contentType: file.type || undefined, upsert: false })
   if (error) throw new Error(`Upload falhou: ${error.message}`)
-  return `${supabase.supabaseUrl}/storage/v1/object/public/${MIDIA_BUCKET}/${storagePath}`
+  return urlPublicaMidia(storagePath)
 }
 
 // ====================================================================
