@@ -15,8 +15,10 @@
 --   1. Rodar blocos 1 a 4 (colunas/índices/trigger/policy) ANTES do deploy
 --      do app novo — o push novo envia client_uuid e a coluna precisa existir.
 --   2. Deploy do app no Railway.
---   3. FAZER BACKUP (Database -> Backups) e rodar os blocos 5 e 6 (dedupe),
---      sempre com o preview antes.
+--   3. FAZER BACKUP (Database -> Backups) e rodar o dedupe, sempre com o
+--      preview antes: bloco 5 (visitas); depois 8a — se acusar clientes
+--      duplicados, rode 8b + 8c (o 8c substitui o 6b); se 8a vier vazio,
+--      rode o 6b.
 --   4. Rodar o bloco 7 (force_resync) por último — cada celular envia os
 --      pendentes, limpa o cache sincronizado e re-baixa a base já limpa.
 --
@@ -139,6 +141,81 @@ WITH dup AS (
   SELECT id,
          min(id) OVER (PARTITION BY nome_fantasia, coalesce(cidade, ''),
                                     cliente_dono_id, created_at) AS keeper
+  FROM "portal_nt_clientes_PRINCIPAL"
+  WHERE cliente_dono_id IS NOT NULL
+),
+del AS (
+  SELECT id, keeper FROM dup WHERE id <> keeper
+),
+fix_visitas AS (
+  UPDATE visitas t SET propriedade_id = d.keeper
+  FROM del d WHERE t.propriedade_id = d.id RETURNING t.id
+),
+fix_negocios AS (
+  UPDATE negocios t SET propriedade_id = d.keeper
+  FROM del d WHERE t.propriedade_id = d.id RETURNING t.id
+),
+fix_pessoas AS (
+  UPDATE pessoas t SET propriedade_id = d.keeper
+  FROM del d WHERE t.propriedade_id = d.id RETURNING t.id
+),
+fix_maquinas AS (
+  UPDATE maquinas t SET propriedade_id = d.keeper
+  FROM del d WHERE t.propriedade_id = d.id RETURNING t.id
+)
+DELETE FROM "portal_nt_clientes_PRINCIPAL" WHERE id IN (SELECT id FROM del);
+
+-- 8. Dedupe de clientes_vendas (donos duplicados) ------------------------
+-- O preview do bloco 6 mostrou a MESMA propriedade ("Sítio São Sebastião",
+-- Fartura) em ~24 cliente_dono_id diferentes, todos criados no mesmo minuto:
+-- o CLIENTE também duplicou, cada cópia arrastando a sua propriedade.
+-- Fluxo: rode 8a; se houver duplicatas, rode 8b e DEPOIS 8c (o 8c substitui
+-- o 6b — mesma limpeza, mas ignorando created_at, que difere entre as cópias
+-- do dono). Se 8a vier vazio, use só o 6b.
+
+-- 8a. PREVIEW — clientes duplicados (mesmo nome no mesmo vendedor):
+SELECT nome, vendedor_id, count(*) AS copias, array_agg(id ORDER BY id) AS ids
+FROM clientes_vendas
+GROUP BY nome, vendedor_id
+HAVING count(*) > 1
+ORDER BY count(*) DESC;
+
+-- 8b. EXECUÇÃO — mantém o menor id do cliente e reponta os filhos:
+WITH dup AS (
+  SELECT id, min(id) OVER (PARTITION BY nome, vendedor_id) AS keeper
+  FROM clientes_vendas
+),
+del AS (
+  SELECT id, keeper FROM dup WHERE id <> keeper
+),
+fix_props AS (
+  UPDATE "portal_nt_clientes_PRINCIPAL" t SET cliente_dono_id = d.keeper
+  FROM del d WHERE t.cliente_dono_id = d.id RETURNING t.id
+),
+fix_negocios AS (
+  UPDATE negocios t SET cliente_id = d.keeper
+  FROM del d WHERE t.cliente_id = d.id RETURNING t.id
+)
+DELETE FROM clientes_vendas WHERE id IN (SELECT id FROM del);
+
+-- 8c. Propriedades do mesmo dono com o mesmo nome (substitui o 6b) --------
+-- Depois do 8b as cópias caem todas no mesmo dono; aqui elas se fundem.
+-- Sem created_at na partição: as cópias nasceram com segundos de diferença.
+
+-- PREVIEW:
+SELECT nome_fantasia, cidade, cliente_dono_id,
+       count(*) AS copias, array_agg(id ORDER BY id) AS ids
+FROM "portal_nt_clientes_PRINCIPAL"
+WHERE cliente_dono_id IS NOT NULL
+GROUP BY nome_fantasia, coalesce(cidade, ''), cliente_dono_id, cidade
+HAVING count(*) > 1
+ORDER BY count(*) DESC;
+
+-- EXECUÇÃO:
+WITH dup AS (
+  SELECT id,
+         min(id) OVER (PARTITION BY nome_fantasia, coalesce(cidade, ''),
+                                    cliente_dono_id) AS keeper
   FROM "portal_nt_clientes_PRINCIPAL"
   WHERE cliente_dono_id IS NOT NULL
 ),
