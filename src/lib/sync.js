@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import {
   getAllRecords, getPendingRecords, markAsSynced, saveRecord, deleteRecord,
-  getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs,
+  getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs, registrarLog,
   clearAll, clearSyncedOnly, clearStore,
   FK_REFS, chaveConteudo, getServerId, mapearId, remapearFilhos,
   repararFKsNegativasVisitas,
@@ -51,9 +51,15 @@ function sinalizarAuth(precisa) { if (onAuthRequired) onAuthRequired(precisa) }
 // PUSH: IndexedDB (pending) → Supabase
 // ============================================
 
+// Stores com coluna client_uuid no Supabase (UNIQUE parcial) — push via upsert.
+const UUID_TABLES = new Set(['visitas', 'propriedades'])
+
 function mapForPush(store, record) {
   // _srv é flag interna (registro veio do servidor) — não vai pro Supabase.
   const { id, status_sync, _srv, ...clean } = record
+
+  // client_uuid só existe como coluna em visitas/propriedades.
+  if (!UUID_TABLES.has(store)) delete clean.client_uuid
 
   if (store === 'propriedades') {
     // IndexedDB "propriedades" → Supabase "Clientes"
@@ -81,6 +87,8 @@ async function traduzFKs(store, record) {
   }
   return out
 }
+
+let lastFailLogAt = 0
 
 async function pushRecords() {
   let totalPushed = 0
@@ -118,8 +126,22 @@ async function pushRecords() {
             }
             if (ins && ins[0] && ins[0].id !== record.id) await mapearId(store, record.id, ins[0].id)
           }
+        } else if (record.client_uuid && UUID_TABLES.has(store)) {
+          // Registro novo com chave de idempotência: UPSERT. Se um push anterior
+          // inseriu mas a resposta se perdeu (rede móvel), o retry vira UPDATE
+          // na mesma linha em vez de criar duplicata.
+          const { data, error } = await supabase
+            .from(supaTable).upsert(mapped, { onConflict: 'client_uuid' }).select()
+          if (error) {
+            failed.push({ store, id: record.id, code: error.code, message: error.message })
+            console.error(`[Push] ${store} #${record.id} upsert:`, error.code, error.message)
+            continue
+          }
+          if (data && data[0] && data[0].id !== record.id) {
+            await mapearId(store, record.id, data[0].id)
+          }
         } else {
-          // Registro novo criado offline: INSERT.
+          // Registro novo criado offline (legado, sem client_uuid): INSERT.
           const { data, error } = await supabase.from(supaTable).insert(mapped).select()
           if (error) {
             if (error.code === '23505') {
@@ -147,6 +169,17 @@ async function pushRecords() {
         console.error(`[Push] ${store} #${record.id}:`, err)
       }
     }
+  }
+
+  // Telemetria: falhas de push viram log de auditoria — o supervisor enxerga
+  // em audit_logs_vendas sem precisar pegar o celular do vendedor.
+  // Throttle de 10min pra o retry de 30s não inundar o log com o mesmo erro.
+  if (failed.length > 0 && Date.now() - lastFailLogAt > 10 * 60 * 1000) {
+    lastFailLogAt = Date.now()
+    try {
+      const resumo = failed.map((f) => `${f.store}#${f.id} ${f.code || ''} ${f.message || ''}`.trim()).join(' | ')
+      await registrarLog('erro', 'sync', null, `Push falhou: ${resumo}`.slice(0, 900))
+    } catch { /* telemetria não pode quebrar o sync */ }
   }
 
   // Push logs de auditoria
@@ -217,6 +250,7 @@ function mapForPull(store, record) {
       longitude: record.longitude,
       observacoes: record.observacoes || '',
       created_at: record.created_at,
+      client_uuid: record.client_uuid || undefined,
       status_sync: 'synced',
     }
   }
@@ -284,7 +318,13 @@ async function pullRecords() {
 
     const locais = await getAllRecords(store)
     const idxLocal = new Map()
+    const idxUuid = new Map()
+    const tombstonePendente = new Set() // ids com exclusão local ainda não enviada
     for (const loc of locais) {
+      // Por client_uuid o match é seguro mesmo com o local ainda 'pending'
+      // (cenário: push inseriu mas a resposta se perdeu — sem isso duplicaria).
+      if (loc.client_uuid) idxUuid.set(loc.client_uuid, loc)
+      if (loc.status_sync === 'pending' && loc.deleted_at) tombstonePendente.add(loc.id)
       if (loc.status_sync !== 'synced') continue
       const ch = chaveConteudo(store, loc)
       if (ch) idxLocal.set(ch, loc)
@@ -294,16 +334,27 @@ async function pullRecords() {
       const mapped = mapFn(record)
       mapped._srv = true // veio do servidor: edições futuras fazem UPDATE, não INSERT
       const ch = chaveConteudo(store, mapped)
-      const gemeo = ch ? idxLocal.get(ch) : null
+      const gemeo = (mapped.client_uuid && idxUuid.get(mapped.client_uuid))
+        || (ch ? idxLocal.get(ch) : null)
       if (gemeo && gemeo.id !== mapped.id) {
         // Mesmo registro com id local diferente: mapeia, reaponta os filhos e
         // remove a duplicata local, ficando só com o id do servidor.
         await mapearId(store, gemeo.id, mapped.id)
         await remapearFilhos(store, gemeo.id, mapped.id)
         await deleteRecord(store, gemeo.id)
-        idxLocal.delete(ch)
+        if (ch) idxLocal.delete(ch)
+        if (gemeo.client_uuid) idxUuid.delete(gemeo.client_uuid)
       }
-      await saveRecord(store, mapped)
+      if (mapped.deleted_at) {
+        // Tombstone: a visita foi excluída (neste ou noutro device) — remove
+        // a cópia local em vez de gravar. O gêmeo já foi removido acima.
+        await deleteRecord(store, mapped.id)
+      } else if (tombstonePendente.has(mapped.id)) {
+        // Exclusão local ainda não enviada (ex.: pull sem sessão pula o push):
+        // não deixa a versão do servidor ressuscitar a visita antes do push.
+      } else {
+        await saveRecord(store, mapped)
+      }
     }
     totalPulled += rows.length
     return rows

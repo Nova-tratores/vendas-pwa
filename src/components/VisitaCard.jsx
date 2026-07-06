@@ -25,6 +25,27 @@ export const TIPO_COLORS = {
 export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editavel, onNovaVisita }) {
   const [propNome, setPropNome] = useState('')
   const [clienteNome, setClienteNome] = useState('')
+  const [expandido, setExpandido] = useState(false)
+  const [detalhes, setDetalhes] = useState(null)
+
+  const temDetalhes = (visita.pessoa_ids?.length || 0) > 0
+    || (visita.maquina_ids?.length || 0) > 0
+    || !!visita.veiculo
+
+  // Hidrata os ids pra nomes legíveis só quando o vendedor expande (offline ok:
+  // tudo vem do IndexedDB). Ids não encontrados no cache são omitidos.
+  async function toggleDetalhes() {
+    if (!expandido && !detalhes) {
+      const pessoas = (await Promise.all(
+        (visita.pessoa_ids || []).map((id) => getRecord('pessoas', id))
+      )).filter(Boolean)
+      const maquinas = (await Promise.all(
+        (visita.maquina_ids || []).map((id) => getRecord('maquinas', id))
+      )).filter(Boolean)
+      setDetalhes({ pessoas, maquinas })
+    }
+    setExpandido((e) => !e)
+  }
 
   useEffect(() => {
     getRecord('propriedades', visita.propriedade_id).then((p) => {
@@ -66,8 +87,11 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
           )}
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <p className="text-xs text-slate-500">{dataStr}</p>
+        {visita.primeira_visita && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Primeira Visita</span>
+        )}
         {visita.retroativa && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Retroativa</span>
         )}
@@ -81,6 +105,25 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
         <p className="text-xs text-blue-600 mt-1 font-medium">
           Contato planejado: {new Date(visita.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}
         </p>
+      )}
+      {temDetalhes && (
+        <button onClick={toggleDetalhes} className="text-xs text-blue-600 font-medium mt-2">
+          {expandido ? 'ocultar detalhes ▴' : 'ver detalhes ▾'}
+        </button>
+      )}
+      {expandido && detalhes && (
+        <div className="mt-1 bg-slate-50 rounded-lg p-2.5 space-y-1 text-xs text-slate-600">
+          {detalhes.pessoas.length > 0 && (
+            <p>👤 {detalhes.pessoas.map((p) => p.cargo ? `${p.nome} (${p.cargo})` : p.nome).join(', ')}</p>
+          )}
+          {detalhes.maquinas.length > 0 && (
+            <p>🚜 {detalhes.maquinas.map((m) => [m.marca, m.modelo].filter(Boolean).join(' ') || m.tipo).join(', ')}</p>
+          )}
+          {visita.veiculo && <p>🚗 Veículo: {visita.veiculo}</p>}
+          {detalhes.pessoas.length === 0 && detalhes.maquinas.length === 0 && !visita.veiculo && (
+            <p className="text-slate-400">Itens não encontrados no cache local</p>
+          )}
+        </div>
       )}
       <div className="flex items-center justify-between mt-2">
         <span className="text-xs text-slate-400">

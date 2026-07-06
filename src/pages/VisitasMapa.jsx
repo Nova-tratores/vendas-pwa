@@ -55,7 +55,7 @@ export default function VisitasMapa() {
     setLoading(true)
     try {
       const [v, p, c] = await Promise.all([
-        getAllRecords('visitas'),
+        getAllRecords('visitas').then((vs) => vs.filter((v) => !v.deleted_at)),
         getAllRecords('propriedades'),
         getAllRecords('clientes'),
       ])

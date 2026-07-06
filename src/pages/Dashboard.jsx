@@ -33,7 +33,7 @@ export default function Dashboard() {
     setLoading(true)
     try {
       const [visitas, negocios, clientes, propriedades, pessoas, maquinas] = await Promise.all([
-        getAllRecords('visitas'),
+        getAllRecords('visitas').then((vs) => vs.filter((v) => !v.deleted_at)),
         getAllRecords('negocios'),
         getAllRecords('clientes'),
         getAllRecords('propriedades'),

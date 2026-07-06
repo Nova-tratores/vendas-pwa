@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getAllRecords, getByIndex, getRecord, deleteRecord, saveRecord, registrarLog } from '../lib/db'
+import { getAllRecords, getByIndex, getRecord, deleteRecord, saveRecord, registrarLog, getServerId } from '../lib/db'
 import { useCheckin } from '../hooks/useCheckin'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
@@ -12,6 +12,20 @@ import MaquinaSelect from '../components/MaquinaSelect'
 import { maskTelefone } from '../lib/masks'
 import { sugerirPropriedades } from '../lib/sugestao'
 import VisitaCard, { TIPO_LABELS } from '../components/VisitaCard'
+
+const EMPTY_FORM = {
+  propriedade_id: '',
+  tipo: '',
+  negocio_id: '',
+  pessoa_ids: [],
+  maquina_ids: [],
+  resumo: '',
+  proximos_passos: '',
+  data_proximo_contato: '',
+  acionar_pos_vendas: false,
+  data_visita: '',
+  veiculo: '',
+}
 
 export default function Visitas() {
   const { loading, erroGPS, gpsData, fotoPreview, iniciarCheckin, tirarFoto, salvarVisita, resetCheckin } = useCheckin()
@@ -29,6 +43,8 @@ export default function Visitas() {
   const [sucesso, setSucesso] = useState(false)
   const [clienteSelecionado, setClienteSelecionado] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [undoVisita, setUndoVisita] = useState(null)
+  const [salvando, setSalvando] = useState(false)
   const [dupVisita, setDupVisita] = useState(null)
   const [showNovaPessoa, setShowNovaPessoa] = useState(false)
   const [novaPessoa, setNovaPessoa] = useState({ nome: '', cargo: '', telefone: '' })
@@ -47,19 +63,7 @@ export default function Visitas() {
   const [editForm, setEditForm] = useState(null)
   const [veiculosDisp, setVeiculosDisp] = useState([])
 
-  const [form, setForm] = useState({
-    propriedade_id: '',
-    tipo: '',
-    negocio_id: '',
-    pessoa_ids: [],
-    maquina_ids: [],
-    resumo: '',
-    proximos_passos: '',
-    data_proximo_contato: '',
-    acionar_pos_vendas: false,
-    data_visita: '',
-    veiculo: '',
-  })
+  const [form, setForm] = useState({ ...EMPTY_FORM })
 
   useEffect(() => { carregar() }, [])
 
@@ -83,7 +87,8 @@ export default function Visitas() {
   }, [location.state, negocios, propriedadesAll])
 
   async function carregar() {
-    setVisitas(await getAllRecords('visitas'))
+    // Visitas com deleted_at são tombstones aguardando push — não exibe.
+    setVisitas((await getAllRecords('visitas')).filter((v) => !v.deleted_at))
     setClientes(await getAllRecords('clientes'))
     setPropriedadesAll(await getAllRecords('propriedades'))
     setPessoasAll(await getAllRecords('pessoas'))
@@ -112,6 +117,28 @@ export default function Visitas() {
     setPessoasDisp([])
     setMaquinasDisp([])
     setShowOutraProp(false)
+  }
+
+  // Reset canônico do fluxo de check-in: zera formulário, seleção, negócio
+  // vinculado e todos os mini-forms. Usado ao abrir, salvar e cancelar —
+  // resíduos do fluxo anterior travavam o "+ Nova visita neste cliente"
+  // a partir do segundo clique.
+  function resetFormVisita() {
+    setForm({ ...EMPTY_FORM })
+    setClienteSelecionado('')
+    setBuscaProp('')
+    setNegocioVinculado(null)
+    setNegUpdate({ temperatura: '', novo_prazo: '', novo_valor: '' })
+    setPessoasDisp([])
+    setMaquinasDisp([])
+    setShowOutraProp(false)
+    setShowNovoCliente(false)
+    setShowNovaPessoa(false)
+    setShowNovaMaquina(false)
+    setShowNegocio(false)
+    setShowNovoNegocio(false)
+    setDupVisita(null)
+    resetCheckin()
   }
 
   // Cadastra outra propriedade para o MESMO cliente (dono) da propriedade
@@ -160,6 +187,8 @@ export default function Visitas() {
   }
 
   async function prosseguirSalvar() {
+    if (salvando) return // duplo toque no botão criava visita duplicada
+    setSalvando(true)
     try {
       await salvarVisita(form)
       // Se a visita está ligada a um negócio em andamento, atualiza o estado
@@ -181,16 +210,13 @@ export default function Visitas() {
       }
       setSucesso(true)
       setShowForm(false)
-      resetCheckin()
-      setClienteSelecionado('')
-      setBuscaProp('')
-      setNegocioVinculado(null)
-      setNegUpdate({ temperatura: '', novo_prazo: '', novo_valor: '' })
-      setForm({ propriedade_id: '', tipo: '', negocio_id: '', pessoa_ids: [], maquina_ids: [], resumo: '', proximos_passos: '', data_proximo_contato: '', acionar_pos_vendas: false, data_visita: '', veiculo: '' })
+      resetFormVisita()
       carregar()
       setTimeout(() => setSucesso(false), 3000)
     } catch (err) {
       alert(err.message)
+    } finally {
+      setSalvando(false)
     }
   }
 
@@ -226,9 +252,20 @@ export default function Visitas() {
     setNegUpdate({ temperatura: '', novo_prazo: '', novo_valor: '' })
   }
 
+  // Nº de interações (visitas + negócios) do vendedor por propriedade — prioriza
+  // na busca quem já tem relação e alimenta a badge "cliente seu".
+  const interacaoPorProp = useMemo(() => {
+    const m = new Map()
+    for (const v of visitas) if (v.propriedade_id != null) m.set(v.propriedade_id, (m.get(v.propriedade_id) || 0) + 1)
+    for (const n of negocios) if (n.propriedade_id != null) m.set(n.propriedade_id, (m.get(n.propriedade_id) || 0) + 1)
+    return m
+  }, [visitas, negocios])
+
   // Resultados da busca de propriedade (limita a 50 pra não pesar no mobile).
   // Casa por dados da propriedade E pelo nome do contato/pessoa cadastrada
   // (ex: digitar "Valter" acha as propriedades onde o Valter é contato).
+  // Ordem: (1º) quem já tem visita/negócio do vendedor, (2º) nome que começa
+  // com o termo, (3º) demais matches.
   const resultadosBusca = (() => {
     const t = buscaProp.trim().toLowerCase()
     if (!t) return []
@@ -246,12 +283,20 @@ export default function Visitas() {
         .filter(Boolean).map((s) => String(s).toLowerCase())
       const matchProp = campos.some((s) => s.includes(t))
       const contato = contatoPorProp.get(p.id)
+      if (!matchProp && !contato) continue
+      const interacoes = interacaoPorProp.get(p.id) || 0
+      const comecaCom = [p.nome, p.nome_fantasia]
+        .filter(Boolean).some((s) => String(s).toLowerCase().startsWith(t))
       // Só anota o contato quando o match veio dele (não polui quando o nome
       // da própria propriedade já bateu).
-      if (matchProp || contato) out.push(matchProp ? p : { ...p, _contato: contato })
-      if (out.length >= 50) break
+      out.push({
+        ...(matchProp ? p : { ...p, _contato: contato }),
+        _interacoes: interacoes,
+        _score: (interacoes > 0 ? 1000 + interacoes : 0) + (comecaCom ? 10 : 0),
+      })
     }
-    return out
+    out.sort((a, b) => b._score - a._score)
+    return out.slice(0, 50)
   })()
 
   // Sugestão de cliente já cadastrado enquanto preenche o "+ Novo" — compara
@@ -287,6 +332,7 @@ export default function Visitas() {
   }
 
   function handleNovaVisita() {
+    resetFormVisita()
     setForm((f) => ({ ...f, data_visita: getLocalDatetime() }))
     setShowForm(true)
     iniciarCheckin()
@@ -296,12 +342,24 @@ export default function Visitas() {
   // e pedindo o tipo (campo limpo). É o caminho claro para "registrar outra visita
   // neste mesmo cliente" — sem cair no check-in genérico de buscar cliente de novo.
   async function novaVisitaNeste(visita) {
-    let p = propriedadesAll.find((x) => String(x.id) === String(visita.propriedade_id))
-    if (!p) p = await getRecord('propriedades', visita.propriedade_id) // garante abrir mesmo fora da lista local
-    setForm((f) => ({ ...f, tipo: '', data_visita: getLocalDatetime() }))
+    let pid = visita.propriedade_id
+    let p = propriedadesAll.find((x) => String(x.id) === String(pid))
+    if (!p && pid < 0) {
+      // Visita antiga apontando pro id local negativo cujo gêmeo o pull já
+      // trocou pelo id do servidor — segue o id_map.
+      const sid = await getServerId('propriedades', pid)
+      if (sid != null) {
+        pid = sid
+        p = propriedadesAll.find((x) => String(x.id) === String(sid))
+      }
+    }
+    if (!p) p = await getRecord('propriedades', pid) // garante abrir mesmo fora da lista local
+    resetFormVisita()
+    setForm((f) => ({ ...f, data_visita: getLocalDatetime() }))
     setShowForm(true)
     iniciarCheckin()
     if (p) await selecionarPropriedade(p)
+    else alert('O cliente desta visita não está no cache local — sincronize e tente de novo.')
     // O scroll real é no <main> (overflow-y-auto), não na window.
     requestAnimationFrame(() => document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' }))
   }
@@ -346,12 +404,31 @@ export default function Visitas() {
   }
 
   async function handleDelete() {
-    if (deleteTarget) {
-      await registrarLog('excluir', 'visitas', deleteTarget.id, `Visita ${deleteTarget.tipo}`)
-      await deleteRecord('visitas', deleteTarget.id)
-      setDeleteTarget(null)
-      carregar()
+    if (!deleteTarget) return
+    const v = deleteTarget
+    await registrarLog('excluir', 'visitas', v.id, `Visita ${v.tipo}`)
+    const noServidor = v.id > 0 || v.client_uuid || (await getServerId('visitas', v.id)) != null
+    if (noServidor) {
+      // Soft-delete: o push sobe deleted_at e o pull remove a visita nos outros
+      // devices. (Apagar só o IndexedDB fazia a visita voltar no próximo pull.)
+      await saveRecord('visitas', { ...v, deleted_at: new Date().toISOString(), status_sync: 'pending' })
+    } else {
+      // Nunca saiu deste device: apaga de vez.
+      await deleteRecord('visitas', v.id)
     }
+    setUndoVisita(v)
+    setTimeout(() => setUndoVisita((u) => (u === v ? null : u)), 6000)
+    setDeleteTarget(null)
+    carregar()
+  }
+
+  async function desfazerExclusao() {
+    const v = undoVisita
+    if (!v) return
+    setUndoVisita(null)
+    // deleted_at: null explícito — se o push já subiu o tombstone, o UPDATE limpa no servidor.
+    await saveRecord('visitas', { ...v, deleted_at: null, status_sync: 'pending' })
+    carregar()
   }
 
   const visitasOrdenadas = [...visitas].sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))
@@ -382,6 +459,13 @@ export default function Visitas() {
         </div>
       )}
 
+      {undoVisita && (
+        <div className="bg-slate-800 text-white p-3 rounded-lg mb-4 text-sm flex items-center justify-between animate-fade-in">
+          <span>Visita excluída.</span>
+          <button onClick={desfazerExclusao} className="font-bold underline ml-3 shrink-0">Desfazer</button>
+        </div>
+      )}
+
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-4 mb-4 space-y-3">
           {/* Tipo da visita — primeiro passo (sempre visível) */}
@@ -395,7 +479,7 @@ export default function Visitas() {
               <button
                 key={t.key}
                 type="button"
-                onClick={() => setForm({ ...form, tipo: t.key })}
+                onClick={() => setForm((f) => ({ ...f, tipo: t.key }))}
                 className={`py-2 rounded-lg text-sm font-medium border ${form.tipo === t.key ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-300'}`}
               >
                 {t.label}
@@ -521,24 +605,39 @@ export default function Visitas() {
               </div>
 
               {!showNovoCliente && buscaProp.trim() && (
-                <div className="mt-1 border border-slate-200 rounded-lg max-h-56 overflow-y-auto divide-y divide-slate-100">
+                <div className="mt-1 border border-slate-200 rounded-lg max-h-72 overflow-y-auto divide-y divide-slate-100">
                   {resultadosBusca.length === 0 ? (
                     <p className="px-3 py-2 text-sm text-slate-400">Nenhuma propriedade encontrada</p>
                   ) : (
-                    resultadosBusca.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => selecionarPropriedade(p)}
-                        className="w-full text-left px-3 py-2 text-sm active:bg-slate-50"
-                      >
-                        <span className="font-medium">{p.nome || p.nome_fantasia}</span>
-                        {p.cidade && <span className="text-slate-400"> — {p.cidade}</span>}
-                        {p._contato && (
-                          <span className="block text-xs text-blue-600">contato: {p._contato}</span>
-                        )}
-                      </button>
-                    ))
+                    resultadosBusca.map((p) => {
+                      const linha1 = p.nome_fantasia || p.nome || p.razao_social || 'Sem nome'
+                      const sub = [
+                        p.razao_social && p.razao_social !== linha1 ? p.razao_social : null,
+                        p.cidade,
+                        p.cnpj_cpf,
+                      ].filter(Boolean).join(' · ')
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => selecionarPropriedade(p)}
+                          className="w-full text-left px-3 py-2.5 text-sm active:bg-slate-50"
+                        >
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-medium truncate">{linha1}</span>
+                            {p._interacoes > 0 && (
+                              <span className="shrink-0 text-[10px] font-medium bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">
+                                ★ cliente seu
+                              </span>
+                            )}
+                          </span>
+                          {sub && <span className="block text-xs text-slate-500 truncate">{sub}</span>}
+                          {p._contato && (
+                            <span className="block text-xs text-blue-600">contato: {p._contato}</span>
+                          )}
+                        </button>
+                      )
+                    })
                   )}
                   {resultadosBusca.length >= 50 && (
                     <p className="px-3 py-1.5 text-xs text-slate-400">Mostrando os 50 primeiros — refine a busca</p>
@@ -849,7 +948,7 @@ export default function Visitas() {
                     <button
                       key={p.id}
                       type="button"
-                      onClick={() => setForm({ ...form, pessoa_ids: toggleArray(form.pessoa_ids, p.id) })}
+                      onClick={() => setForm((f) => ({ ...f, pessoa_ids: toggleArray(f.pessoa_ids, p.id) }))}
                       className={`px-3 py-1 rounded-full text-xs border ${form.pessoa_ids.includes(p.id) ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-300'}`}
                     >
                       {p.nome}
@@ -877,7 +976,7 @@ export default function Visitas() {
             <label className="block text-xs text-slate-500 mb-1">Veículo utilizado</label>
             <select
               value={form.veiculo}
-              onChange={(e) => setForm({ ...form, veiculo: e.target.value })}
+              onChange={(e) => setForm((f) => ({ ...f, veiculo: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Selecione o veículo (opcional)</option>
@@ -894,7 +993,7 @@ export default function Visitas() {
               type="datetime-local"
               value={form.data_visita}
               max={getLocalDatetime()}
-              onChange={(e) => setForm({ ...form, data_visita: e.target.value })}
+              onChange={(e) => setForm((f) => ({ ...f, data_visita: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
             />
             {form.data_visita && (Date.now() - new Date(form.data_visita).getTime()) > 120 * 60 * 1000 && (
@@ -1001,7 +1100,7 @@ export default function Visitas() {
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => setForm({ ...form, maquina_ids: toggleArray(form.maquina_ids, m.id) })}
+                      onClick={() => setForm((f) => ({ ...f, maquina_ids: toggleArray(f.maquina_ids, m.id) }))}
                       className={`px-3 py-1 rounded-full text-xs border ${form.maquina_ids.includes(m.id) ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-300'}`}
                     >
                       {m.marca} {m.modelo}
@@ -1018,7 +1117,7 @@ export default function Visitas() {
               {form.maquina_ids.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, acionar_pos_vendas: !form.acionar_pos_vendas })}
+                  onClick={() => setForm((f) => ({ ...f, acionar_pos_vendas: !f.acionar_pos_vendas }))}
                   className={`mt-3 w-full py-3.5 rounded-xl text-base font-bold border-2 shadow-md transition-colors flex items-center justify-center gap-2 ${
                     form.acionar_pos_vendas
                       ? 'bg-orange-500 text-white border-orange-600'
@@ -1051,7 +1150,7 @@ export default function Visitas() {
             <label className="block text-xs text-slate-500 mb-1">Resumo da visita <span className="text-red-500">*</span></label>
             <AudioTextInput
               value={form.resumo}
-              onChange={(val) => setForm({ ...form, resumo: val })}
+              onChange={(val) => setForm((f) => ({ ...f, resumo: val }))}
               placeholder="Digite ou toque no 🎤 para gravar"
               rows={3}
             />
@@ -1062,7 +1161,7 @@ export default function Visitas() {
             <label className="block text-xs text-slate-500 mb-1">Próximos passos</label>
             <AudioTextInput
               value={form.proximos_passos}
-              onChange={(val) => setForm({ ...form, proximos_passos: val })}
+              onChange={(val) => setForm((f) => ({ ...f, proximos_passos: val }))}
               placeholder="Digite ou toque no 🎤 para gravar"
               rows={2}
             />
@@ -1074,7 +1173,7 @@ export default function Visitas() {
             <input
               type="date"
               value={form.data_proximo_contato || ''}
-              onChange={(e) => setForm({ ...form, data_proximo_contato: e.target.value })}
+              onChange={(e) => setForm((f) => ({ ...f, data_proximo_contato: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
             />
           </div>
@@ -1085,17 +1184,17 @@ export default function Visitas() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => { setShowForm(false); resetCheckin(); setClienteSelecionado(''); setBuscaProp(''); setNegocioVinculado(null) }}
+              onClick={() => { setShowForm(false); resetFormVisita() }}
               className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-sm"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={!form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || (negocioAbertoVinculado && !negUpdate.temperatura)}
+              disabled={salvando || !form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || (negocioAbertoVinculado && !negUpdate.temperatura)}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
-              {tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}
+              {salvando ? 'Salvando...' : tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}
             </button>
           </div>
         </form>
@@ -1123,7 +1222,7 @@ export default function Visitas() {
       <ConfirmModal
         show={!!deleteTarget}
         title="Excluir visita"
-        message="Tem certeza que deseja excluir esta visita? Essa ação não pode ser desfeita."
+        message="Tem certeza que deseja excluir esta visita? Ela será removida em todos os aparelhos."
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

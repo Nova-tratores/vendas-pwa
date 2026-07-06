@@ -23,11 +23,13 @@ export async function getVisitas({ vendedorId, dateFrom, dateTo, tipo, retroativ
   if (posVendas !== undefined) query = query.eq('acionar_pos_vendas', posVendas)
   query = query.order('data_visita', { ascending: false })
   const { data } = await query
-  // Esconde as visitas juntadas (marcadas como duplicada de outra). Filtro client-side
+  // Esconde as visitas juntadas (marcadas como duplicada de outra) e as
+  // excluídas pelo vendedor (soft-delete deleted_at). Filtro client-side
   // pra não quebrar caso a coluna ainda não exista (migração não rodada).
+  const semExcluidas = (data || []).filter((v) => !v.deleted_at)
   const visitas = incluirDuplicadas
-    ? (data || [])
-    : (data || []).filter((v) => !v.duplicada_de)
+    ? semExcluidas
+    : semExcluidas.filter((v) => !v.duplicada_de)
   return enriquecerVisitas(visitas)
 }
 

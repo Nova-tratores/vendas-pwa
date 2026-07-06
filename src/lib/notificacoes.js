@@ -10,7 +10,7 @@ const DIAS_NEGOCIO_PARADO = 7
 /** Alertas automáticos calculados localmente (offline-safe). */
 export async function construirAlertas() {
   const [visitas, negocios, propriedades] = await Promise.all([
-    getAllRecords('visitas'),
+    getAllRecords('visitas').then((vs) => vs.filter((v) => !v.deleted_at)),
     getAllRecords('negocios'),
     getAllRecords('propriedades'),
   ])

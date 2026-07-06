@@ -43,6 +43,7 @@ export default function SupervisorVisitas() {
     dateFrom: '',
     dateTo: '',
     retroativa: false,
+    primeira: false,
   })
 
   useEffect(() => {
@@ -60,7 +61,9 @@ export default function SupervisorVisitas() {
       if (filtros.dateFrom) params.dateFrom = new Date(filtros.dateFrom).toISOString()
       if (filtros.dateTo) params.dateTo = new Date(filtros.dateTo + 'T23:59:59').toISOString()
       if (filtros.retroativa) params.retroativa = true
-      const vis = await getVisitas(params)
+      let vis = await getVisitas(params)
+      // Client-side: não quebra se a coluna primeira_visita ainda não existir.
+      if (filtros.primeira) vis = vis.filter((v) => v.primeira_visita)
       setVisitas(vis)
       setComentCount(await getComentariosCount('visita', vis.map((v) => v.id)))
     } catch (err) {
@@ -175,10 +178,14 @@ export default function SupervisorVisitas() {
             className="border border-slate-300 rounded-lg px-2 py-2 text-sm"
           />
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={filtros.retroativa} onChange={(e) => updateFiltro('retroativa', e.target.checked)} className="rounded" />
             Apenas retroativas
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={filtros.primeira} onChange={(e) => updateFiltro('primeira', e.target.checked)} className="rounded" />
+            Apenas 1ª visita
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={mostrarOcultas} onChange={(e) => setMostrarOcultas(e.target.checked)} className="rounded" />
@@ -230,6 +237,7 @@ export default function SupervisorVisitas() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${TIPO_COLORS[v.tipo] || 'bg-slate-100 text-slate-700'}`}>{v.tipo}</span>
+                    {v.primeira_visita && <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700" title="Primeira visita nesta propriedade">1ª</span>}
                     {v.retroativa && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Retro</span>}
                     {v.acionar_pos_vendas && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">PV</span>}
                   </div>

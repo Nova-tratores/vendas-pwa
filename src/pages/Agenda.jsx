@@ -102,7 +102,7 @@ export default function Agenda() {
     setLoading(true)
     try {
       const [visitas, propriedades, clientes] = await Promise.all([
-        getAllRecords('visitas'),
+        getAllRecords('visitas').then((vs) => vs.filter((v) => !v.deleted_at)),
         getAllRecords('propriedades'),
         getAllRecords('clientes'),
       ])

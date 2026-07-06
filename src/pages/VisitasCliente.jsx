@@ -39,6 +39,7 @@ export default function VisitasCliente() {
       const ids = new Set(propsCliente.map((p) => p.id))
       const todas = await getAllRecords('visitas')
       const doCliente = todas
+        .filter((v) => !v.deleted_at)
         .filter((v) => ids.has(v.propriedade_id))
         .sort((a, b) => new Date(b.data_visita) - new Date(a.data_visita))
       setVisitas(doCliente)

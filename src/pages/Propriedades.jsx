@@ -41,6 +41,9 @@ export default function Propriedades() {
     await saveRecord('propriedades', {
       cliente_dono_id: parseInt(clienteId),
       nome: form.nome,
+      // Espelha o nome no campo que o servidor usa — a reconciliação do pull
+      // (chaveConteudo) casa por nome_fantasia; sem isso a propriedade duplicava.
+      nome_fantasia: form.nome,
       endereco: form.endereco,
       cidade: form.cidade,
       estado: form.estado,

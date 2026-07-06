@@ -42,6 +42,9 @@ function LinhaVisita({ v, onComentar, onMapa }) {
           <span className={`text-xs px-2 py-0.5 rounded-full ${TIPO_COLORS[v.tipo] || 'bg-slate-100 text-slate-700'}`}>
             {v.tipo}
           </span>
+          {v.primeira_visita && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700" title="Primeira visita nesta propriedade">1ª</span>
+          )}
           {v.retroativa && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Retro</span>
           )}

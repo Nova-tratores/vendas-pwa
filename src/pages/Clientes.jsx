@@ -60,7 +60,7 @@ export default function Clientes() {
   }
 
   async function carregarAgenda(props, cls) {
-    const visitas = await getAllRecords('visitas')
+    const visitas = (await getAllRecords('visitas')).filter((v) => !v.deleted_at)
     const hojeStr = new Date().toISOString().slice(0, 10)
     const fimSemana = new Date(hojeStr + 'T00:00:00')
     fimSemana.setDate(fimSemana.getDate() + 7)

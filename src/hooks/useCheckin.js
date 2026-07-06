@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { capturarGPSComFallback } from '../lib/gps'
 import { capturarFoto } from '../lib/camera'
-import { saveRecord, saveFotoPendente, registrarLog, getRecord } from '../lib/db'
+import { saveRecord, saveFotoPendente, registrarLog, getRecord, getByIndex } from '../lib/db'
 
 export function useCheckin() {
   const [loading, setLoading] = useState(false)
@@ -48,6 +48,12 @@ export function useCheckin() {
       ? (Date.now() - new Date(form.data_visita).getTime()) > 120 * 60 * 1000
       : false
 
+    // Otimista: conta as visitas locais desta propriedade pra badge aparecer
+    // já offline. A palavra final é do trigger no servidor (set_primeira_visita),
+    // que enxerga as visitas de TODOS os vendedores.
+    const anteriores = (await getByIndex('visitas', 'propriedade_id', parseInt(form.propriedade_id)))
+      .filter((v) => !v.deleted_at)
+
     const visita = {
       vendedor_id: vendedor.id,
       propriedade_id: parseInt(form.propriedade_id),
@@ -57,6 +63,7 @@ export function useCheckin() {
       maquina_ids: (form.maquina_ids || []).map(Number),
       data_visita: dataVisita,
       retroativa: isRetroativa,
+      primeira_visita: anteriores.length === 0,
       latitude: gpsData?.latitude || null,
       longitude: gpsData?.longitude || null,
       gps_accuracy: gpsData?.gps_accuracy || null,

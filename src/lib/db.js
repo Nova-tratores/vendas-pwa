@@ -58,17 +58,26 @@ export const FK_REFS = {
   visitas: [{ campo: 'propriedade_id', pai: 'propriedades' }, { campo: 'negocio_id', pai: 'negocios' }],
 }
 
+// Normaliza timestamp pra comparação: o local grava toISOString ("…Z") e o
+// PostgREST devolve "…+00:00" (às vezes com precisão diferente) — como string
+// nunca casam, então compara por epoch ms.
+function ts(s) {
+  const t = Date.parse(s)
+  return Number.isNaN(t) ? String(s || '') : String(t)
+}
+
 // Chave de conteúdo por store: identifica o "mesmo" registro entre local e servidor
 // (pra casar o gêmeo criado offline com o que voltou do servidor com outro id).
 export function chaveConteudo(store, r) {
   if (!r) return null
   switch (store) {
-    case 'clientes': return [r.nome, r.created_at].join('|')
-    case 'propriedades': return [r.nome_fantasia, r.created_at].join('|')
-    case 'negocios': return [r.created_at, r.valor, r.status].join('|')
-    case 'visitas': return [r.created_at, r.data_visita, r.resumo].join('|')
-    case 'pessoas': return [r.nome, r.telefone, r.created_at].join('|')
-    case 'maquinas': return [r.modelo, r.numero_serie, r.created_at].join('|')
+    case 'clientes': return [r.nome, ts(r.created_at)].join('|')
+    // || r.nome: registros locais antigos da tela Propriedades só têm "nome".
+    case 'propriedades': return [r.nome_fantasia || r.nome, ts(r.created_at)].join('|')
+    case 'negocios': return [ts(r.created_at), r.valor, r.status].join('|')
+    case 'visitas': return [ts(r.created_at), ts(r.data_visita), r.resumo].join('|')
+    case 'pessoas': return [r.nome, r.telefone, ts(r.created_at)].join('|')
+    case 'maquinas': return [r.modelo, r.numero_serie, ts(r.created_at)].join('|')
     case 'cidades': return [(r.nome || '').toLowerCase(), (r.uf || '').toUpperCase()].join('|')
     case 'opcoes_maquina': return [r.familia_nome, r.marca, r.modelo].join('|')
     default: return null
@@ -194,6 +203,10 @@ export async function repararFKsNegativasVisitas() {
   return religadas
 }
 
+// Stores cujas criações levam client_uuid (idempotência no Supabase — as
+// tabelas têm UNIQUE parcial em client_uuid e o push usa upsert).
+const UUID_STORES = new Set(['visitas', 'propriedades'])
+
 // Gera um id LOCAL único e NEGATIVO para registros criados no dispositivo.
 // Ids do servidor (Supabase/Omie) são sempre positivos e começam em 1, então
 // manter os locais no espaço negativo impede que um registro baixado pelo pull
@@ -216,7 +229,14 @@ export async function saveRecord(store, record) {
     // Criação nova (sem id): atribui id local negativo e usa put (não autoIncrement,
     // que geraria ids pequenos positivos colidindo com os ids do servidor no pull).
     // Edição ou registro vindo do pull (já tem id): put normal.
-    if (data.id == null) data.id = nextLocalId()
+    if (data.id == null) {
+      data.id = nextLocalId()
+      // Chave de idempotência do push (upsert onConflict) e de reconciliação
+      // no pull — o servidor tem UNIQUE parcial em client_uuid.
+      if (UUID_STORES.has(store) && !data.client_uuid) {
+        data.client_uuid = crypto.randomUUID()
+      }
+    }
     const req = objStore.put(data)
     req.onsuccess = () => {
       // Escrita local pendente: avisa o sync pra agendar um push automático.
