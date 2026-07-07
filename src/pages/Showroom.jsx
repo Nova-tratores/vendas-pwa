@@ -11,6 +11,7 @@ import {
   getProdutosCatalogo, getMarcas, getMidiasCatalogoProduto,
   getVideosShowroom, getCategoriasAplicacao, getCultivos,
 } from '../lib/catalogoSupabase'
+import PdfViewerModal from '../components/PdfViewerModal'
 
 // ====================================================================
 // Modo Showroom / TV — vitrine digital do portfólio curado.
@@ -23,7 +24,8 @@ import {
 //     leva tudo no WhatsApp via QR. Após inatividade, volta sozinha pra atração.
 //
 // Tela cheia (kiosk), sem o chrome do Layout. Tema escuro "carvão quente"
-// com acento vermelho Mahindra (spec de design do catálogo).
+// com acento vermelho Mahindra (spec de design do catálogo); a área da
+// foto da máquina é BRANCA pra realçar o produto.
 // ====================================================================
 
 const DURACAO_SLIDE = 12000       // ms entre slides de foto (auto-rotação)
@@ -740,7 +742,7 @@ function CardMaquina({ produto, onAbrir }) {
       onClick={onAbrir}
       className="group bg-[#211C17] hover:bg-[#2C261F] rounded-2xl overflow-hidden text-left transition active:scale-[0.98] border border-transparent hover:border-[#E11B22]/40"
     >
-      <div className="aspect-[4/3] bg-gradient-to-br from-[#2C261F] to-[#15110E] flex items-center justify-center overflow-hidden relative">
+      <div className="aspect-[4/3] bg-white flex items-center justify-center overflow-hidden relative">
         {produto.foto_principal_url ? (
           <img src={produto.foto_principal_url} alt={produto.titulo} className="w-full h-full object-contain p-2" loading="lazy" />
         ) : (
@@ -810,8 +812,8 @@ function FichaView({ produto, onVoltar, onInteracao }) {
       </div>
 
       <div className="flex-1 overflow-y-auto lg:overflow-hidden lg:flex">
-        {/* Hero — foto principal */}
-        <div className="relative lg:w-[54%] bg-gradient-to-br from-[#2C261F] to-[#15110E] flex items-center justify-center p-6 lg:p-12 min-h-[36vh]">
+        {/* Hero — foto principal (fundo branco pra realçar a máquina) */}
+        <div className="relative lg:w-[54%] bg-white flex items-center justify-center p-6 lg:p-12 min-h-[36vh]">
           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#E11B22]" />
           {fotos[0] ? (
             <img src={fotos[0]} alt={produto.titulo} className="max-h-full max-w-full object-contain drop-shadow-2xl" />
@@ -898,7 +900,7 @@ function FichaView({ produto, onVoltar, onInteracao }) {
 
       {overlay?.tipo === 'galeria' && <GaleriaOverlay fotos={fotos} titulo={produto.titulo} onFechar={() => setOverlay(null)} onInteracao={onInteracao} />}
       {overlay?.tipo === 'video' && <VideoOverlay videos={videos} onFechar={() => setOverlay(null)} onInteracao={onInteracao} />}
-      {overlay?.tipo === 'folheto' && <FolhetoOverlay url={folhetoUrl} onFechar={() => setOverlay(null)} />}
+      {overlay?.tipo === 'folheto' && <PdfViewerModal url={folhetoUrl} titulo={`${produto.titulo} — folheto`} onFechar={() => setOverlay(null)} />}
       {overlay?.tipo === 'qr' && <QROverlay produto={produto} folhetoUrl={folhetoUrl} onFechar={() => setOverlay(null)} />}
     </div>
   )
@@ -965,19 +967,6 @@ function VideoOverlay({ videos, onFechar, onInteracao }) {
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-// ---- Overlay: folheto (PDF embutido no tablet) ----------------------
-function FolhetoOverlay({ url, onFechar }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-[#15110E] flex flex-col animate-fade-in">
-      <div className="flex items-center justify-between p-5 text-white shrink-0">
-        <span className="text-sm text-white/70">📄 Folheto técnico</span>
-        <button onClick={onFechar} className="px-4 py-2 rounded-full bg-white/10 text-sm">Fechar ✕</button>
-      </div>
-      <iframe src={url} title="Folheto técnico" className="flex-1 w-full bg-white" />
     </div>
   )
 }
@@ -1099,16 +1088,17 @@ function Slide({ produto, onAbrir }) {
 
   return (
     <div className="absolute inset-0 flex flex-col lg:flex-row animate-fade-in" onClick={onAbrir}>
-      <div className="relative flex-1 bg-gradient-to-br from-[#2C261F] to-[#15110E] flex items-center justify-center p-6 lg:p-12">
+      {/* Área da foto — fundo branco pra realçar a máquina */}
+      <div className="relative flex-1 bg-white flex items-center justify-center p-6 lg:p-12">
         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#E11B22]" />
         {produto.marca?.nome && (
-          <span className="absolute top-6 left-6 text-[#B5ADA3] text-lg font-semibold tracking-wide uppercase sw-body">{produto.marca.nome}</span>
+          <span className="absolute top-6 left-6 text-[#6B635A] text-lg font-semibold tracking-wide uppercase sw-body">{produto.marca.nome}</span>
         )}
         <img key={fotoAtual} src={fotoAtual} alt={produto.titulo} className="max-h-full max-w-full object-contain drop-shadow-2xl animate-fade-in" />
         {fotos.length > 1 && (
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-1.5">
             {fotos.map((_, i) => (
-              <span key={i} className={`w-2 h-2 rounded-full ${i === fotoIdx ? 'bg-white' : 'bg-white/30'}`} />
+              <span key={i} className={`w-2 h-2 rounded-full ${i === fotoIdx ? 'bg-[#1B1611]' : 'bg-black/25'}`} />
             ))}
           </div>
         )}

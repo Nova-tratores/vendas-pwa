@@ -242,12 +242,23 @@ function VideoLightbox({ midia, onClose }) {
   )
 }
 
+// "https://youtu.be/AbC?t=30" → "youtu.be/AbC" (rótulo curto da origem)
+function origemCurta(url) {
+  try {
+    const u = new URL(url)
+    return `${u.hostname.replace(/^www\./, '')}${u.pathname}`.slice(0, 30)
+  } catch { return url }
+}
+
 function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaque }) {
   const icone = midia.tipo === 'foto' ? null : midia.tipo === 'video' ? '🎬' : '📄'
   const baixando = midia.status === 'pendente' || midia.status === 'baixando'
   const erro = midia.status === 'erro'
   const videoPronto = midia.tipo === 'video' && midia.status === 'pronto'
   const podeReproduzir = videoPronto && midia.url_publica
+  const dataAdd = midia.created_at
+    ? new Date(midia.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    : null
 
   const conteudoThumb = midia.tipo === 'foto' && midia.url_publica ? (
     <img src={midia.url_publica} alt={midia.titulo || ''} className="w-full h-full object-cover" loading="lazy" />
@@ -256,6 +267,7 @@ function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaqu
   )
 
   return (
+    <div>
     <div className="relative group">
       {podeReproduzir ? (
         // Vídeo pronto: clica pra dar play num lightbox (em vez de baixar o arquivo)
@@ -265,7 +277,14 @@ function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaqu
           className="block w-full aspect-square bg-slate-900 rounded overflow-hidden flex items-center justify-center"
           title={midia.titulo || midia.storage_path || ''}
         >
-          <span className="text-2xl opacity-50">{icone}</span>
+          {/* #t=1 faz o navegador pintar o frame de 1s como capa (o frame 0 costuma ser preto) */}
+          <video
+            src={`${midia.url_publica}#t=1`}
+            preload="metadata"
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          />
           <span className="absolute inset-0 flex items-center justify-center">
             <span className="w-8 h-8 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-sm shadow">▶</span>
           </span>
@@ -316,6 +335,23 @@ function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaqu
       >
         ×
       </button>
+    </div>
+
+    {/* Legenda: quando foi adicionada + origem (link do YouTube, quando veio de lá) */}
+    <div className="mt-0.5 leading-tight">
+      {dataAdd && <p className="text-[9px] text-slate-400">{dataAdd}</p>}
+      {midia.origem_url && (
+        <a
+          href={midia.origem_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={midia.origem_url}
+          className="block text-[9px] text-red-600 truncate underline"
+        >
+          ▶ {origemCurta(midia.origem_url)}
+        </a>
+      )}
+    </div>
     </div>
   )
 }

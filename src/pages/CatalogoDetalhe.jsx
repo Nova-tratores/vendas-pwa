@@ -5,6 +5,7 @@ import {
   getMidiasProduto, getMidiasCatalogoProduto, getProdutoCatalogoBySlug,
   registrarCompartilhamento,
 } from '../lib/catalogoSupabase'
+import PdfViewerModal from '../components/PdfViewerModal'
 
 export default function CatalogoDetalhe() {
   const { id } = useParams()
@@ -358,6 +359,7 @@ function GaleriaMidias({ midias }) {
   const fotosExtras = midias.filter((m) => m.tipo === 'foto')
   const videos = midias.filter((m) => m.tipo === 'video')
   const pdfs = midias.filter((m) => m.tipo === 'pdf')
+  const [pdfAberto, setPdfAberto] = useState(null) // { url, titulo } — abre dentro do app
 
   return (
     <>
@@ -388,23 +390,23 @@ function GaleriaMidias({ midias }) {
       ))}
 
       {pdfs.map((p) => (
-        <a
+        <button
           key={p.id}
-          href={p.url_publica}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block bg-white rounded-xl shadow p-3 mb-3 active:bg-slate-50 animate-fade-in"
+          onClick={() => setPdfAberto({ url: p.url_publica, titulo: p.titulo || 'Documento PDF' })}
+          className="block w-full text-left bg-white rounded-xl shadow p-3 mb-3 active:bg-slate-50 animate-fade-in"
         >
           <div className="flex items-center gap-3">
             <span className="text-3xl">📄</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-700 truncate">{p.titulo || 'Documento PDF'}</p>
-              <p className="text-xs text-slate-500">Abrir em nova aba</p>
+              <p className="text-xs text-slate-500">Toque para abrir</p>
             </div>
-            <span className="text-blue-700 text-lg">↗</span>
+            <span className="text-blue-700 text-lg">›</span>
           </div>
-        </a>
+        </button>
       ))}
+
+      {pdfAberto && <PdfViewerModal url={pdfAberto.url} titulo={pdfAberto.titulo} onFechar={() => setPdfAberto(null)} />}
     </>
   )
 }
@@ -412,6 +414,7 @@ function GaleriaMidias({ midias }) {
 // =============== Portfólio curado (banco) ===============
 function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
   const [midias, setMidias] = useState([])
+  const [folhetoAberto, setFolhetoAberto] = useState(false) // PDF dentro do app
 
   useEffect(() => {
     if (!produto?.id) return
@@ -591,15 +594,17 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
       />
 
       {produto.folheto_url && (
-        <a
-          href={produto.folheto_url}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          onClick={() => setFolhetoAberto(true)}
           className="block w-full bg-blue-700 text-white text-center py-3 rounded-xl font-medium text-sm active:bg-blue-800 animate-fade-in"
           style={{ animationDelay: '0.25s' }}
         >
           📄 Abrir folheto técnico
-        </a>
+        </button>
+      )}
+
+      {folhetoAberto && (
+        <PdfViewerModal url={produto.folheto_url} titulo="Folheto técnico" onFechar={() => setFolhetoAberto(false)} />
       )}
 
       {produto.url_site && (
