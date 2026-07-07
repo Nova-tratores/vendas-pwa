@@ -173,16 +173,17 @@ DELETE FROM "portal_nt_clientes_PRINCIPAL" WHERE id IN (SELECT id FROM del);
 -- o 6b — mesma limpeza, mas ignorando created_at, que difere entre as cópias
 -- do dono). Se 8a vier vazio, use só o 6b.
 
--- 8a. PREVIEW — clientes duplicados (mesmo nome no mesmo vendedor):
-SELECT nome, vendedor_id, count(*) AS copias, array_agg(id ORDER BY id) AS ids
+-- 8a. PREVIEW — clientes duplicados (mesmo nome no mesmo vendedor).
+-- btrim: várias cópias têm espaço sobrando no fim do nome.
+SELECT btrim(nome) AS nome, vendedor_id, count(*) AS copias, array_agg(id ORDER BY id) AS ids
 FROM clientes_vendas
-GROUP BY nome, vendedor_id
+GROUP BY btrim(nome), vendedor_id
 HAVING count(*) > 1
 ORDER BY count(*) DESC;
 
 -- 8b. EXECUÇÃO — mantém o menor id do cliente e reponta os filhos:
 WITH dup AS (
-  SELECT id, min(id) OVER (PARTITION BY nome, vendedor_id) AS keeper
+  SELECT id, min(id) OVER (PARTITION BY btrim(nome), vendedor_id) AS keeper
   FROM clientes_vendas
 ),
 del AS (
@@ -203,18 +204,18 @@ DELETE FROM clientes_vendas WHERE id IN (SELECT id FROM del);
 -- Sem created_at na partição: as cópias nasceram com segundos de diferença.
 
 -- PREVIEW:
-SELECT nome_fantasia, cidade, cliente_dono_id,
+SELECT btrim(nome_fantasia) AS nome_fantasia, cidade, cliente_dono_id,
        count(*) AS copias, array_agg(id ORDER BY id) AS ids
 FROM "portal_nt_clientes_PRINCIPAL"
 WHERE cliente_dono_id IS NOT NULL
-GROUP BY nome_fantasia, coalesce(cidade, ''), cliente_dono_id, cidade
+GROUP BY btrim(nome_fantasia), btrim(coalesce(cidade, '')), cliente_dono_id, cidade
 HAVING count(*) > 1
 ORDER BY count(*) DESC;
 
 -- EXECUÇÃO:
 WITH dup AS (
   SELECT id,
-         min(id) OVER (PARTITION BY nome_fantasia, coalesce(cidade, ''),
+         min(id) OVER (PARTITION BY btrim(nome_fantasia), btrim(coalesce(cidade, '')),
                                     cliente_dono_id) AS keeper
   FROM "portal_nt_clientes_PRINCIPAL"
   WHERE cliente_dono_id IS NOT NULL
