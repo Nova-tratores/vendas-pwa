@@ -88,6 +88,40 @@ async function traduzFKs(store, record) {
   return out
 }
 
+// Conserta no SUPABASE pessoas/máquinas gravadas com propriedade_id NEGATIVO
+// (subiram antes da propriedade ganhar id de servidor). O pull nunca traz essas
+// linhas (o filtro usa ids positivos), então sem isso ficariam órfãs pra sempre.
+// Só o device que criou tem o de->para no id_map; nos outros é no-op.
+async function repararFilhosNegativosServidor() {
+  let consertados = 0
+  for (const store of ['pessoas', 'maquinas']) {
+    const { data: quebrados, error } = await supabase
+      .from(TABLE_MAP[store]).select('id, propriedade_id').lt('propriedade_id', 0).limit(200)
+    if (error || !quebrados || quebrados.length === 0) continue
+
+    // server_id -> registro local (direto quando reconciliado, senão via id_map)
+    const locais = await getAllRecords(store)
+    const porServerId = new Map()
+    for (const loc of locais) {
+      const sid = loc.id > 0 ? loc.id : await getServerId(store, loc.id)
+      if (sid != null) porServerId.set(sid, loc)
+    }
+
+    for (const row of quebrados) {
+      const loc = porServerId.get(row.id)
+      if (!loc) continue
+      const propSid = loc.propriedade_id > 0
+        ? loc.propriedade_id
+        : await getServerId('propriedades', loc.propriedade_id)
+      if (propSid == null || propSid < 0) continue
+      const { error: upErr } = await supabase
+        .from(TABLE_MAP[store]).update({ propriedade_id: propSid }).eq('id', row.id)
+      if (!upErr) consertados++
+    }
+  }
+  return consertados
+}
+
 let lastFailLogAt = 0
 
 async function pushRecords() {
@@ -130,8 +164,25 @@ async function pushRecords() {
           // Registro novo com chave de idempotência: UPSERT. Se um push anterior
           // inseriu mas a resposta se perdeu (rede móvel), o retry vira UPDATE
           // na mesma linha em vez de criar duplicata.
-          const { data, error } = await supabase
+          let { data, error } = await supabase
             .from(supaTable).upsert(mapped, { onConflict: 'client_uuid' }).select()
+          if (error && error.code === '42P10') {
+            // ON CONFLICT não casa com índice UNIQUE parcial (WHERE ... IS NOT
+            // NULL). Contorno sem DDL: procura pelo uuid e faz update/insert.
+            const { data: exist } = await supabase
+              .from(supaTable).select('id').eq('client_uuid', record.client_uuid).maybeSingle()
+            if (exist) {
+              ({ data, error } = await supabase
+                .from(supaTable).update(mapped).eq('id', exist.id).select())
+            } else {
+              ({ data, error } = await supabase.from(supaTable).insert(mapped).select())
+              if (error && error.code === '23505') {
+                // corrida: outro retry inseriu primeiro — vira update pelo uuid
+                ({ data, error } = await supabase
+                  .from(supaTable).update(mapped).eq('client_uuid', record.client_uuid).select())
+              }
+            }
+          }
           if (error) {
             failed.push({ store, id: record.id, code: error.code, message: error.message })
             console.error(`[Push] ${store} #${record.id} upsert:`, error.code, error.message)
@@ -542,6 +593,16 @@ export async function syncAll() {
         }
       } catch (e) {
         console.warn('[Sync] reparo de FKs das visitas:', e)
+      }
+
+      // 1c. Reparo no SERVIDOR: pessoas/máquinas que subiram antes da
+      //     propriedade ficaram com propriedade_id negativo no Supabase.
+      //     Só o device autor tem o de->para (id_map) — traduz e conserta.
+      try {
+        const consertados = await repararFilhosNegativosServidor()
+        if (consertados > 0) console.log(`[Sync] ${consertados} pessoa(s)/máquina(s) religadas no servidor`)
+      } catch (e) {
+        console.warn('[Sync] reparo de filhos negativos no servidor:', e)
       }
     }
 

@@ -34,13 +34,19 @@ ALTER TABLE visitas ADD COLUMN IF NOT EXISTS primeira_visita boolean;
 
 ALTER TABLE "portal_nt_clientes_PRINCIPAL" ADD COLUMN IF NOT EXISTS client_uuid uuid;
 
--- 2. Índices UNIQUE parciais (idempotência do push) ---------------------
--- Parciais porque linhas do ERP/legadas têm client_uuid NULL.
+-- 2. Índices UNIQUE (idempotência do push) -------------------------------
+-- SEM predicado parcial: `ON CONFLICT (client_uuid)` do upsert NÃO casa com
+-- índice parcial (erro 42P10 — travou o sync do Pedro em 2026-07-07).
+-- NULLs são distintos por padrão no Postgres, então as linhas do ERP/legadas
+-- (client_uuid NULL) convivem numa UNIQUE cheia sem conflito.
+DROP INDEX IF EXISTS visitas_client_uuid_uniq;
+DROP INDEX IF EXISTS portal_nt_clientes_client_uuid_uniq;
+
 CREATE UNIQUE INDEX IF NOT EXISTS visitas_client_uuid_uniq
-  ON visitas (client_uuid) WHERE client_uuid IS NOT NULL;
+  ON visitas (client_uuid);
 
 CREATE UNIQUE INDEX IF NOT EXISTS portal_nt_clientes_client_uuid_uniq
-  ON "portal_nt_clientes_PRINCIPAL" (client_uuid) WHERE client_uuid IS NOT NULL;
+  ON "portal_nt_clientes_PRINCIPAL" (client_uuid);
 
 -- 3. Trigger primeira_visita --------------------------------------------
 -- O celular offline só enxerga as visitas do próprio vendedor; o servidor
