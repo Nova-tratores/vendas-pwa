@@ -51,8 +51,10 @@ function sinalizarAuth(precisa) { if (onAuthRequired) onAuthRequired(precisa) }
 // PUSH: IndexedDB (pending) → Supabase
 // ============================================
 
-// Stores com coluna client_uuid no Supabase (UNIQUE parcial) — push via upsert.
-const UUID_TABLES = new Set(['visitas', 'propriedades'])
+// Stores com coluna client_uuid no Supabase (UNIQUE) — push via upsert.
+// Atenção: só adicionar um store aqui DEPOIS da coluna+índice existirem no
+// banco (supabase-fix-indices-42p10.sql) — senão o push falha e prende pendentes.
+const UUID_TABLES = new Set(['visitas', 'propriedades', 'clientes', 'pessoas', 'maquinas', 'negocios'])
 
 function mapForPush(store, record) {
   // _srv é flag interna (registro veio do servidor) — não vai pro Supabase.

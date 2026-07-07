@@ -204,8 +204,8 @@ export async function repararFKsNegativasVisitas() {
 }
 
 // Stores cujas criações levam client_uuid (idempotência no Supabase — as
-// tabelas têm UNIQUE parcial em client_uuid e o push usa upsert).
-const UUID_STORES = new Set(['visitas', 'propriedades'])
+// tabelas têm UNIQUE em client_uuid e o push usa upsert).
+const UUID_STORES = new Set(['visitas', 'propriedades', 'clientes', 'pessoas', 'maquinas', 'negocios'])
 
 // Gera um id LOCAL único e NEGATIVO para registros criados no dispositivo.
 // Ids do servidor (Supabase/Omie) são sempre positivos e começam em 1, então
