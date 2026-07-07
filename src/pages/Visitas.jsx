@@ -10,7 +10,7 @@ import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPE
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
 import { maskTelefone } from '../lib/masks'
-import { sugerirPropriedades } from '../lib/sugestao'
+import { sugerirPropriedades, normalizar, similaridadeNome } from '../lib/sugestao'
 import VisitaCard, { TIPO_LABELS } from '../components/VisitaCard'
 
 const EMPTY_FORM = {
@@ -149,6 +149,12 @@ export default function Visitas() {
     if (!novaProp.nome) { alert('Informe o nome da propriedade'); return }
     if (!novaProp.cidade?.trim()) { alert('Informe a cidade da propriedade'); return }
     if (!novaProp.cultura_principal) { alert('Selecione a cultura principal'); return }
+    // Trava anti-duplicado: o mesmo dono já tem propriedade com nome parecido?
+    const parecida = propriedadesAll.find((p) => String(p.cliente_dono_id) === String(donoId)
+      && similaridadeNome(novaProp.nome, p.nome_fantasia || p.nome) >= 0.85)
+    if (parecida) {
+      if (!window.confirm(`Este cliente já tem a propriedade "${parecida.nome_fantasia || parecida.nome}". Criar MESMO ASSIM outra?`)) return
+    }
     const culturas = [novaProp.cultura_principal, novaProp.cultura_secundaria].filter(Boolean)
     const propId = await saveRecord('propriedades', {
       cliente_dono_id: donoId,
@@ -745,6 +751,16 @@ export default function Visitas() {
                   if (!novoCliente.cidade?.trim()) {
                     alert('Informe a cidade da propriedade')
                     return
+                  }
+                  // Trava anti-duplicado: nome (quase) igual a cadastro existente
+                  // só passa com confirmação explícita do vendedor.
+                  const nomeNovo = normalizar(novoCliente.nome_cliente)
+                  const jaExiste = clientes.find((c) => normalizar(c.nome) === nomeNovo)
+                  const forte = sugestoesNovoCliente.find((s) => s.sNome >= 0.85)
+                  if (jaExiste || forte) {
+                    const quem = jaExiste?.nome
+                      || forte.dono?.nome || forte.propriedade.nome_fantasia || forte.propriedade.nome
+                    if (!window.confirm(`Já existe um cadastro muito parecido: "${quem}". Se for o mesmo cliente, cancele e selecione pela busca. Criar MESMO ASSIM um cliente novo?`)) return
                   }
                   const vendedor = JSON.parse(localStorage.getItem('vendedor'))
                   const now = new Date().toISOString()

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getByIndex, saveRecord, getRecord, deleteRecord, registrarLog } from '../lib/db'
+import { similaridadeNome } from '../lib/sugestao'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import { CULTURAS } from '../lib/constants'
@@ -35,6 +36,12 @@ export default function Propriedades() {
     if (!form.cultura_principal) {
       alert('Selecione a cultura principal')
       return
+    }
+    // Trava anti-duplicado: nome muito parecido com propriedade já cadastrada
+    // deste cliente só passa com confirmação explícita.
+    const parecida = props.find((p) => similaridadeNome(form.nome, p.nome_fantasia || p.nome) >= 0.85)
+    if (parecida) {
+      if (!window.confirm(`Este cliente já tem a propriedade "${parecida.nome_fantasia || parecida.nome}". Criar MESMO ASSIM outra?`)) return
     }
     const culturas = [form.cultura_principal, form.cultura_secundaria].filter(Boolean)
 
