@@ -10,7 +10,7 @@ import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPE
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
 import { maskTelefone } from '../lib/masks'
-import { sugerirPropriedades, normalizar, similaridadeNome } from '../lib/sugestao'
+import { sugerirPropriedades, normalizar, similaridadeNome, distanciaKm } from '../lib/sugestao'
 import VisitaCard, { TIPO_LABELS } from '../components/VisitaCard'
 
 const EMPTY_FORM = {
@@ -266,6 +266,19 @@ export default function Visitas() {
     for (const n of negocios) if (n.propriedade_id != null) m.set(n.propriedade_id, (m.get(n.propriedade_id) || 0) + 1)
     return m
   }, [visitas, negocios])
+
+  // Clientes salvos num raio de 1 km do GPS atual — no check-in presencial o
+  // vendedor provavelmente está NA propriedade; sugere antes de digitar.
+  // Só entram propriedades já geolocalizadas (1º check-in presencial grava a coordenada).
+  const sugestoesProximas = useMemo(() => {
+    if (!gpsData?.latitude) return []
+    const out = []
+    for (const p of propriedadesAll) {
+      const d = distanciaKm(gpsData.latitude, gpsData.longitude, p.latitude, p.longitude)
+      if (d <= 1) out.push({ p, d })
+    }
+    return out.sort((a, b) => a.d - b.d).slice(0, 5)
+  }, [gpsData, propriedadesAll])
 
   // Resultados da busca de propriedade (limita a 50 pra não pesar no mobile).
   // Casa por dados da propriedade E pelo nome do contato/pessoa cadastrada
@@ -593,6 +606,28 @@ export default function Visitas() {
             </div>
           ) : (
             <div>
+              {/* Sugestão por proximidade: check-in presencial com GPS capturado */}
+              {tipoPresencial && !showNovoCliente && sugestoesProximas.length > 0 && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 space-y-1.5 mb-2 animate-slide-up">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">📍 Perto de você (até 1 km)</p>
+                  {sugestoesProximas.map(({ p, d }) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => selecionarPropriedade(p)}
+                      className="w-full text-left text-sm bg-white border border-emerald-100 rounded-lg px-3 py-2 active:bg-emerald-100"
+                    >
+                      <span className="font-medium">{p.nome_fantasia || p.nome}</span>
+                      <span className="text-xs text-emerald-700 font-medium"> — {d < 0.05 ? 'você está aqui' : `${Math.round(d * 1000)} m`}</span>
+                      {(p.razao_social || p.cidade) && (
+                        <span className="block text-xs text-slate-500 truncate">
+                          {[p.razao_social !== (p.nome_fantasia || p.nome) ? p.razao_social : null, p.cidade].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2">
                 <input
                   value={buscaProp}
