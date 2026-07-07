@@ -5,6 +5,7 @@ import {
   salvarProdutoCatalogo, deletarProdutoCatalogo, uploadArquivoCatalogo,
   resizeFotoParaUpload, CATEGORIAS,
   getProdutosAdmin, getResumoMidias, salvarOverride, getCultivos, getMarcaAliasMap,
+  getCategoriasAplicacao,
 } from '../lib/catalogoSupabase'
 import MidiasEditor from './MidiasEditor'
 
@@ -320,6 +321,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
       folheto: !!p.folheto_url || r.pdf > 0,
       descricao: !!(p.descricao && p.descricao.trim()),
       argumentos: Array.isArray(p.argumentos_de_venda) && p.argumentos_de_venda.length > 0,
+      minis: r.minis || [],
     }
   }
   function presencaEstoque(p) {
@@ -331,6 +333,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
       folheto: r.pdf > 0,
       descricao: !!(p.descricao && p.descricao.trim()),
       argumentos: null, // não se aplica ao estoque
+      minis: r.minis || [],
     }
   }
 
@@ -514,6 +517,40 @@ function MaquinaCard({ foto, titulo, subtitulo, oculta, presenca, alternando, on
         </button>
       </div>
       <IconesConteudo presenca={presenca} onFoco={onFoco} />
+      <MiniaturasMidias minis={presenca.minis} onFoco={onFoco} />
+    </div>
+  )
+}
+
+// Fileira de miniaturas das mídias extras (fotos e vídeos) do produto.
+// Tocar numa miniatura abre o editor já na seção de mídias.
+const MAX_MINIS = 8
+function MiniaturasMidias({ minis, onFoco }) {
+  if (!minis?.length) return null
+  return (
+    <div className="flex items-center gap-1 mt-2 pl-1 overflow-x-auto">
+      {minis.slice(0, MAX_MINIS).map((m, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onFoco(m.tipo === 'video' ? 'video' : 'foto')}
+          title={m.tipo === 'video' ? 'Vídeo' : 'Foto'}
+          className="relative w-10 h-10 rounded overflow-hidden bg-slate-100 flex-shrink-0"
+        >
+          {m.tipo === 'foto' ? (
+            <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <>
+              {/* #t=1 pinta o frame de 1s como capa (frame 0 costuma ser preto) */}
+              <video src={`${m.url}#t=1`} preload="metadata" muted playsInline className="w-full h-full object-cover pointer-events-none" />
+              <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white text-[10px]">▶</span>
+            </>
+          )}
+        </button>
+      ))}
+      {minis.length > MAX_MINIS && (
+        <span className="text-[10px] text-slate-400 flex-shrink-0">+{minis.length - MAX_MINIS}</span>
+      )}
     </div>
   )
 }
@@ -631,6 +668,8 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
   )
   const [cultivosOpcoes, setCultivosOpcoes] = useState([])
   const [cultivosSel, setCultivosSel] = useState(produto.cultivos || [])
+  const [categoriasAplicacao, setCategoriasAplicacao] = useState([])
+  const [categoriaAplicacaoSel, setCategoriaAplicacaoSel] = useState(produto.categoria_aplicacao || '')
   const [modelos, setModelos] = useState(produto.modelos_supabase || [])
   const [cruzaOmie, setCruzaOmie] = useState(!!produto.filtro_supabase)
   const [familias, setFamilias] = useState(produto.filtro_supabase?.familia_nome || ['Trator Novo', 'Trator Seminovo'])
@@ -656,7 +695,10 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focoInicial])
 
-  useEffect(() => { getCultivos().then(setCultivosOpcoes) }, [])
+  useEffect(() => {
+    getCultivos().then(setCultivosOpcoes)
+    getCategoriasAplicacao().then(setCategoriasAplicacao)
+  }, [])
   const toggleCultivo = (id) =>
     setCultivosSel((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]))
 
@@ -694,6 +736,7 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
         subtitulo: form.subtitulo.trim() || null,
         categoria: form.categoria || null,
         cultivos: cultivosSel,
+        categoria_aplicacao: categoriaAplicacaoSel || null,
         descricao: form.descricao.trim() || null,
         argumentos_de_venda: argumentos.filter((a) => a && a.trim()),
         especificacoes,
@@ -770,6 +813,17 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
           </datalist>
         </Campo>
       </div>
+
+      <Campo label="Operação (Showroom)">
+        <select
+          value={categoriaAplicacaoSel}
+          onChange={(e) => setCategoriaAplicacaoSel(e.target.value)}
+          className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+        >
+          <option value="">Automático (pela família Omie)</option>
+          {categoriasAplicacao.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+        </select>
+      </Campo>
 
       {cultivosOpcoes.length > 0 && (
         <Campo label="Cultivos / manejo (Showroom)">

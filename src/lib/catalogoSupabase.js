@@ -522,12 +522,15 @@ export async function getVideosShowroom() {
 
 /**
  * Resumo de mídias (1 consulta) pra montar os ícones de conteúdo no admin.
- * Retorna contagens por tipo agrupadas por dono (curado e estoque).
+ * Retorna contagens por tipo agrupadas por dono (curado e estoque) e as
+ * miniaturas (`minis`: foto/vídeo com URL) pra fileira de thumbs da lista.
  */
 export async function getResumoMidias() {
   const { data, error } = await supabase
     .from('catalogo_midia')
-    .select('catalogo_produto_id, codigo_produto, tipo, status, destaque_showroom')
+    .select('catalogo_produto_id, codigo_produto, tipo, status, destaque_showroom, storage_path')
+    .order('ordem', { ascending: true })
+    .order('created_at', { ascending: true })
   if (error) {
     console.error('[Resumo midias]', error.message)
     return { porCatalogo: {}, porCodigo: {} }
@@ -536,13 +539,17 @@ export async function getResumoMidias() {
   const porCodigo = {}
   for (const m of (data || [])) {
     const alvo = m.catalogo_produto_id != null
-      ? (porCatalogo[m.catalogo_produto_id] ||= { foto: 0, video: 0, pdf: 0, videoShowroom: 0 })
+      ? (porCatalogo[m.catalogo_produto_id] ||= { foto: 0, video: 0, pdf: 0, videoShowroom: 0, minis: [] })
       : m.codigo_produto != null
-        ? (porCodigo[m.codigo_produto] ||= { foto: 0, video: 0, pdf: 0, videoShowroom: 0 })
+        ? (porCodigo[m.codigo_produto] ||= { foto: 0, video: 0, pdf: 0, videoShowroom: 0, minis: [] })
         : null
     if (alvo && (m.tipo in alvo)) alvo[m.tipo]++
     // Vídeo que efetivamente entra no reel do Showroom (mesma regra de getVideosShowroom)
     if (alvo && m.tipo === 'video' && m.status === 'pronto' && m.destaque_showroom) alvo.videoShowroom++
+    // Miniaturas: foto pronta ou vídeo já baixado (com arquivo no bucket)
+    if (alvo && m.storage_path && (m.tipo === 'foto' || (m.tipo === 'video' && m.status === 'pronto'))) {
+      alvo.minis.push({ tipo: m.tipo, url: urlPublicaMidia(m.storage_path) })
+    }
   }
   return { porCatalogo, porCodigo }
 }
