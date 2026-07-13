@@ -70,6 +70,14 @@ export default function Pessoas() {
         </button>
       </div>
 
+      {/* Atalho: abre o check-in em /visitas já com esta propriedade selecionada */}
+      <button
+        onClick={() => navigate('/visitas', { state: { propriedadeId: Number(propriedadeId) } })}
+        className="w-full mb-4 text-sm font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg py-2 active:bg-blue-100"
+      >
+        📍 Registrar visita nesta propriedade
+      </button>
+
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-4 mb-4 space-y-3 animate-slide-up">
           <input name="nome" value={form.nome} onChange={handleChange} required placeholder="Nome *" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />

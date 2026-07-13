@@ -82,9 +82,27 @@ export default function Visitas() {
       if (p) selecionarPropriedade(p)
     }
     vincularNegocio(neg)
+    scrollParaTopo()
     navigate('.', { replace: true, state: null })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, negocios, propriedadesAll])
+
+  // Vindo da aba Clientes ("+ Visita" no card) ou da página Pessoas: abre o
+  // check-in já com a propriedade selecionada, pedindo só o tipo.
+  useEffect(() => {
+    const st = location.state
+    if (!st?.propriedadeId || st.negocioId) return
+    const p = propriedadesAll.find((x) => String(x.id) === String(st.propriedadeId))
+    if (!p) return // espera as propriedades carregarem
+    resetFormVisita()
+    setForm((f) => ({ ...f, data_visita: getLocalDatetime() }))
+    setShowForm(true)
+    iniciarCheckin()
+    selecionarPropriedade(p)
+    scrollParaTopo()
+    navigate('.', { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, propriedadesAll])
 
   async function carregar() {
     // Visitas com deleted_at são tombstones aguardando push — não exibe.
@@ -350,6 +368,17 @@ export default function Visitas() {
     return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
   }
 
+  // Quem rola de fato é a JANELA (o Layout usa min-h-screen, então o <main>
+  // nunca tem overflow próprio). Rola os dois pra garantir que o formulário
+  // recém-aberto fique visível — mirar só o <main> deixava o form fora da
+  // tela e o botão parecia morto.
+  function scrollParaTopo() {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  }
+
   function handleNovaVisita() {
     resetFormVisita()
     setForm((f) => ({ ...f, data_visita: getLocalDatetime() }))
@@ -379,8 +408,7 @@ export default function Visitas() {
     iniciarCheckin()
     if (p) await selecionarPropriedade(p)
     else alert('O cliente desta visita não está no cache local — sincronize e tente de novo.')
-    // O scroll real é no <main> (overflow-y-auto), não na window.
-    requestAnimationFrame(() => document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' }))
+    scrollParaTopo()
   }
 
   function podeEditar(visita) {

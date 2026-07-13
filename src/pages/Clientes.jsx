@@ -13,6 +13,7 @@ export default function Clientes() {
   const navigate = useNavigate()
   const [propriedades, setPropriedades] = useState([])
   const [clientes, setClientes] = useState([])
+  const [pessoasAll, setPessoasAll] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_CLIENTE)
   const [busca, setBusca] = useState('')
@@ -36,6 +37,7 @@ export default function Clientes() {
     const maquinas = await getAllRecords('maquinas')
     const pc = {}; for (const x of pessoas) pc[x.propriedade_id] = (pc[x.propriedade_id] || 0) + 1
     const mc = {}; for (const x of maquinas) mc[x.propriedade_id] = (mc[x.propriedade_id] || 0) + 1
+    setPessoasAll(pessoas)
     setPessoasCount(pc)
     setMaquinasCount(mc)
     setPropriedades(props)
@@ -104,9 +106,21 @@ export default function Clientes() {
   // Agrupar propriedades: donos com +1 prop ficam agrupados
   const clienteMap = Object.fromEntries(clientes.map((c) => [c.id, c]))
 
+  // A busca casa também pelo nome das pessoas/contatos da propriedade
+  // (ex.: "Pedro Bergamo" acha a fazenda onde o Pedro é contato) — mesmo
+  // comportamento da busca do check-in. O nome que casou vai pro card.
+  const termo = busca.trim().toLowerCase()
+  const contatoPorProp = new Map()
+  if (termo) {
+    for (const ps of pessoasAll) {
+      if (ps.nome && String(ps.nome).toLowerCase().includes(termo) && !contatoPorProp.has(ps.propriedade_id)) {
+        contatoPorProp.set(ps.propriedade_id, ps.nome)
+      }
+    }
+  }
+
   // Filtrar por busca
   const filtradas = propriedades.filter((p) => {
-    const termo = busca.toLowerCase()
     if (!termo) return true
     const campos = [
       p.nome, p.nome_fantasia, p.razao_social,
@@ -114,7 +128,7 @@ export default function Clientes() {
     ].filter(Boolean).map((c) => c.toLowerCase())
     const dono = clienteMap[p.cliente_dono_id]
     if (dono) campos.push(dono.nome.toLowerCase())
-    return campos.some((c) => c.includes(termo))
+    return campos.some((c) => c.includes(termo)) || contatoPorProp.has(p.id)
   })
 
   // Separar: propriedades de donos com múltiplas props vs singles
@@ -278,6 +292,7 @@ export default function Clientes() {
                   nPessoas={pessoasCount[item.prop.id] || 0}
                   nMaquinas={maquinasCount[item.prop.id] || 0}
                   onCultura={() => abrirCultura(item.prop)}
+                  contato={contatoPorProp.get(item.prop.id)}
                 />
               )
             }
@@ -308,6 +323,7 @@ export default function Clientes() {
                         nPessoas={pessoasCount[p.id] || 0}
                         nMaquinas={maquinasCount[p.id] || 0}
                         onCultura={() => abrirCultura(p)}
+                        contato={contatoPorProp.get(p.id)}
                         compact
                       />
                     ))}
@@ -412,47 +428,65 @@ function IconHistorico({ className }) {
   )
 }
 
-function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas = 0, nMaquinas = 0, compact }) {
+function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas = 0, nMaquinas = 0, compact, contato }) {
   const { temCultura, temPessoas, temMaquinas } = completudePropriedade(prop, nPessoas, nMaquinas)
   const aceso = 'text-black opacity-100'
   const apagado = 'text-slate-400 opacity-80'
   return (
     <div
-      className={`bg-white rounded-xl shadow flex items-center justify-between card-touch animate-fade-in ${compact ? 'p-3' : 'p-4'}`}
+      className={`bg-white rounded-xl shadow card-touch animate-fade-in ${compact ? 'p-3' : 'p-4'}`}
       style={!compact ? { animationDelay: `${index * 0.03}s` } : undefined}
     >
-      <div className="flex-1 min-w-0" onClick={() => navigate(`/pessoas/${prop.id}`)}>
-        <p className={`font-medium truncate ${compact ? 'text-sm' : ''}`}>{prop.nome}</p>
-        <p className="text-xs text-slate-500 truncate">
-          {[prop.cidade, prop.estado].filter(Boolean).join(' - ')}
-          {dono ? ` · ${dono.nome}` : ''}
-        </p>
-        {prop.telefone && <p className="text-xs text-blue-600 truncate">{prop.telefone}</p>}
+      {/* Linha 1: identificação em largura total — os ícones ficam na linha de
+          baixo pra não espremer o nome (antes tudo dividia uma linha só e o
+          nome virava "Chác..."). */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0" onClick={() => navigate(`/pessoas/${prop.id}`)}>
+          <p className={`font-medium truncate ${compact ? 'text-sm' : ''}`}>{prop.nome}</p>
+          <p className="text-xs text-slate-500 truncate">
+            {[prop.cidade, prop.estado].filter(Boolean).join(' - ')}
+            {dono ? ` · ${dono.nome}` : ''}
+          </p>
+          {contato && <p className="text-xs text-emerald-700 truncate">contato: {contato}</p>}
+          {prop.telefone && <p className="text-xs text-blue-600 truncate">{prop.telefone}</p>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`w-2 h-2 rounded-full ${prop.status_sync === 'synced' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+          <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>
+        </div>
       </div>
-      <div className="flex items-center gap-3 ml-2 shrink-0">
-        {/* 3 ícones de completude: cultura, pessoas, máquinas */}
-        <button type="button" title="Cultura" aria-label="Cultura"
-          onClick={(e) => { e.stopPropagation(); onCultura && onCultura() }}
-          className={temCultura ? aceso : apagado}>
-          <IconCultura className="w-5 h-5" />
+      {/* Linha 2: completude, histórico e registrar visita */}
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+        <div className="flex items-center gap-4">
+          {/* 3 ícones de completude: cultura, pessoas, máquinas */}
+          <button type="button" title="Cultura" aria-label="Cultura"
+            onClick={(e) => { e.stopPropagation(); onCultura && onCultura() }}
+            className={temCultura ? aceso : apagado}>
+            <IconCultura className="w-5 h-5" />
+          </button>
+          <button type="button" title="Pessoas" aria-label="Pessoas"
+            onClick={(e) => { e.stopPropagation(); navigate(`/pessoas/${prop.id}`) }}
+            className={temPessoas ? aceso : apagado}>
+            <IconPessoas className="w-5 h-5" />
+          </button>
+          <button type="button" title="Máquinas" aria-label="Máquinas"
+            onClick={(e) => { e.stopPropagation(); navigate(`/maquinas/${prop.id}`) }}
+            className={temMaquinas ? aceso : apagado}>
+            <IconTrator className="w-5 h-5" />
+          </button>
+          <button type="button" title="Histórico de visitas" aria-label="Histórico de visitas"
+            onClick={(e) => { e.stopPropagation(); navigate(`/historico-visitas/${prop.id}`) }}
+            className="text-slate-500 hover:text-blue-600">
+            <IconHistorico className="w-5 h-5" />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); navigate('/visitas', { state: { propriedadeId: prop.id } }) }}
+          className="text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-2.5 py-1 active:bg-blue-100"
+        >
+          + Visita
         </button>
-        <button type="button" title="Pessoas" aria-label="Pessoas"
-          onClick={(e) => { e.stopPropagation(); navigate(`/pessoas/${prop.id}`) }}
-          className={temPessoas ? aceso : apagado}>
-          <IconPessoas className="w-5 h-5" />
-        </button>
-        <button type="button" title="Máquinas" aria-label="Máquinas"
-          onClick={(e) => { e.stopPropagation(); navigate(`/maquinas/${prop.id}`) }}
-          className={temMaquinas ? aceso : apagado}>
-          <IconTrator className="w-5 h-5" />
-        </button>
-        <button type="button" title="Histórico de visitas" aria-label="Histórico de visitas"
-          onClick={(e) => { e.stopPropagation(); navigate(`/historico-visitas/${prop.id}`) }}
-          className="text-slate-500 hover:text-blue-600">
-          <IconHistorico className="w-5 h-5" />
-        </button>
-        <span className={`w-2 h-2 rounded-full ${prop.status_sync === 'synced' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-        <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>
       </div>
     </div>
   )

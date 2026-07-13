@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
@@ -69,8 +70,21 @@ function ShowroomRoute({ children }) {
   return children
 }
 
+// O React Router não reseta o scroll da janela ao trocar de rota — o vendedor
+// chegava na aba nova já rolada pro meio e a tela parecia travada/vazia.
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    document.querySelector('main')?.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   return (
+    <>
+    <ScrollToTop />
     <Routes>
       {/* Vendedor */}
       <Route path="/login" element={<Login />} />
@@ -146,5 +160,6 @@ export default function App() {
         <Route path="mapa" element={<SupervisorMapa />} />
       </Route>
     </Routes>
+    </>
   )
 }
