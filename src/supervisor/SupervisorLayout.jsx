@@ -26,6 +26,7 @@ const MENUS = [
     { to: '/supervisor/compartilhamentos', label: 'Compartilhamentos' },
   ] },
   { label: 'Análise', items: [
+    { to: '/supervisor/historico', label: 'Histórico diário' },
     { to: '/supervisor/evolucao', label: 'Evolução' },
     { to: '/supervisor/alertas', label: 'Alertas' },
     { to: '/supervisor/notificacoes', label: 'Notificações' },

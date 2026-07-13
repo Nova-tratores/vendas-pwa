@@ -42,6 +42,7 @@ import SupervisorPropostas from './supervisor/SupervisorPropostas'
 import SupervisorCompartilhamentos from './supervisor/SupervisorCompartilhamentos'
 import SupervisorMaisVendidas from './supervisor/SupervisorMaisVendidas'
 import SupervisorLog from './supervisor/SupervisorLog'
+import SupervisorHistorico from './supervisor/SupervisorHistorico'
 import SupervisorInfra from './supervisor/SupervisorInfra'
 
 function ProtectedRoute({ children }) {
@@ -142,6 +143,7 @@ export default function App() {
         <Route path="cidades" element={<SupervisorCidades />} />
         <Route path="notificacoes" element={<SupervisorNotificacoes />} />
         <Route path="evolucao" element={<SupervisorEvolucao />} />
+        <Route path="historico" element={<SupervisorHistorico />} />
         <Route path="visitas" element={<SupervisorVisitas />} />
         <Route path="semana" element={<SupervisorSemana />} />
         <Route path="propostas" element={<SupervisorPropostas />} />
