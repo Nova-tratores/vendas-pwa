@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { setSyncCallback, setAuthRequiredCallback, syncAll, countPending, supabase } from '../lib/sync'
 import { clearAll } from '../lib/db'
 import ConfigModal from './ConfigModal'
 import { contarNotificacoes } from '../lib/notificacoes'
+import AjudaModal from './AjudaModal'
+import TourBoasVindas from './TourBoasVindas'
+import { AJUDA_VENDEDOR, AJUDA_GERAL_VENDEDOR, TOUR_VENDEDOR, ajudaDaRota, tourJaVisto, marcarTourVisto } from '../lib/ajuda'
 
 const navItems = [
   { to: '/dashboard', label: 'Início', icon: '🏠' },
@@ -24,6 +27,16 @@ export default function Layout() {
   const [menuAberto, setMenuAberto] = useState(false)
   const [configAberto, setConfigAberto] = useState(false)
   const [notifCount, setNotifCount] = useState(0)
+  const { pathname } = useLocation()
+  const [ajudaAberta, setAjudaAberta] = useState(false)
+  // Tour abre sozinho no 1º acesso de cada vendedor neste aparelho.
+  const [tourAberto, setTourAberto] = useState(() => !tourJaVisto('vendedor', vendedor.id))
+  const [navDestaque, setNavDestaque] = useState(null)
+
+  function fimDoTour() {
+    marcarTourVisto('vendedor', vendedor.id)
+    setTourAberto(false)
+  }
 
   const updatePending = useCallback(async () => {
     setPending(await countPending())
@@ -74,6 +87,12 @@ export default function Layout() {
   }, [updatePending])
 
   async function handleLogout() {
+    // O clearAll abaixo apaga também o que ainda não subiu — avisa antes.
+    const naoEnviados = await countPending()
+    if (naoEnviados > 0 && !window.confirm(
+      `Você tem ${naoEnviados} registro(s) ainda não enviado(s). Se sair agora, eles serão PERDIDOS.\n\n` +
+      'Conecte à internet e toque no ↻ antes de sair. Sair mesmo assim?'
+    )) return
     // Limpa IDB ANTES de fazer signOut/clear pra evitar deixar dados do
     // vendedor logado expostos caso outro vendedor logue no mesmo celular.
     try { await clearAll() } catch (e) { console.error('[Logout] clearAll:', e) }
@@ -114,6 +133,15 @@ export default function Layout() {
             )}
           </button>
           <span className="text-sm opacity-80 truncate">{vendedor.nome}</span>
+
+          <button
+            onClick={() => setAjudaAberta(true)}
+            className="shrink-0 w-7 h-7 rounded-full border border-white/60 text-sm font-bold leading-none flex items-center justify-center active:bg-blue-950"
+            aria-label="Ajuda desta tela"
+            title="Ajuda"
+          >
+            ?
+          </button>
 
           {/* Menu hamburguer */}
           <div className="relative">
@@ -166,6 +194,24 @@ export default function Layout() {
                   <button
                     onClick={() => {
                       setMenuAberto(false)
+                      setAjudaAberta(true)
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
+                  >
+                    <span>❓</span> Ajuda
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuAberto(false)
+                      setTourAberto(true)
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
+                  >
+                    <span>🧭</span> Tour do app
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuAberto(false)
                       setConfigAberto(true)
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
@@ -190,6 +236,19 @@ export default function Layout() {
       </header>
 
       <ConfigModal show={configAberto} onClose={() => setConfigAberto(false)} />
+      <AjudaModal
+        show={ajudaAberta}
+        onClose={() => setAjudaAberta(false)}
+        conteudo={ajudaDaRota(pathname, AJUDA_VENDEDOR)}
+        geral={AJUDA_GERAL_VENDEDOR}
+        onRevisarTour={() => { setAjudaAberta(false); setTourAberto(true) }}
+      />
+      <TourBoasVindas
+        show={tourAberto}
+        passos={TOUR_VENDEDOR}
+        onFim={fimDoTour}
+        onDestaque={setNavDestaque}
+      />
 
       {/* Sessão expirada: há dados pra enviar mas precisa reentrar */}
       {precisaReentrar && online && (
@@ -232,7 +291,7 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex safe-bottom">
+      <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex safe-bottom ${navDestaque ? 'z-[60]' : ''}`}>
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -240,7 +299,7 @@ export default function Layout() {
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center py-2.5 text-xs transition-colors ${
                 isActive ? 'text-blue-700 font-bold' : 'text-slate-400'
-              }`
+              } ${navDestaque === item.to ? 'bg-blue-50 text-blue-700 font-bold animate-pulse-glow rounded-lg' : ''}`
             }
           >
             <span className="text-xl mb-0.5">{item.icon}</span>

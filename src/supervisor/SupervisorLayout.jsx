@@ -1,6 +1,9 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/sync'
+import AjudaModal from '../components/AjudaModal'
+import TourBoasVindas from '../components/TourBoasVindas'
+import { AJUDA_SUPERVISOR, AJUDA_GERAL_SUPERVISOR, tourSupervisor, ajudaDaRota, tourJaVisto, marcarTourVisto } from '../lib/ajuda'
 
 const INICIO = { to: '/supervisor', label: 'Início', end: true }
 
@@ -55,6 +58,13 @@ export default function SupervisorLayout() {
   const isAdmin = (supervisor.tipo || 'admin') === 'admin'
   const menus = menusParaTipo(supervisor.tipo || 'admin')
   const [aberto, setAberto] = useState(null) // label do menu aberto
+  const [ajudaAberta, setAjudaAberta] = useState(false)
+  const [tourAberto, setTourAberto] = useState(() => !tourJaVisto('supervisor', supervisor.id))
+
+  function fimDoTour() {
+    marcarTourVisto('supervisor', supervisor.id)
+    setTourAberto(false)
+  }
 
   // Mantém a sessão do supervisor sempre fresca: renova ao abrir o painel e toda vez
   // que o app volta ao foco. Num PWA o auto-refresh do supabase pausa em segundo plano,
@@ -89,6 +99,14 @@ export default function SupervisorLayout() {
         <h1 className="text-lg font-bold">{isAdmin ? 'Supervisor' : 'Gestor'}</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm opacity-80">{supervisor.nome}</span>
+          <button
+            onClick={() => setAjudaAberta(true)}
+            className="text-xs bg-slate-700 px-2 py-1 rounded active:bg-slate-600 flex items-center gap-1"
+            aria-label="Ajuda desta tela"
+          >
+            <span className="w-4 h-4 rounded-full border border-white/70 text-[10px] font-bold leading-none flex items-center justify-center">?</span>
+            Ajuda
+          </button>
           <button
             onClick={handleLogout}
             className="text-xs bg-slate-700 px-2 py-1 rounded active:bg-slate-600"
@@ -160,6 +178,19 @@ export default function SupervisorLayout() {
       <main className="flex-1 p-4 overflow-y-auto">
         <Outlet />
       </main>
+
+      <AjudaModal
+        show={ajudaAberta}
+        onClose={() => setAjudaAberta(false)}
+        conteudo={ajudaDaRota(path, AJUDA_SUPERVISOR)}
+        geral={AJUDA_GERAL_SUPERVISOR}
+        onRevisarTour={() => { setAjudaAberta(false); setTourAberto(true) }}
+      />
+      <TourBoasVindas
+        show={tourAberto}
+        passos={isAdmin ? tourSupervisor.admin : tourSupervisor.gestor}
+        onFim={fimDoTour}
+      />
     </div>
   )
 }
