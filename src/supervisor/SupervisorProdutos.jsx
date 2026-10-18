@@ -164,18 +164,18 @@ function ProdutoRow({ produto, editando, form, setForm, salvando, onEditar, onCa
           {p.imagem_url ? (
             <img src={p.imagem_url} alt="" className="w-full h-full object-contain" loading="lazy" />
           ) : (
-            <span className="text-2xl">ðŸ“·</span>
+            <span className="text-2xl">📷</span>
           )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-sm truncate">{p.modelo || (p.descricao || '').slice(0, 50)}</p>
-          <p className="text-xs text-slate-500 truncate">{p.marca || 'â€”'} Â· {p.familia_nome}</p>
+          <p className="text-xs text-slate-500 truncate">{p.marca || '—'} · {p.familia_nome}</p>
           <p className="text-[10px] text-slate-400 truncate">{p.codigo}</p>
           <div className="flex gap-3 mt-1 text-[11px]">
             <span className="text-slate-600">Omie: <b>{omie_estoque}</b> un</span>
-            <span className="text-slate-600">{omie_preco > 0 ? formatBRL(omie_preco) : 'sem preÃ§o'}</span>
-            {has_override && <span className="text-purple-600 font-medium">Â· override</span>}
-            {p.override?.visivel === false && <span className="text-red-600">Â· oculto</span>}
+            <span className="text-slate-600">{omie_preco > 0 ? formatBRL(omie_preco) : 'sem preço'}</span>
+            {has_override && <span className="text-purple-600 font-medium">· override</span>}
+            {p.override?.visivel === false && <span className="text-red-600">· oculto</span>}
           </div>
         </div>
         {!editando && (
@@ -190,7 +190,7 @@ function ProdutoRow({ produto, editando, form, setForm, salvando, onEditar, onCa
         <MidiasEditor codigoProduto={p.codigo_produto} marca={p.marca} modelo={p.modelo} />
         <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">PreÃ§o override (R$)</label>
+            <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Preço override (R$)</label>
             <input
               type="number"
               step="0.01"
@@ -228,7 +228,7 @@ function ProdutoRow({ produto, editando, form, setForm, salvando, onEditar, onCa
                 checked={form.visivel}
                 onChange={(e) => setForm({ ...form, visivel: e.target.checked })}
               />
-              VisÃ­vel no catÃ¡logo
+              Visível no catálogo
             </label>
             <div className="flex gap-2">
               <button
