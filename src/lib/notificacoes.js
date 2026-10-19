@@ -2,6 +2,7 @@
 // no IndexedDB) + mensagens enviadas pelo supervisor (tabela mensagens_vendedor).
 
 import { getAllRecords } from './db'
+import { contatoVigentePorPropriedade } from './agenda'
 import { isPerdido, isGanho, statusLabel } from './funil'
 
 const LAST_SEEN_KEY = 'notif_last_seen'
@@ -19,13 +20,7 @@ export async function construirAlertas() {
   const alertas = []
 
   // 1) Próximo contato planejado atrasado/hoje (último por propriedade)
-  const ultimoContato = {}
-  for (const v of visitas) {
-    if (!v.data_proximo_contato) continue
-    const cur = ultimoContato[v.propriedade_id]
-    if (!cur || v.data_proximo_contato > cur.data_proximo_contato) ultimoContato[v.propriedade_id] = v
-  }
-  for (const v of Object.values(ultimoContato)) {
+  for (const v of contatoVigentePorPropriedade(visitas).values()) {
     if (v.data_proximo_contato <= hojeStr) {
       const atrasado = v.data_proximo_contato < hojeStr
       alertas.push({

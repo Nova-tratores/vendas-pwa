@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { getAllRecords } from '../lib/db'
+import { contatoVigentePorPropriedade, alterarDataProximoContato } from '../lib/agenda'
 import PullToRefresh from '../components/PullToRefresh'
 
 // Fix do icone padrao do leaflet (Vite bundling quebra as URLs default)
@@ -113,18 +114,8 @@ export default function Agenda() {
       const hoje = new Date()
       hoje.setHours(0, 0, 0, 0)
 
-      // Pra cada propriedade, pega o ÚLTIMO data_proximo_contato definido
-      // (porque várias visitas podem ter agendado contatos diferentes na
-      // mesma propriedade — vale o mais recente).
-      const ultimoPorProp = new Map()
-      for (const v of visitas) {
-        if (!v.data_proximo_contato) continue
-        const propId = v.propriedade_id
-        const atual = ultimoPorProp.get(propId)
-        if (!atual || new Date(v.data_visita) > new Date(atual.data_visita)) {
-          ultimoPorProp.set(propId, v)
-        }
-      }
+      // Pra cada propriedade, vale o contato da visita mais recente que agendou.
+      const ultimoPorProp = contatoVigentePorPropriedade(visitas)
 
       const lista = []
       for (const [propId, v] of ultimoPorProp.entries()) {
@@ -135,6 +126,7 @@ export default function Agenda() {
         const cliente = cliMap[prop.cliente_dono_id]
         lista.push({
           visita_id: v.id,
+          visita: v,
           propriedade_id: propId,
           propriedade_nome: prop.nome || prop.nome_fantasia || '—',
           cidade: prop.cidade || '',
@@ -229,7 +221,7 @@ export default function Agenda() {
             <p className="text-slate-400">Nada agendado nesse filtro</p>
           </div>
         ) : aba === 'lista' ? (
-          <ListaAgenda items={filtrados} origem={origem} />
+          <ListaAgenda items={filtrados} origem={origem} onAlterado={carregar} />
         ) : (
           <MapaAgenda pontos={pontosMapa} origem={origem} />
         )}
@@ -267,17 +259,34 @@ function Chip({ ativo, cor = 'blue', onClick, children }) {
   )
 }
 
-function ListaAgenda({ items, origem }) {
+function ListaAgenda({ items, origem, onAlterado }) {
   return (
     <div className="space-y-2">
       {items.map((it, i) => (
-        <CardAgenda key={it.propriedade_id} item={it} index={i} origem={origem} />
+        <CardAgenda key={it.propriedade_id} item={it} index={i} origem={origem} onAlterado={onAlterado} />
       ))}
     </div>
   )
 }
 
-function CardAgenda({ item, index, origem }) {
+function CardAgenda({ item, index, origem, onAlterado }) {
+  // Troca só da data (liberada sempre, mesmo com a visita travada pra edição).
+  const [editandoData, setEditandoData] = useState(false)
+  const [novaData, setNovaData] = useState(item.data)
+  const [salvando, setSalvando] = useState(false)
+
+  async function salvarData(data) {
+    setSalvando(true)
+    try {
+      await alterarDataProximoContato(item.visita, data)
+      setEditandoData(false)
+      onAlterado?.()
+    } catch (err) {
+      alert('Erro ao alterar a data: ' + err.message)
+    }
+    setSalvando(false)
+  }
+
   const corBorda = {
     atrasado: 'border-l-4 border-red-500',
     hoje: 'border-l-4 border-amber-500',
@@ -315,7 +324,50 @@ function CardAgenda({ item, index, origem }) {
       <p className="text-xs text-slate-500 mb-1">
         {dataStr} · {item.cliente_nome || '—'}
         {item.cidade && ` · ${item.cidade}${item.estado ? `/${item.estado}` : ''}`}
+        {!editandoData && (
+          <button
+            type="button"
+            onClick={() => { setNovaData(item.data); setEditandoData(true) }}
+            className="ml-2 text-blue-700 font-medium"
+          >
+            📅 alterar data
+          </button>
+        )}
       </p>
+      {editandoData && (
+        <div className="flex flex-wrap items-center gap-1.5 my-2">
+          <input
+            type="date"
+            value={novaData}
+            onChange={(e) => setNovaData(e.target.value)}
+            className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm"
+          />
+          <button
+            type="button"
+            disabled={salvando || !novaData}
+            onClick={() => salvarData(novaData)}
+            className="px-3 py-1.5 rounded-lg bg-blue-700 text-white text-xs font-medium disabled:opacity-50"
+          >
+            Salvar
+          </button>
+          <button
+            type="button"
+            disabled={salvando}
+            onClick={() => { if (confirm('Remover este contato da agenda?')) salvarData('') }}
+            className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 border border-red-200 text-xs font-medium disabled:opacity-50"
+          >
+            Remover
+          </button>
+          <button
+            type="button"
+            disabled={salvando}
+            onClick={() => setEditandoData(false)}
+            className="px-2 py-1.5 text-slate-500 text-xs"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
       {item.distanciaKm != null && (
         <p className="text-xs text-slate-600">
           📍 <b>{item.distanciaKm.toFixed(1)} km</b> de você

@@ -4,6 +4,7 @@ import { getAllRecords, saveRecord, deleteRecord, getByIndex, registrarLog } fro
 import { maskCPFouCNPJ, maskTelefone } from '../lib/masks'
 import { CULTURAS } from '../lib/constants'
 import { completudePropriedade } from '../lib/completude'
+import { contatoVigentePorPropriedade } from '../lib/agenda'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -68,14 +69,8 @@ export default function Clientes() {
     fimSemana.setDate(fimSemana.getDate() + 7)
     const fimSemanaStr = fimSemana.toISOString().slice(0, 10)
 
-    // Pegar último contato agendado por propriedade
-    const propContatos = {}
-    for (const v of visitas) {
-      if (!v.data_proximo_contato) continue
-      if (!propContatos[v.propriedade_id] || v.data_proximo_contato > propContatos[v.propriedade_id].data_proximo_contato) {
-        propContatos[v.propriedade_id] = v
-      }
-    }
+    // Contato vigente por propriedade (o da visita mais recente que agendou)
+    const propContatos = Object.fromEntries(contatoVigentePorPropriedade(visitas))
 
     const clienteMap = Object.fromEntries(cls.map((c) => [c.id, c]))
     const atrasados = []

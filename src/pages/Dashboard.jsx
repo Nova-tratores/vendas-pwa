@@ -5,6 +5,7 @@ import { getConfig } from '../lib/supabaseQueries'
 import { STATUS_EM_ANDAMENTO, isAberto } from '../lib/funil'
 import { diasDesde } from '../lib/tempo'
 import { completudePropriedade, FALTA_INFO } from '../lib/completude'
+import { contatoVigentePorPropriedade } from '../lib/agenda'
 
 // Lê o X dias de lembrete: online busca da config e cacheia; offline usa o cache.
 async function getDiasLembrete() {
@@ -59,13 +60,15 @@ export default function Dashboard() {
 
       // Próximos contatos planejados
       const hojeStr = new Date().toISOString().slice(0, 10)
-      const proximosContatos = visitas
+      // Só o contato vigente de cada propriedade (agendamentos antigos substituídos não contam)
+      const contatosVigentes = [...contatoVigentePorPropriedade(visitas).values()]
+      const proximosContatos = contatosVigentes
         .filter((v) => v.data_proximo_contato && v.data_proximo_contato >= hojeStr)
         .sort((a, b) => a.data_proximo_contato.localeCompare(b.data_proximo_contato))
         .slice(0, 5)
 
       // Contatos atrasados
-      const contatosAtrasados = visitas
+      const contatosAtrasados = contatosVigentes
         .filter((v) => v.data_proximo_contato && v.data_proximo_contato < hojeStr)
         .sort((a, b) => a.data_proximo_contato.localeCompare(b.data_proximo_contato))
 
