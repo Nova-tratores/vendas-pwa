@@ -802,15 +802,17 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
           </select>
         </Campo>
         <Campo label="Categoria">
-          <input
-            list="cat-sugestoes"
+          {/* select (não datalist): a datalist filtra pelo texto atual e esconde as outras opções */}
+          <select
             value={form.categoria}
             onChange={(e) => setForm({ ...form, categoria: e.target.value })}
             className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
-          />
-          <datalist id="cat-sugestoes">
+          >
             {CATEGORIAS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-          </datalist>
+            {form.categoria && !CATEGORIAS.some((c) => c.key === form.categoria) && (
+              <option value={form.categoria}>{form.categoria}</option>
+            )}
+          </select>
         </Campo>
       </div>
 
