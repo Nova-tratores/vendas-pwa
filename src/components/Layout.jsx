@@ -291,7 +291,9 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex safe-bottom ${navDestaque ? 'z-[60]' : ''}`}>
+      {/* z-30: acima de qualquer conteúdo da página (células sticky z-10, mapas
+          Leaflet isolados no index.css) e abaixo de menus/modais (z-40+). */}
+      <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex safe-bottom ${navDestaque ? 'z-[60]' : 'z-30'}`}>
         {navItems.map((item) => (
           <NavLink
             key={item.to}

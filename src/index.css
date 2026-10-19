@@ -145,3 +145,9 @@ input, textarea, select {
     margin: 14mm;
   }
 }
+
+/* O Leaflet usa z-index 400–1000 nos painéis/controles. Sem um contexto de
+   empilhamento próprio, o mapa rolava por cima da barra de baixo e dos menus. */
+.leaflet-container {
+  isolation: isolate;
+}
