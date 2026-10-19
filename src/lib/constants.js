@@ -23,6 +23,10 @@ export const TIPOS_PRODUTO = [
   'Vagões',
 ]
 
+// Tipos oferecidos no cadastro de máquina do cliente (sem itens que não são máquina de frota).
+const FORA_DO_CADASTRO_MAQUINA = ['ATV e UTV', 'Cabine', 'Peças', 'Kit Revisão']
+export const TIPOS_MAQUINA = TIPOS_PRODUTO.filter((t) => !FORA_DO_CADASTRO_MAQUINA.includes(t))
+
 // Marcas
 export const MARCAS = [
   'New Holland',

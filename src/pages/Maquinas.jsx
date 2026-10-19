@@ -5,7 +5,7 @@ import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import { getMarcasDropdown, getModelosPorMarca } from '../lib/catalogoSupabase'
 
-import { TIPOS_PRODUTO, MARCAS } from '../lib/constants'
+import { TIPOS_MAQUINA, MARCAS } from '../lib/constants'
 import { ESTADOS_MAQUINA as ESTADOS, ESTADO_LABELS, FREQUENCIAS_USO, getMarcasPorTipo, marcasDoTipo } from '../lib/maquinaOpcoes'
 import MarcaSelect from '../components/MarcaSelect'
 const ESTADO_COLORS = { otimo: 'bg-green-100 text-green-800', bom: 'bg-blue-100 text-blue-800', regular: 'bg-yellow-100 text-yellow-800', critico: 'bg-red-100 text-red-800' }
@@ -181,7 +181,7 @@ export default function Maquinas() {
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-4 mb-4 space-y-3 animate-slide-up">
           <select name="tipo" value={form.tipo} onChange={(e) => setForm(comTipo(form, e.target.value, setModelosForm))} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
-            {TIPOS_PRODUTO.map((t) => (
+            {TIPOS_MAQUINA.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
@@ -290,7 +290,7 @@ export default function Maquinas() {
                 onChange={(e) => setEditForm(comTipo(editForm, e.target.value, setModelosEdit))}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white"
               >
-                {TIPOS_PRODUTO.map((t) => (
+                {(TIPOS_MAQUINA.includes(editForm.tipo) ? TIPOS_MAQUINA : [editForm.tipo, ...TIPOS_MAQUINA]).map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>

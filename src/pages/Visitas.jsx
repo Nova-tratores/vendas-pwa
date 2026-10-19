@@ -5,7 +5,7 @@ import { useCheckin } from '../hooks/useCheckin'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
-import { TIPOS_PRODUTO, MARCAS, CULTURAS } from '../lib/constants'
+import { TIPOS_MAQUINA, MARCAS, CULTURAS } from '../lib/constants'
 import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPERATURAS } from '../lib/funil'
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
@@ -1127,7 +1127,7 @@ export default function Visitas() {
                     }}
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                   >
-                    {TIPOS_PRODUTO.map((t) => (
+                    {TIPOS_MAQUINA.map((t) => (
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
