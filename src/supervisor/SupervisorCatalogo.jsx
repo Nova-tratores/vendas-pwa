@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   getMarcas, getProdutosCatalogo, salvarMarca, deletarMarca,
   salvarProdutoCatalogo, deletarProdutoCatalogo, uploadArquivoCatalogo,
-  resizeFotoParaUpload, CATEGORIAS,
+  resizeFotoParaUpload, categoriasDe,
   getProdutosAdmin, getResumoMidias, salvarOverride, getCultivos, getMarcaAliasMap,
   getCategoriasAplicacao,
 } from '../lib/catalogoSupabase'
@@ -463,6 +463,7 @@ function SecaoMaquinas({ produtos, marcas, resumo, onChange, prefill, onPrefillC
         <MaquinaForm
           produto={editando.item}
           marcas={marcas}
+          produtos={produtos}
           focoInicial={editando.foco}
           onClose={() => { setEditando(null); onChange() }}
           onSaved={() => { setEditando(null); onChange() }}
@@ -642,7 +643,10 @@ function IconOlhoFechado({ className }) {
   )
 }
 
-function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
+const NOVA_CATEGORIA = '__nova__'
+
+function MaquinaForm({ produto, marcas, produtos = [], focoInicial, onClose, onSaved }) {
+  const [categoriaNova, setCategoriaNova] = useState(false)
   // Após o 1º salvar de uma ficha nova, guarda o id pra liberar a galeria (foto/vídeo/PDF)
   // sem fechar o modal.
   const [idLocal, setIdLocal] = useState(produto.id || null)
@@ -734,7 +738,7 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
         slug: slugEfetivo,
         titulo: form.titulo.trim(),
         subtitulo: form.subtitulo.trim() || null,
-        categoria: form.categoria || null,
+        categoria: (form.categoria || '').trim() || null,
         cultivos: cultivosSel,
         categoria_aplicacao: categoriaAplicacaoSel || null,
         descricao: form.descricao.trim() || null,
@@ -803,16 +807,38 @@ function MaquinaForm({ produto, marcas, focoInicial, onClose, onSaved }) {
         </Campo>
         <Campo label="Categoria">
           {/* select (não datalist): a datalist filtra pelo texto atual e esconde as outras opções */}
-          <select
-            value={form.categoria}
-            onChange={(e) => setForm({ ...form, categoria: e.target.value })}
-            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
-          >
-            {CATEGORIAS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-            {form.categoria && !CATEGORIAS.some((c) => c.key === form.categoria) && (
-              <option value={form.categoria}>{form.categoria}</option>
-            )}
-          </select>
+          {/* "+ Nova categoria…" troca o select por um campo de texto livre. */}
+          {categoriaNova ? (
+            <div className="flex gap-1">
+              <input
+                autoFocus
+                value={form.categoria}
+                onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+                placeholder="Nome da nova categoria"
+                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => { setCategoriaNova(false); setForm({ ...form, categoria: produto.categoria || 'tratores' }) }}
+                title="Voltar para a lista"
+                className="px-2 text-slate-500 border border-slate-300 rounded text-sm"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <select
+              value={form.categoria}
+              onChange={(e) => {
+                if (e.target.value === NOVA_CATEGORIA) { setCategoriaNova(true); setForm({ ...form, categoria: '' }) }
+                else setForm({ ...form, categoria: e.target.value })
+              }}
+              className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+            >
+              {categoriasDe([...produtos, { categoria: form.categoria }]).map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+              <option value={NOVA_CATEGORIA}>+ Nova categoria…</option>
+            </select>
+          )}
         </Campo>
       </div>
 

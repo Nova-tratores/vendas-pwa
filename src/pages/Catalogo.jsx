@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { getProdutosCatalogo, getMarcas, getEstoqueAtual, formatBRL, CATEGORIAS } from '../lib/catalogoSupabase'
+import { getProdutosCatalogo, getMarcas, getEstoqueAtual, formatBRL, categoriasDe } from '../lib/catalogoSupabase'
 import PullToRefresh from '../components/PullToRefresh'
 
 export default function Catalogo() {
@@ -151,7 +151,7 @@ export default function Catalogo() {
               <Chip ativo={filtroCat === 'todos'} onClick={() => setFiltroCat('todos')}>
                 Todos ({produtosDaMarca.length})
               </Chip>
-              {CATEGORIAS.map((c) => {
+              {categoriasDe(produtosDaMarca).map((c) => {
                 const n = produtosDaMarca.filter((p) => p.categoria === c.key).length
                 if (n === 0) return null
                 return (

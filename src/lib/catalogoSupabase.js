@@ -690,6 +690,18 @@ export const CATEGORIAS = [
   { key: 'pulverizadores', label: 'Pulverizadores' },
 ]
 
+/**
+ * CATEGORIAS fixas + as criadas pelo supervisor nas fichas (texto livre), sem repetir.
+ * As livres usam o próprio texto como key e label, em ordem alfabética.
+ */
+export function categoriasDe(produtos) {
+  const fixas = new Set(CATEGORIAS.map((c) => c.key))
+  const extras = [...new Set((produtos || []).map((p) => (p.categoria || '').trim()))]
+    .filter((c) => c && !fixas.has(c))
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  return [...CATEGORIAS, ...extras.map((c) => ({ key: c, label: c }))]
+}
+
 let marcasCache = null
 let marcaAliasCache = null
 let produtosCatalogoCache = null

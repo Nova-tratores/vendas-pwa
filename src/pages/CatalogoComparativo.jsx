@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, Fragment } from 'react'
 import { Link } from 'react-router-dom'
-import { getProdutosCatalogo, CATEGORIAS } from '../lib/catalogoSupabase'
+import { getProdutosCatalogo, categoriasDe } from '../lib/catalogoSupabase'
 
 const MAX_SEL = 4
 
@@ -62,7 +62,7 @@ export default function CatalogoComparativo() {
   // Categorias que têm pelo menos um produto comparável.
   const categoriasPresentes = useMemo(() => {
     const set = new Set(produtos.map((p) => p.categoria).filter(Boolean))
-    return CATEGORIAS.filter((c) => set.has(c.key))
+    return categoriasDe(produtos).filter((c) => set.has(c.key))
   }, [produtos])
 
   // Garante uma categoria válida selecionada.
