@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { estaEmbutido } from './embed'
+import { buscarTodas } from './paginar'
 import {
   getAllRecords, getPendingRecords, markAsSynced, saveRecord, deleteRecord,
   getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs, registrarLog,
@@ -433,9 +434,10 @@ async function pullRecords() {
     const out = []
     for (let i = 0; i < valores.length; i += 200) {
       const chunk = valores.slice(i, i + 200)
-      const { data, error } = await supabase.from('portal_nt_clientes_PRINCIPAL').select('*').in(coluna, chunk)
-      if (error) { console.error(`[Pull] propriedades por ${coluna}:`, error.message); continue }
-      if (data) out.push(...data)
+      try {
+        out.push(...await buscarTodas(() =>
+          supabase.from('portal_nt_clientes_PRINCIPAL').select('*').in(coluna, chunk).order('id')))
+      } catch (error) { console.error(`[Pull] propriedades por ${coluna}:`, error.message) }
     }
     return out
   }

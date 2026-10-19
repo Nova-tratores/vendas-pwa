@@ -1,5 +1,6 @@
 import { supabase } from './sync'
 import { STATUS_EM_ANDAMENTO, isPerdido, isGanho } from './funil'
+import { buscarTodas } from './paginar'
 
 // Re-export pra quem já importava daqui (ex.: Dashboard).
 export { STATUS_EM_ANDAMENTO } from './funil'
@@ -158,8 +159,10 @@ export async function getPessoas() {
 
 // Cidades distintas da base de clientes (ERP) com contagem de propriedades.
 export async function getCidadesContagem() {
-  const { data, error } = await supabase.from('portal_nt_clientes_PRINCIPAL').select('cidade')
-  if (error) { console.warn('[cidades]', error.message); return [] }
+  let data
+  try {
+    data = await buscarTodas(() => supabase.from('portal_nt_clientes_PRINCIPAL').select('cidade').order('id'))
+  } catch (error) { console.warn('[cidades]', error.message); return [] }
   const mapa = new Map()
   for (const r of data || []) {
     const c = (r.cidade || '').trim()
