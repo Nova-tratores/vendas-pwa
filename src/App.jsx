@@ -20,6 +20,7 @@ import MapaClientes from './pages/MapaClientes'
 import VisitasMapa from './pages/VisitasMapa'
 import VisitasCliente from './pages/VisitasCliente'
 import ChamadoVeicular from './pages/ChamadoVeicular'
+import ChecklistVeiculo from './pages/ChecklistVeiculo'
 import Notificacoes from './pages/Notificacoes'
 
 // Supervisor
@@ -121,6 +122,7 @@ export default function App() {
         <Route path="visitas/mapa" element={<VisitasMapa />} />
         <Route path="historico-visitas/:propriedadeId" element={<VisitasCliente />} />
         <Route path="chamado-veicular" element={<ChamadoVeicular />} />
+        <Route path="checklist-veiculo" element={<ChecklistVeiculo />} />
         <Route path="notificacoes" element={<Notificacoes />} />
         <Route path="negocios" element={<Negocios />} />
         <Route path="catalogo" element={<Catalogo />} />

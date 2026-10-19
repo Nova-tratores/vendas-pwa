@@ -18,8 +18,14 @@ const STATUS_ITEM = [
 
 export default function ChamadoVeicular() {
   const navigate = useNavigate()
-  // Link vindo do portal ("Pedir checklist"): ?placa=SEB9J47&tipo=checklist&checklist=mensal
+  // Link antigo do portal ("Pedir checklist"): ?placa=SEB9J47&tipo=checklist&checklist=mensal
+  // → o mensal agora é o checklist completo com fotos.
   const [params] = useSearchParams()
+  useEffect(() => {
+    if (params.get('checklist') === 'mensal') {
+      navigate(`/checklist-veiculo${params.get('placa') ? `?placa=${encodeURIComponent(params.get('placa'))}` : ''}`, { replace: true })
+    }
+  }, [params, navigate])
   const vendedor = JSON.parse(localStorage.getItem('vendedor') || '{}')
 
   const [placas, setPlacas] = useState([])
@@ -191,8 +197,22 @@ export default function ChamadoVeicular() {
         {/* Checklist */}
         {tipo === 'checklist' && (
           <div className="animate-slide-up space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                const sel = placas.find((p) => String(p.IdPlaca) === String(placaId))
+                navigate(`/checklist-veiculo${sel ? `?placa=${encodeURIComponent(sel.NumPlaca)}` : ''}`)
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-700 text-white text-left"
+            >
+              <span className="text-2xl">📸</span>
+              <div>
+                <p className="text-sm font-bold">Checklist Mensal completo</p>
+                <p className="text-xs text-blue-100">20 itens com foto — o mesmo dos técnicos. É o que conta na Frota.</p>
+              </div>
+            </button>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Qual checklist <span className="text-red-500">*</span></label>
+              <label className="block text-xs text-slate-500 mb-1">Ou um checklist rápido (sem fotos) <span className="text-red-500">*</span></label>
               <div className="flex flex-wrap gap-2">
                 {CHECKLISTS.map((c) => (
                   <button
