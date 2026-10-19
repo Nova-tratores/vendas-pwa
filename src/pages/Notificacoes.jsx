@@ -47,6 +47,15 @@ export default function Notificacoes() {
                 <div key={m.id} className="bg-white rounded-xl shadow p-3 border-l-4 border-l-blue-500">
                   {m.titulo && <p className="text-sm font-bold">{m.titulo}</p>}
                   <p className="text-sm text-slate-700 whitespace-pre-line">{m.corpo}</p>
+                  {/* link interno do app (ex.: portal pedindo checklist do carro) */}
+                  {typeof m.link === 'string' && m.link.startsWith('/') && (
+                    <button
+                      onClick={() => navigate(m.link)}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-blue-700 text-white text-xs font-medium"
+                    >
+                      Abrir
+                    </button>
+                  )}
                   <p className="text-xs text-slate-400 mt-1">
                     {m.vendedor_id == null ? 'Para todos' : 'Para você'} · {new Date(m.created_at).toLocaleString('pt-BR')}
                     {m.created_by ? ` · ${m.created_by}` : ''}

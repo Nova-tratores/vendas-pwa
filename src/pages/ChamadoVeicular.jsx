@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/sync'
 import { CHECKLISTS, getChecklist } from '../lib/checklists'
+import { acharPlaca } from '../lib/placas'
 
 const TIPOS = [
   { key: 'corretiva', label: 'Manutenção Corretiva', icon: '🔧', desc: 'Algo quebrou / precisa de conserto' },
@@ -17,6 +18,8 @@ const STATUS_ITEM = [
 
 export default function ChamadoVeicular() {
   const navigate = useNavigate()
+  // Link vindo do portal ("Pedir checklist"): ?placa=SEB9J47&tipo=checklist&checklist=mensal
+  const [params] = useSearchParams()
   const vendedor = JSON.parse(localStorage.getItem('vendedor') || '{}')
 
   const [placas, setPlacas] = useState([])
@@ -38,7 +41,15 @@ export default function ChamadoVeicular() {
   async function carregarPlacas() {
     try {
       const { data } = await supabase.from('SupaPlacas').select('IdPlaca, NumPlaca').order('NumPlaca')
-      if (data) setPlacas(data)
+      if (data) {
+        setPlacas(data)
+        const pedida = acharPlaca(data, params.get('placa'))
+        if (pedida) setPlacaId(String(pedida.IdPlaca))
+        if (params.get('tipo') === 'checklist') {
+          setTipo('checklist')
+          if (getChecklist(params.get('checklist'))) setChecklistChave(params.get('checklist'))
+        }
+      }
     } catch { /* offline */ }
   }
 
