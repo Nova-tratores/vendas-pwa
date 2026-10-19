@@ -6,13 +6,13 @@ import ConfirmModal from '../components/ConfirmModal'
 import { getMarcasDropdown, getModelosPorMarca } from '../lib/catalogoSupabase'
 
 import { TIPOS_PRODUTO, MARCAS } from '../lib/constants'
-const ESTADOS = ['otimo', 'bom', 'regular', 'critico']
-const ESTADO_LABELS = { otimo: 'Ótimo', bom: 'Bom', regular: 'Regular', critico: 'Crítico' }
+import { ESTADOS_MAQUINA as ESTADOS, ESTADO_LABELS, FREQUENCIAS_USO, getMarcasPorTipo, marcasDoTipo } from '../lib/maquinaOpcoes'
+import MarcaSelect from '../components/MarcaSelect'
 const ESTADO_COLORS = { otimo: 'bg-green-100 text-green-800', bom: 'bg-blue-100 text-blue-800', regular: 'bg-yellow-100 text-yellow-800', critico: 'bg-red-100 text-red-800' }
 
 const EMPTY = {
-  tipo: 'Trator Novo', marca: 'New Holland', modelo: '', tamanho: '', ano: '', numero_serie: '',
-  horimetro: '', estado: 'bom', observacoes: '',
+  tipo: 'Trator Novo', marca: '', modelo: '', tamanho: '', ano: '', numero_serie: '',
+  horimetro: '', estado: 'bom', frequencia_uso: '', observacoes: '',
 }
 
 export default function Maquinas() {
@@ -29,12 +29,19 @@ export default function Maquinas() {
   const [marcasOpcoes, setMarcasOpcoes] = useState([])
   const [modelosForm, setModelosForm] = useState([])
   const [modelosEdit, setModelosEdit] = useState([])
+  const [marcasPorTipo, setMarcasPorTipo] = useState([])
 
   useEffect(() => { carregar() }, [propriedadeId])
-  useEffect(() => { getMarcasDropdown().then(setMarcasOpcoes) }, [])
+  useEffect(() => { getMarcasDropdown().then(setMarcasOpcoes); getMarcasPorTipo().then(setMarcasPorTipo) }, [])
 
-  // Nomes pro <select> (cai pra lista estática se offline sem cache).
-  const nomesMarcas = marcasOpcoes.length ? marcasOpcoes.map((m) => m.nome) : MARCAS
+  // Trocou o tipo: marca que não é desse tipo é limpa (o vendedor escolhe de novo).
+  function comTipo(f, tipo, setModelos) {
+    const lista = marcasDoTipo(tipo, marcasPorTipo, marcasOpcoes)
+    if (!lista || lista.includes(f.marca)) return { ...f, tipo }
+    setModelos([])
+    return { ...f, tipo, marca: '', modelo: '' }
+  }
+
   const idDaMarca = (nome) => marcasOpcoes.find((m) => m.nome === nome)?.id
   async function carregarModelos(nome, setter) {
     const id = idDaMarca(nome)
@@ -68,6 +75,7 @@ export default function Maquinas() {
       numero_serie: form.numero_serie,
       horimetro: form.horimetro ? parseInt(form.horimetro) : null,
       estado: form.estado,
+      frequencia_uso: form.frequencia_uso || null,
       observacoes: form.observacoes,
       created_at: new Date().toISOString(),
     })
@@ -89,6 +97,7 @@ export default function Maquinas() {
       numero_serie: m.numero_serie || '',
       horimetro: m.horimetro != null ? String(m.horimetro) : '',
       estado: m.estado || 'bom',
+      frequencia_uso: m.frequencia_uso || '',
       observacoes: m.observacoes || '',
     })
   }
@@ -105,6 +114,7 @@ export default function Maquinas() {
       ['numero_serie', editTarget.numero_serie || ''],
       ['horimetro', editTarget.horimetro != null ? String(editTarget.horimetro) : ''],
       ['estado', editTarget.estado],
+      ['frequencia_uso', editTarget.frequencia_uso || ''],
       ['observacoes', editTarget.observacoes || ''],
     ]
     const alteracoes = []
@@ -125,6 +135,7 @@ export default function Maquinas() {
       numero_serie: editForm.numero_serie,
       horimetro: editForm.horimetro ? parseInt(editForm.horimetro) : null,
       estado: editForm.estado,
+      frequencia_uso: editForm.frequencia_uso || null,
       observacoes: editForm.observacoes,
       status_sync: 'pending',
     })
@@ -169,16 +180,21 @@ export default function Maquinas() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-4 mb-4 space-y-3 animate-slide-up">
-          <select name="tipo" value={form.tipo} onChange={handleChange} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
+          <select name="tipo" value={form.tipo} onChange={(e) => setForm(comTipo(form, e.target.value, setModelosForm))} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
             {TIPOS_PRODUTO.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-          <select name="marca" value={form.marca} onChange={(e) => { setForm({ ...form, marca: e.target.value, modelo: '' }); carregarModelos(e.target.value, setModelosForm) }} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
-            {nomesMarcas.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+          <MarcaSelect
+            tipo={form.tipo}
+            value={form.marca}
+            onChange={(v) => { setForm({ ...form, marca: v, modelo: '' }); carregarModelos(v, setModelosForm) }}
+            marcas={marcasOpcoes}
+            porTipo={marcasPorTipo}
+            fallback={MARCAS}
+            required
+            className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white"
+          />
           <div className="grid grid-cols-2 gap-2">
             <input name="modelo" list="modelos-form" value={form.modelo} onChange={handleChange} placeholder="Modelo" className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
             <datalist id="modelos-form">{modelosForm.map((m) => <option key={m} value={m} />)}</datalist>
@@ -190,11 +206,24 @@ export default function Maquinas() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <input name="horimetro" value={form.horimetro} onChange={handleChange} placeholder="Horímetro (h)" type="number" inputMode="numeric" className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
-            <select name="estado" value={form.estado} onChange={handleChange} className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white">
-              {ESTADOS.map((e) => (
-                <option key={e} value={e}>{ESTADO_LABELS[e]}</option>
-              ))}
-            </select>
+            <div />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-slate-500">
+              Estado de uso
+              <select name="estado" value={form.estado} onChange={handleChange} className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white text-slate-900">
+                {ESTADOS.map((e) => (
+                  <option key={e} value={e}>{ESTADO_LABELS[e]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-500">
+              Frequência de uso
+              <select name="frequencia_uso" value={form.frequencia_uso} onChange={handleChange} className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white text-slate-900">
+                <option value="">—</option>
+                {FREQUENCIAS_USO.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </label>
           </div>
           <textarea name="observacoes" value={form.observacoes} onChange={handleChange} placeholder="Observações" rows={2} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm" />
           <button type="submit" className="w-full bg-green-600 text-white py-2.5 rounded-lg font-medium text-sm active:bg-green-700">Salvar Máquina</button>
@@ -228,6 +257,7 @@ export default function Maquinas() {
                 {m.tamanho ? ` · ${m.tamanho}` : ''}
                 {m.ano ? ` · ${m.ano}` : ''}
                 {m.horimetro ? ` · ${m.horimetro}h` : ''}
+                {m.frequencia_uso ? ` · uso ${m.frequencia_uso.toLowerCase()}` : ''}
               </p>
               {m.numero_serie && <p className="text-xs text-slate-400 mt-1">S/N: {m.numero_serie}</p>}
             </div>
@@ -257,22 +287,22 @@ export default function Maquinas() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               <select
                 value={editForm.tipo}
-                onChange={(e) => setEditForm({ ...editForm, tipo: e.target.value })}
+                onChange={(e) => setEditForm(comTipo(editForm, e.target.value, setModelosEdit))}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white"
               >
                 {TIPOS_PRODUTO.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
-              <select
+              <MarcaSelect
+                tipo={editForm.tipo}
                 value={editForm.marca}
-                onChange={(e) => { setEditForm({ ...editForm, marca: e.target.value }); carregarModelos(e.target.value, setModelosEdit) }}
+                onChange={(v) => { setEditForm({ ...editForm, marca: v }); carregarModelos(v, setModelosEdit) }}
+                marcas={marcasOpcoes}
+                porTipo={marcasPorTipo}
+                fallback={MARCAS}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white"
-              >
-                {(nomesMarcas.includes(editForm.marca) ? nomesMarcas : [editForm.marca, ...nomesMarcas]).map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
+              />
               <div className="grid grid-cols-2 gap-2">
                 <input
                   list="modelos-edit"
@@ -314,15 +344,32 @@ export default function Maquinas() {
                   inputMode="numeric"
                   className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm"
                 />
-                <select
-                  value={editForm.estado}
-                  onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
-                  className="border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white"
-                >
-                  {ESTADOS.map((e) => (
-                    <option key={e} value={e}>{ESTADO_LABELS[e]}</option>
-                  ))}
-                </select>
+                <div />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs text-slate-500">
+                  Estado de uso
+                  <select
+                    value={editForm.estado}
+                    onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white text-slate-900"
+                  >
+                    {ESTADOS.map((e) => (
+                      <option key={e} value={e}>{ESTADO_LABELS[e]}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs text-slate-500">
+                  Frequência de uso
+                  <select
+                    value={editForm.frequencia_uso}
+                    onChange={(e) => setEditForm({ ...editForm, frequencia_uso: e.target.value })}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white text-slate-900"
+                  >
+                    <option value="">—</option>
+                    {FREQUENCIAS_USO.map((f) => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </label>
               </div>
               <textarea
                 value={editForm.observacoes}

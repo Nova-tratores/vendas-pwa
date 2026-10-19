@@ -12,6 +12,9 @@ import MaquinaSelect from '../components/MaquinaSelect'
 import { maskTelefone } from '../lib/masks'
 import { sugerirPropriedades, normalizar, similaridadeNome, distanciaKm } from '../lib/sugestao'
 import VisitaCard, { TIPO_LABELS } from '../components/VisitaCard'
+import MarcaSelect from '../components/MarcaSelect'
+import { ESTADOS_MAQUINA, ESTADO_LABELS, FREQUENCIAS_USO, getMarcasPorTipo, marcasDoTipo } from '../lib/maquinaOpcoes'
+import { getMarcasDropdown } from '../lib/catalogoSupabase'
 
 const EMPTY_FORM = {
   propriedade_id: '',
@@ -49,7 +52,7 @@ export default function Visitas() {
   const [showNovaPessoa, setShowNovaPessoa] = useState(false)
   const [novaPessoa, setNovaPessoa] = useState({ nome: '', cargo: '', telefone: '' })
   const [showNovaMaquina, setShowNovaMaquina] = useState(false)
-  const [novaMaquina, setNovaMaquina] = useState({ tipo: 'Trator Novo', marca: 'New Holland', modelo: '', tamanho: '' })
+  const [novaMaquina, setNovaMaquina] = useState({ tipo: 'Trator Novo', marca: '', modelo: '', tamanho: '', estado: 'bom', frequencia_uso: '' })
   const [showNovoCliente, setShowNovoCliente] = useState(false)
   const [novoCliente, setNovoCliente] = useState({ nome_cliente: '', nome_propriedade: '', cidade: '', telefone: '', cultura_principal: '', cultura_secundaria: '' })
   const [showOutraProp, setShowOutraProp] = useState(false)
@@ -66,6 +69,10 @@ export default function Visitas() {
   const [form, setForm] = useState({ ...EMPTY_FORM })
 
   useEffect(() => { carregar() }, [])
+  // Marcas do cadastro rápido de máquina, filtradas pelo tipo (cache offline).
+  const [marcasOpcoes, setMarcasOpcoes] = useState([])
+  const [marcasPorTipo, setMarcasPorTipo] = useState([])
+  useEffect(() => { getMarcasDropdown().then(setMarcasOpcoes); getMarcasPorTipo().then(setMarcasPorTipo) }, [])
 
   // Pré-vínculo vindo da aba Negócios ("Registrar visita"): abre o check-in já
   // com a propriedade selecionada e o negócio vinculado, pronto pra atualizar.
@@ -1112,22 +1119,27 @@ export default function Visitas() {
                 <div className="bg-slate-50 rounded-lg p-3 mb-2 space-y-2 animate-slide-up">
                   <select
                     value={novaMaquina.tipo}
-                    onChange={(e) => setNovaMaquina({ ...novaMaquina, tipo: e.target.value })}
+                    onChange={(e) => {
+                      const tipo = e.target.value
+                      const lista = marcasDoTipo(tipo, marcasPorTipo, marcasOpcoes)
+                      const manter = !lista || lista.includes(novaMaquina.marca)
+                      setNovaMaquina({ ...novaMaquina, tipo, ...(manter ? {} : { marca: '' }) })
+                    }}
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                   >
                     {TIPOS_PRODUTO.map((t) => (
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
-                  <select
+                  <MarcaSelect
+                    tipo={novaMaquina.tipo}
                     value={novaMaquina.marca}
-                    onChange={(e) => setNovaMaquina({ ...novaMaquina, marca: e.target.value })}
+                    onChange={(v) => setNovaMaquina({ ...novaMaquina, marca: v })}
+                    marcas={marcasOpcoes}
+                    porTipo={marcasPorTipo}
+                    fallback={MARCAS}
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
-                  >
-                    {MARCAS.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
+                  />
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       value={novaMaquina.modelo}
@@ -1142,9 +1154,32 @@ export default function Visitas() {
                       className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                     />
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-xs text-slate-500">
+                      Estado de uso
+                      <select
+                        value={novaMaquina.estado}
+                        onChange={(e) => setNovaMaquina({ ...novaMaquina, estado: e.target.value })}
+                        className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white text-slate-900"
+                      >
+                        {ESTADOS_MAQUINA.map((e) => <option key={e} value={e}>{ESTADO_LABELS[e]}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-xs text-slate-500">
+                      Frequência de uso
+                      <select
+                        value={novaMaquina.frequencia_uso}
+                        onChange={(e) => setNovaMaquina({ ...novaMaquina, frequencia_uso: e.target.value })}
+                        className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white text-slate-900"
+                      >
+                        <option value="">—</option>
+                        {FREQUENCIAS_USO.map((f) => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                    </label>
+                  </div>
                   <button
                     type="button"
-                    disabled={!novaMaquina.modelo.trim()}
+                    disabled={!novaMaquina.modelo.trim() || !novaMaquina.marca}
                     onClick={async () => {
                       const maqId = await saveRecord('maquinas', {
                         propriedade_id: parseInt(form.propriedade_id),
@@ -1155,7 +1190,8 @@ export default function Visitas() {
                         ano: null,
                         numero_serie: '',
                         horimetro: null,
-                        estado: 'bom',
+                        estado: novaMaquina.estado,
+                        frequencia_uso: novaMaquina.frequencia_uso || null,
                         observacoes: '',
                         created_at: new Date().toISOString(),
                       })
@@ -1163,7 +1199,7 @@ export default function Visitas() {
                       const novasMaquinas = await getByIndex('maquinas', 'propriedade_id', form.propriedade_id)
                       setMaquinasDisp(novasMaquinas)
                       setForm((f) => ({ ...f, maquina_ids: [...f.maquina_ids, maqId] }))
-                      setNovaMaquina({ tipo: 'Trator Novo', marca: 'New Holland', modelo: '', tamanho: '' })
+                      setNovaMaquina({ tipo: 'Trator Novo', marca: '', modelo: '', tamanho: '', estado: 'bom', frequencia_uso: '' })
                       setShowNovaMaquina(false)
                     }}
                     className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
