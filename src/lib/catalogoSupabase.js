@@ -940,10 +940,11 @@ export async function salvarProdutoCatalogo(produto, supervisorId) {
   await garantirSessaoSupervisor()
   // Ficha nova: garante slug único pra não bater na constraint UNIQUE.
   const slug = produto.id ? produto.slug : await gerarSlugUnico(produto.slug, null)
-  const payload = { ...produto, slug, updated_at: new Date().toISOString(), updated_by: supervisorId }
-  const { data, error } = await supabase
-    .from('catalogo_produtos')
-    .upsert(payload)
+  const { id, ...payload } = { ...produto, slug, updated_at: new Date().toISOString(), updated_by: supervisorId }
+  // Ficha existente → UPDATE. Upsert valida NOT NULL como INSERT antes do conflito,
+  // então um payload parcial (ex.: só `visivel` no olho do card) quebrava em marca_id.
+  const tabela = supabase.from('catalogo_produtos')
+  const { data, error } = await (id ? tabela.update(payload).eq('id', id) : tabela.insert(payload))
     .select()
     .single()
   if (error) {
@@ -953,7 +954,7 @@ export async function salvarProdutoCatalogo(produto, supervisorId) {
     throw error
   }
   clearCatalogoCache()
-  registrarLogSupervisor(produto.id ? 'alterar' : 'criar', 'ficha', data.id, data.titulo)
+  registrarLogSupervisor(id ? 'alterar' : 'criar', 'ficha', data.id, data.titulo)
   return data
 }
 

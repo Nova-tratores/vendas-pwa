@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { getProdutosCatalogo, getMarcas, getEstoqueAtual, formatBRL, CATEGORIAS } from '../lib/catalogoSupabase'
 import PullToRefresh from '../components/PullToRefresh'
 
 export default function Catalogo() {
+  const noSupervisor = useLocation().pathname.startsWith('/supervisor')
   const [filtroCat, setFiltroCat] = useState('todos')
   const [filtroMarca, setFiltroMarca] = useState('todas')
   const [busca, setBusca] = useState('')
@@ -93,12 +94,15 @@ export default function Catalogo() {
             <p className="text-sm text-slate-500">{produtos.length} no portfólio · {estoque.length} na loja</p>
           </div>
           <div className="shrink-0 flex flex-col gap-1.5">
-            <Link
-              to="/showroom"
-              className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium text-center active:scale-[0.98] transition-transform"
-            >
-              ▶ Modo Showroom / TV
-            </Link>
+            {/* Showroom/TV só pelo painel do supervisor; no app do vendedor fica escondido. */}
+            {noSupervisor && (
+              <Link
+                to="/showroom"
+                className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium text-center active:scale-[0.98] transition-transform"
+              >
+                ▶ Modo Showroom / TV
+              </Link>
+            )}
             <Link
               to="../comparativo"
               className="px-3 py-2 rounded-lg bg-emerald-700 text-white text-xs font-medium text-center active:scale-[0.98] transition-transform"
