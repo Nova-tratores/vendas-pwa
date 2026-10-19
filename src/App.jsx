@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
+import { estaEmbutido } from './lib/embed'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import Clientes from './pages/Clientes'
@@ -52,6 +53,8 @@ function ProtectedRoute({ children }) {
 }
 
 function SupervisorRoute({ children }) {
+  // Embutido no portal: o SupervisorLayout busca a sessão no portal e confere o supervisor.
+  if (estaEmbutido()) return children
   const supervisor = localStorage.getItem('supervisor')
   if (!supervisor) return <Navigate to="/supervisor/login" replace />
   return children

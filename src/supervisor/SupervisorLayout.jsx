@@ -4,6 +4,8 @@ import { supabase } from '../lib/sync'
 import AjudaModal from '../components/AjudaModal'
 import TourBoasVindas from '../components/TourBoasVindas'
 import { AJUDA_SUPERVISOR, AJUDA_GERAL_SUPERVISOR, tourSupervisor, ajudaDaRota, tourJaVisto, marcarTourVisto } from '../lib/ajuda'
+import { estaEmbutido, pedirSessaoAoPortal, ouvirSessaoDoPortal } from '../lib/embed'
+import { buscarSupervisor, salvarSupervisor } from '../lib/supervisorAuth'
 
 const INICIO = { to: '/supervisor', label: 'Início', end: true }
 
@@ -59,7 +61,37 @@ export default function SupervisorLayout() {
   const menus = menusParaTipo(supervisor.tipo || 'admin')
   const [aberto, setAberto] = useState(null) // label do menu aberto
   const [ajudaAberta, setAjudaAberta] = useState(false)
-  const [tourAberto, setTourAberto] = useState(() => !tourJaVisto('supervisor', supervisor.id))
+  const embutido = estaEmbutido()
+  // Embutido no portal: 'aguardando' a sessão → 'ok' | 'sem-portal' | 'nao-supervisor'.
+  const [entrada, setEntrada] = useState(embutido ? 'aguardando' : 'ok')
+  const [tourAberto, setTourAberto] = useState(() => !embutido && !tourJaVisto('supervisor', supervisor.id))
+
+  useEffect(() => {
+    if (!embutido) return
+    let vivo = true
+    const pararDeOuvir = ouvirSessaoDoPortal(supabase.auth)
+    ;(async () => {
+      try {
+        const tokens = await pedirSessaoAoPortal()
+        const { data, error } = await supabase.auth.setSession(tokens)
+        if (error || !data?.user) throw error || new Error('sessão sem usuário')
+        const sup = await buscarSupervisor(data.user.id)
+        if (!vivo) return
+        if (!sup) {
+          localStorage.removeItem('supervisor')
+          setEntrada('nao-supervisor')
+          return
+        }
+        salvarSupervisor(sup)
+        setTourAberto(!tourJaVisto('supervisor', sup.id))
+        setEntrada('ok')
+      } catch (e) {
+        console.error('[Embed] sessão do portal:', e)
+        if (vivo) setEntrada('sem-portal')
+      }
+    })()
+    return () => { vivo = false; pararDeOuvir() }
+  }, [embutido])
 
   function fimDoTour() {
     marcarTourVisto('supervisor', supervisor.id)
@@ -71,6 +103,8 @@ export default function SupervisorLayout() {
   // então sem isso o token vencia "sozinho". Com isso, o login só cai mesmo no logout
   // (enquanto o refresh token estiver válido).
   useEffect(() => {
+    // Embutido: quem renova é o portal (renovar aqui o deslogaria).
+    if (embutido) return
     const renovar = () => {
       if (document.visibilityState === 'visible') supabase.auth.refreshSession()
     }
@@ -81,7 +115,7 @@ export default function SupervisorLayout() {
       document.removeEventListener('visibilitychange', renovar)
       window.removeEventListener('focus', renovar)
     }
-  }, [])
+  }, [embutido])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -92,6 +126,19 @@ export default function SupervisorLayout() {
   const path = location.pathname
   const inicioAtivo = path === INICIO.to
   const menuAtivo = (m) => m.items.some((i) => path === i.to)
+
+  if (entrada !== 'ok') {
+    const textos = {
+      aguardando: 'Conectando ao portal…',
+      'sem-portal': 'Não foi possível entrar com o login do portal. Recarregue a página.',
+      'nao-supervisor': 'Seu usuário não está cadastrado como supervisor no app de vendas. Peça o acesso ao administrador.',
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+        <p className="text-sm text-slate-600 text-center max-w-sm">{textos[entrada]}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -107,12 +154,15 @@ export default function SupervisorLayout() {
             <span className="w-4 h-4 rounded-full border border-white/70 text-[10px] font-bold leading-none flex items-center justify-center">?</span>
             Ajuda
           </button>
-          <button
-            onClick={handleLogout}
-            className="text-xs bg-slate-700 px-2 py-1 rounded active:bg-slate-600"
-          >
-            Sair
-          </button>
+          {/* Embutido: sem Sair — signOut() global revogaria a sessão do portal. */}
+          {!embutido && (
+            <button
+              onClick={handleLogout}
+              className="text-xs bg-slate-700 px-2 py-1 rounded active:bg-slate-600"
+            >
+              Sair
+            </button>
+          )}
         </div>
       </header>
 

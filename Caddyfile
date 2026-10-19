@@ -9,5 +9,9 @@ header @assets Cache-Control "public, max-age=31536000, immutable"
 @sw path /sw.js /registerSW.js /workbox-*.js /manifest.webmanifest
 header @sw Cache-Control "no-cache"
 
+# Painel do supervisor: só o próprio app e o portal podem embutir (anti-clickjacking).
+@supervisor path /supervisor /supervisor/*
+header @supervisor Content-Security-Policy "frame-ancestors 'self' https://portal.novatratores.com"
+
 try_files {path} /index.html
 file_server

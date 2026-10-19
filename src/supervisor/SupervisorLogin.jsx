@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/sync'
+import { estaEmbutido } from '../lib/embed'
+import { buscarSupervisor, salvarSupervisor } from '../lib/supervisorAuth'
 
 export default function SupervisorLogin() {
   const navigate = useNavigate()
@@ -22,25 +24,12 @@ export default function SupervisorLogin() {
 
       if (authError) throw new Error('Email ou senha inválidos')
 
-      // Verificar se é supervisor
-      const { data: sup, error: supError } = await supabase
-        .from('supervisores')
-        .select('*')
-        .eq('auth_uid', authData.user.id)
-        .eq('ativo', true)
-        .single()
-
-      if (supError || !sup) {
+      const sup = await buscarSupervisor(authData.user.id)
+      if (!sup) {
         await supabase.auth.signOut()
         throw new Error('Usuário não é supervisor ou está inativo')
       }
-
-      localStorage.setItem('supervisor', JSON.stringify({
-        id: sup.id,
-        nome: sup.nome,
-        email: sup.email,
-        tipo: sup.tipo || 'admin',
-      }))
+      salvarSupervisor(sup)
 
       navigate('/supervisor')
     } catch (err) {
@@ -49,6 +38,9 @@ export default function SupervisorLogin() {
       setLoading(false)
     }
   }
+
+  // Embutido no portal não há formulário: o painel entra com a sessão do portal.
+  if (estaEmbutido()) return <Navigate to="/supervisor" replace />
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-800 px-4">

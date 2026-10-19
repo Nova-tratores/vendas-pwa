@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { estaEmbutido } from './embed'
 import {
   getAllRecords, getPendingRecords, markAsSynced, saveRecord, deleteRecord,
   getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs, registrarLog,
@@ -11,9 +12,12 @@ export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
   {
+    // Embutido no portal: a sessão é emprestada do portal (embed.js). Não
+    // persistir nem auto-renovar — renovar aqui rotacionaria o refresh token
+    // do portal e o deslogaria.
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+      persistSession: !estaEmbutido(),
+      autoRefreshToken: !estaEmbutido(),
       detectSessionInUrl: true,
     },
   }

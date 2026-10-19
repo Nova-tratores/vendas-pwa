@@ -3,6 +3,7 @@
 
 import { supabase } from './sync'
 import { registrarLogSupervisor } from './auditoria'
+import { estaEmbutido, renovarSessao } from './embed'
 
 // Cache em memoria por sessao (evita refetch a cada navegacao)
 const cache = new Map()
@@ -13,6 +14,14 @@ const cache = new Map()
  * vencer; se não houver sessão, lança um erro amigável em vez do RLS críptico.
  */
 async function garantirSessaoSupervisor() {
+  // Embutido no portal: token sempre novo vindo do portal; nunca renovar aqui.
+  if (estaEmbutido()) {
+    const res = await renovarSessao(supabase.auth).catch(() => null)
+    if (!res?.data?.session) {
+      throw new Error('Não foi possível obter a sessão do portal. Recarregue a página.')
+    }
+    return
+  }
   let { data: { session } } = await supabase.auth.getSession()
   // Sem sessão: tenta uma última renovação (refresh token ainda pode estar válido).
   if (!session) {
