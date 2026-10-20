@@ -10,6 +10,7 @@ import { AJUDA_VENDEDOR, AJUDA_GERAL_VENDEDOR, TOUR_VENDEDOR, ajudaDaRota, tourJ
 
 const navItems = [
   { to: '/dashboard', label: 'Início', icon: '🏠' },
+  { to: '/rota', label: 'Rota', icon: '🧭' },
   { to: '/agenda', label: 'Agenda', icon: '📅' },
   { to: '/clientes', label: 'Clientes', icon: '👤' },
   { to: '/catalogo', label: 'Catálogo', icon: '📦' },

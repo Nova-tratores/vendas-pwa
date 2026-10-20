@@ -17,6 +17,8 @@ import CatalogoComparativo from './pages/CatalogoComparativo'
 import Showroom from './pages/Showroom'
 import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
+import MinhaRota from './pages/MinhaRota'
+import PerfilTeste from './pages/PerfilTeste'
 import VisitasMapa from './pages/VisitasMapa'
 import VisitasCliente from './pages/VisitasCliente'
 import ChamadoVeicular from './pages/ChamadoVeicular'
@@ -130,6 +132,8 @@ export default function App() {
         <Route path="comparativo" element={<CatalogoComparativo />} />
         <Route path="agenda" element={<Agenda />} />
         <Route path="mapa" element={<MapaClientes />} />
+        <Route path="rota" element={<MinhaRota />} />
+        <Route path="perfil-teste" element={<PerfilTeste />} />
       </Route>
 
       {/* Supervisor */}
