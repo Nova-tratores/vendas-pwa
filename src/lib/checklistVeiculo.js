@@ -21,7 +21,11 @@ async function chamar(init = {}, query = '') {
     headers: { ...(init.headers || {}), Authorization: `Bearer ${await token()}` },
   })
   const json = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(json.error || `Falha (${res.status})`)
+  if (!res.ok) {
+    const e = new Error(json.error || `Falha (${res.status})`)
+    e.dados = json // ex.: { refazer: true } quando a IA não aceita a foto do pneu
+    throw e
+  }
   return json
 }
 
@@ -34,7 +38,7 @@ export const iniciarChecklist = (placa, km, loc) => chamar({
   body: JSON.stringify({ action: 'iniciar', placa, km, loc }),
 })
 
-export function salvarItem({ checklistId, item, resposta, observacao, foto }) {
+export function salvarItem({ checklistId, item, resposta, observacao, foto, forcar = false }) {
   const fd = new FormData()
   fd.append('action', 'salvar_item')
   fd.append('checklist_id', checklistId)
@@ -44,6 +48,7 @@ export function salvarItem({ checklistId, item, resposta, observacao, foto }) {
   fd.append('resposta', resposta)
   fd.append('observacao', observacao || '')
   if (foto) fd.append('foto', foto, `${item.key}.jpg`)
+  if (forcar) fd.append('forcar', '1')
   return chamar({ method: 'POST', body: fd })
 }
 

@@ -41,6 +41,8 @@ export default function ChecklistVeiculo() {
   const [fotoPrev, setFotoPrev] = useState('')
   const [resposta, setResposta] = useState('')
   const [obs, setObs] = useState('')
+  // foto de pneu que a conferência automática (IA) não aceitou
+  const [iaRecusa, setIaRecusa] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [resultado, setResultado] = useState(null)
 
@@ -80,6 +82,7 @@ export default function ChecklistVeiculo() {
     setResposta(s?.resposta || '')
     setObs(s?.observacao || '')
     setFoto(null)
+    setIaRecusa('')
     setFotoPrev(s?.foto_url || '')
     setErro('')
     window.scrollTo(0, 0)
@@ -109,18 +112,20 @@ export default function ChecklistVeiculo() {
     try {
       const blob = await capturarFoto()
       setFoto(blob)
+      setIaRecusa('')
       setFotoPrev(URL.createObjectURL(blob))
       setErro('')
     } catch { /* cancelou */ }
   }
 
-  async function salvar() {
+  async function salvar(forcar = false) {
     const it = items[idx]
     const msg = erroDoItem({ temFoto: !!(foto || salvos[it.key]?.foto_url), resposta, observacao: obs })
     if (msg) { setErro(msg); return }
     setOcupado(true); setErro('')
     try {
-      const r = await salvarItem({ checklistId, item: it, resposta, observacao: obs, foto })
+      const r = await salvarItem({ checklistId, item: it, resposta, observacao: obs, foto, forcar })
+      setIaRecusa('')
       const mapa = {
         ...salvos,
         [it.key]: { ...salvos[it.key], item_key: it.key, resposta, observacao: obs, foto_url: r.foto_url || salvos[it.key]?.foto_url },
@@ -129,7 +134,8 @@ export default function ChecklistVeiculo() {
       if (idx < items.length - 1) mostrarItem(idx + 1, mapa)
       else setFase('resumo')
     } catch (e) {
-      setErro(e.message)
+      if (e.dados?.refazer) setIaRecusa(e.message)
+      else setErro(e.message)
     } finally {
       setOcupado(false)
     }
@@ -339,6 +345,16 @@ export default function ChecklistVeiculo() {
         </div>
 
         {avisoErro}
+        {iaRecusa && (
+          <div className="text-xs bg-amber-50 text-amber-800 border border-amber-300 rounded-lg p-3 mb-3">
+            <p><b>A conferência automática não aceitou esta foto:</b> {iaRecusa}</p>
+            <p className="mt-1">
+              Tire outra foto. Se a foto está certa,{' '}
+              <button type="button" onClick={() => salvar(true)} disabled={ocupado} className="font-bold underline">envie assim mesmo</button>
+              {' '}(fica marcado para o gestor conferir).
+            </p>
+          </div>
+        )}
         <div className="flex gap-2">
           {idx > 0 && (
             <button type="button" onClick={() => mostrarItem(idx - 1)} disabled={ocupado}
@@ -346,7 +362,7 @@ export default function ChecklistVeiculo() {
               ← Anterior
             </button>
           )}
-          <button type="button" onClick={salvar} disabled={ocupado}
+          <button type="button" onClick={() => salvar()} disabled={ocupado}
             className="flex-1 bg-blue-700 text-white py-3 rounded-xl font-bold text-sm disabled:opacity-50">
             {ocupado ? 'Salvando…' : idx < items.length - 1 ? 'Salvar e seguir' : 'Salvar e ver resumo'}
           </button>
