@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Printer, ExternalLink } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { getMetricasPorVendedor } from '../lib/supabaseQueries'
 import { tempoRelativo, diasDesde } from '../lib/tempo'
@@ -63,9 +64,9 @@ export default function SupervisorVendedores() {
         <div className="relative">
           <button
             onClick={() => setMenuImpressao((m) => !m)}
-            className="bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
+            className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
           >
-            🖨️ Imprimir
+            <Printer size={16} /> Imprimir
           </button>
           {menuImpressao && (
             <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-lg border border-slate-200 z-20 overflow-hidden w-44">
@@ -166,7 +167,7 @@ export default function SupervisorVendedores() {
                           onClick={(e) => e.stopPropagation()}
                           className="text-blue-700 font-medium"
                         >
-                          ver no mapa ↗
+                          ver no mapa <ExternalLink size={12} className="inline-block align-[-2px]" />
                         </a>
                       ) : (
                         <span className="text-slate-400">—</span>

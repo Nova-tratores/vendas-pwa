@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import { estaEmbutido } from './lib/embed'
@@ -19,11 +19,25 @@ import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
 import MinhaRota from './pages/MinhaRota'
 import PerfilTeste from './pages/PerfilTeste'
+import TesteModulos from './pages/TesteModulos' // página de teste (organização do app)
 import VisitasMapa from './pages/VisitasMapa'
 import VisitasCliente from './pages/VisitasCliente'
 import ChamadoVeicular from './pages/ChamadoVeicular'
 import ChecklistVeiculo from './pages/ChecklistVeiculo'
 import Notificacoes from './pages/Notificacoes'
+import Perfil from './pages/Perfil'
+const IVLayout = lazy(() => import('./pages/iv/IVLayout'))
+const IVNoticias = lazy(() => import('./pages/iv/Noticias'))
+const IVOportunidades = lazy(() => import('./pages/iv/Oportunidades'))
+const IVProspeccao = lazy(() => import('./pages/iv/Prospeccao'))
+const IVRetorno = lazy(() => import('./pages/iv/Retorno'))
+const IVCalculadora = lazy(() => import('./pages/iv/Calculadora'))
+const IVIndicacoes = lazy(() => import('./pages/iv/Indicacoes'))
+const IVConcorrencia = lazy(() => import('./pages/iv/Concorrencia'))
+const IVMunicipios = lazy(() => import('./pages/iv/Municipios'))
+const IVEmpresas = lazy(() => import('./pages/iv/Empresas'))
+const IVEquipe = lazy(() => import('./pages/iv/Equipe'))
+const IVCliente = lazy(() => import('./pages/iv/Cliente'))
 
 // Supervisor
 import SupervisorLogin from './supervisor/SupervisorLogin'
@@ -95,6 +109,7 @@ export default function App() {
     <Routes>
       {/* Vendedor */}
       <Route path="/login" element={<Login />} />
+      <Route path="/teste-modulos" element={<TesteModulos />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Showroom / TV (tela cheia, sem o chrome do Layout) */}
@@ -134,6 +149,22 @@ export default function App() {
         <Route path="mapa" element={<MapaClientes />} />
         <Route path="rota" element={<MinhaRota />} />
         <Route path="perfil-teste" element={<PerfilTeste />} />
+        <Route path="perfil" element={<Perfil />} />
+        {/* Inteligência de Vendas (mesmas telas do Portal) — abas em lib/iv/telas.js */}
+        <Route path="inteligencia" element={<Suspense fallback={<div className="py-16 text-center text-sm text-slate-400">Carregando…</div>}><IVLayout /></Suspense>}>
+          <Route index element={<Navigate to="noticias" replace />} />
+          <Route path="noticias" element={<IVNoticias />} />
+          <Route path="oportunidades" element={<IVOportunidades />} />
+          <Route path="prospeccao" element={<IVProspeccao />} />
+          <Route path="retorno" element={<IVRetorno />} />
+          <Route path="calculadora" element={<IVCalculadora />} />
+          <Route path="indicacoes" element={<IVIndicacoes />} />
+          <Route path="concorrencia" element={<IVConcorrencia />} />
+          <Route path="municipios" element={<IVMunicipios />} />
+          <Route path="empresas" element={<IVEmpresas />} />
+          <Route path="equipe" element={<IVEquipe />} />
+          <Route path="cliente/:id" element={<IVCliente />} />
+        </Route>
       </Route>
 
       {/* Supervisor */}

@@ -5,6 +5,10 @@ import { getConfig } from '../lib/supabaseQueries'
 import { STATUS_EM_ANDAMENTO, isAberto } from '../lib/funil'
 import { diasDesde } from '../lib/tempo'
 import { completudePropriedade, FALTA_INFO } from '../lib/completude'
+import Icone from '../components/Icone'
+import { Calendar, ClipboardList, Clock, Hourglass, MapPin, Plus, TriangleAlert, Users, Wallet } from 'lucide-react'
+import RotaHoje from '../components/inicio/RotaHoje'
+import { Atalhos, ClimaMini, FeedHoje, NoticiasHoje, PlanoSafraFaixa, TituloBloco } from '../components/inicio/blocos'
 import { contatoVigentePorPropriedade } from '../lib/agenda'
 
 // Lê o X dias de lembrete: online busca da config e cacheia; offline usa o cache.
@@ -131,160 +135,154 @@ export default function Dashboard() {
     return 'Boa noite'
   }
 
+  const dataHoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const totalPendencias = dados.contatosAtrasados.length + (dados.negociosParaAtualizar?.length || 0)
+
   return (
     <div>
-      <p className="text-sm text-slate-500 mb-1">{saudacao()},</p>
-      <h2 className="text-xl font-bold mb-4">{vendedor.nome || 'Vendedor'}</h2>
+      {/* Topo: saudação, clima e os números de visitas */}
+      <section
+        className="ini-entra -mx-4 -mt-4 mb-4 px-4 pt-4 pb-5 text-white rounded-b-3xl"
+        style={{ background: 'linear-gradient(135deg, #DC2626, #7F1D1D)' }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm opacity-85 capitalize">{saudacao()} · {dataHoje}</p>
+            <h2 className="text-xl font-bold truncate">{vendedor.nome || 'Vendedor'}</h2>
+          </div>
+        </div>
+        <div className="mt-3"><ClimaMini /></div>
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          {[['Hoje', dados.visitasHoje], ['Semana', dados.visitasSemana], ['Mês', dados.visitasMes]].map(([rot, v]) => (
+            <button key={rot} onClick={() => navigate('/visitas')} className="bg-white/15 backdrop-blur rounded-xl py-2.5 text-center active:bg-white/25">
+              <p className="text-2xl font-bold leading-none">{v}</p>
+              <p className="text-[11px] opacity-85 mt-1">visitas · {rot.toLowerCase()}</p>
+            </button>
+          ))}
+        </div>
+        {totalPendencias > 0 && (
+          <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold bg-white/20 rounded-full px-3 py-1">
+            <TriangleAlert size={13} aria-hidden="true" /> {totalPendencias} pendência{totalPendencias > 1 ? 's' : ''} para hoje — veja abaixo
+          </p>
+        )}
+      </section>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <div className="bg-blue-600 text-white rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold">{dados.visitasHoje}</p>
-          <p className="text-[10px] opacity-80">Hoje</p>
-        </div>
-        <div className="bg-blue-500 text-white rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold">{dados.visitasSemana}</p>
-          <p className="text-[10px] opacity-80">Semana</p>
-        </div>
-        <div className="bg-blue-400 text-white rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold">{dados.visitasMes}</p>
-          <p className="text-[10px] opacity-80">Mês</p>
-        </div>
-      </div>
-
+      {/* Carteira: pipeline e clientes */}
       <div className="grid grid-cols-2 gap-2 mb-4">
-        <div
-          className="bg-green-600 text-white rounded-xl p-3 cursor-pointer active:bg-green-700"
-          onClick={() => navigate('/negocios')}
-        >
-          <p className="text-lg font-bold">R$ {dados.pipeline.toLocaleString('pt-BR')}</p>
-          <p className="text-[10px] opacity-80">Pipeline ({dados.negociosAbertos} abertos)</p>
-        </div>
-        <div
-          className="bg-slate-600 text-white rounded-xl p-3 cursor-pointer active:bg-slate-700"
-          onClick={() => navigate('/clientes')}
-        >
-          <p className="text-lg font-bold">{dados.totalClientes}</p>
-          <p className="text-[10px] opacity-80">Clientes ({dados.totalPropriedades} prop.)</p>
-        </div>
+        <button onClick={() => navigate('/negocios')} className="text-left bg-white border border-slate-200 rounded-2xl p-3 active:bg-slate-50">
+          <p className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 uppercase"><Wallet size={13} aria-hidden="true" /> Pipeline</p>
+          <p className="text-lg font-bold text-emerald-700 mt-1">R$ {dados.pipeline.toLocaleString('pt-BR')}</p>
+          <p className="text-[11px] text-slate-500">{dados.negociosAbertos} negócio{dados.negociosAbertos === 1 ? '' : 's'} aberto{dados.negociosAbertos === 1 ? '' : 's'}</p>
+        </button>
+        <button onClick={() => navigate('/clientes')} className="text-left bg-white border border-slate-200 rounded-2xl p-3 active:bg-slate-50">
+          <p className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 uppercase"><Users size={13} aria-hidden="true" /> Clientes</p>
+          <p className="text-lg font-bold text-slate-900 mt-1">{dados.totalClientes}</p>
+          <p className="text-[11px] text-slate-500">{dados.totalPropriedades} propriedade{dados.totalPropriedades === 1 ? '' : 's'}</p>
+        </button>
       </div>
 
-      {/* Atalho rápido */}
       <button
         onClick={() => navigate('/visitas')}
-        className="w-full bg-blue-700 text-white py-3 rounded-xl font-medium text-sm mb-4 active:bg-blue-800"
+        className="w-full inline-flex items-center justify-center gap-2 bg-blue-700 text-white py-3 rounded-2xl font-semibold text-sm mb-4 shadow-sm active:bg-blue-800"
       >
-        + Nova Visita
+        <Plus size={18} aria-hidden="true" /> Nova visita
       </button>
+
+      <Atalhos />
+
+      {/* Rota de hoje: mapa + paradas, mexe direto aqui */}
+      <RotaHoje />
+
+      {/* Feed do dia (Inteligência de Vendas) */}
+      <FeedHoje />
 
       {/* Contatos atrasados */}
       {dados.contatosAtrasados.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-bold text-red-600 uppercase mb-2">
-            Contatos atrasados ({dados.contatosAtrasados.length})
-          </p>
+        <section className="mb-5">
+          <TituloBloco icone={Clock} titulo={`Contatos atrasados (${dados.contatosAtrasados.length})`} />
           <div className="space-y-2">
             {dados.contatosAtrasados.slice(0, 3).map((v) => (
               <ContatoCard key={v.id} visita={v} atrasado onClick={() => navigate('/visitas')} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Negócios para atualizar (lembrete) */}
       {dados.negociosParaAtualizar?.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-bold text-amber-600 uppercase mb-2">
-            Negócios para atualizar ({dados.negociosParaAtualizar.length})
-          </p>
-          <div className="space-y-2">
+        <section className="mb-5">
+          <TituloBloco icone={Hourglass} titulo={`Negócios para atualizar (${dados.negociosParaAtualizar.length})`} acao="Negócios" onAcao={() => navigate('/negocios')} />
+          <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100">
             {dados.negociosParaAtualizar.slice(0, 5).map((n) => {
               const dias = diasDesde(n.updated_at || n.created_at)
               return (
-                <div
-                  key={n.id}
-                  onClick={() => navigate('/negocios')}
-                  className="rounded-xl shadow p-3 bg-amber-50 border-l-4 border-amber-400 cursor-pointer active:bg-amber-100"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{n.titulo || n.descricao || 'Negócio em andamento'}</p>
-                      {n.valor > 0 && (
-                        <p className="text-xs text-slate-500">R$ {Number(n.valor).toLocaleString('pt-BR')}</p>
-                      )}
-                    </div>
-                    <p className="text-xs font-bold text-amber-700 whitespace-nowrap ml-2">
-                      parado há {dias}d
-                    </p>
-                  </div>
-                </div>
+                <button key={n.id} onClick={() => navigate('/negocios')} className="w-full text-left flex items-center justify-between gap-2 p-3 active:bg-slate-50">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium truncate">{n.titulo || n.descricao || 'Negócio em andamento'}</span>
+                    {n.valor > 0 && <span className="block text-xs text-slate-500">R$ {Number(n.valor).toLocaleString('pt-BR')}</span>}
+                  </span>
+                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 rounded-full px-2 py-0.5 whitespace-nowrap">parado há {dias}d</span>
+                </button>
               )
             })}
           </div>
-        </div>
+        </section>
       )}
+
+      {/* Notícias do agro + Plano Safra */}
+      <NoticiasHoje />
+      <PlanoSafraFaixa />
 
       {/* Propriedades para completar (nudge de cadastro) */}
       {dados.propriedadesIncompletas?.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-bold text-indigo-600 uppercase mb-2">
-            Propriedades para completar ({dados.propriedadesIncompletas.length})
-          </p>
-          <p className="text-[11px] text-slate-500 mb-2">
+        <section className="mb-5">
+          <TituloBloco icone={ClipboardList} titulo={`Cadastros para completar (${dados.propriedadesIncompletas.length})`} />
+          <p className="text-[11px] text-slate-500 -mt-1 mb-2">
             {dados.totalCompletas} de {dados.totalPropriedades} propriedades completas
           </p>
-          <div className="space-y-2">
+          <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100">
             {dados.propriedadesIncompletas.slice(0, 5).map(({ prop, comp }) => {
               const primeiroFalta = comp.faltam[0]
               const rota = FALTA_INFO[primeiroFalta]?.rota(prop.id) || '/clientes'
               return (
-                <div
-                  key={prop.id}
-                  onClick={() => navigate(rota)}
-                  className="rounded-xl shadow p-3 bg-indigo-50 border-l-4 border-indigo-400 cursor-pointer active:bg-indigo-100"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium truncate min-w-0">{prop.nome_fantasia || prop.razao_social || prop.nome || 'Propriedade'}</p>
-                    <div className="flex gap-1 shrink-0">
-                      {comp.faltam.map((f) => (
-                        <span key={f} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white text-indigo-700 font-medium whitespace-nowrap">
-                          {FALTA_INFO[f]?.icon} {f}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <button key={prop.id} onClick={() => navigate(rota)} className="w-full text-left flex items-center justify-between gap-2 p-3 active:bg-slate-50">
+                  <span className="text-sm font-medium truncate min-w-0">{prop.nome_fantasia || prop.razao_social || prop.nome || 'Propriedade'}</span>
+                  <span className="flex gap-1 shrink-0">
+                    {comp.faltam.map((f) => (
+                      <span key={f} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium whitespace-nowrap">
+                        <Icone nome={FALTA_INFO[f]?.icon} size={12} /> {f}
+                      </span>
+                    ))}
+                  </span>
+                </button>
               )
             })}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Próximos contatos */}
       {dados.proximosContatos.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-bold text-slate-500 uppercase mb-2">Próximos contatos</p>
+        <section className="mb-5">
+          <TituloBloco icone={Calendar} titulo="Próximos contatos" acao="Agenda" onAcao={() => navigate('/agenda')} />
           <div className="space-y-2">
             {dados.proximosContatos.map((v) => (
               <ContatoCard key={v.id} visita={v} onClick={() => navigate('/visitas')} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Últimas visitas */}
       {dados.ultimasVisitas.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-slate-500 uppercase">Últimas visitas</p>
-            <button onClick={() => navigate('/visitas')} className="text-xs text-blue-600 font-medium">Ver todas</button>
-          </div>
+        <section>
+          <TituloBloco icone={MapPin} titulo="Últimas visitas" acao="Ver todas" onAcao={() => navigate('/visitas')} />
           <div className="space-y-2">
             {dados.ultimasVisitas.map((v) => (
               <UltimaVisitaCard key={v.id} visita={v} onClick={() => navigate('/visitas')} />
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   )
@@ -305,7 +303,7 @@ function ContatoCard({ visita, atrasado, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl shadow p-3 ${atrasado ? 'bg-red-50 border-l-4 border-red-400' : 'bg-white'} ${onClick ? 'cursor-pointer active:opacity-80' : ''}`}
+      className={`rounded-2xl border p-3 ${atrasado ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200'} ${onClick ? 'cursor-pointer active:opacity-80' : ''}`}
     >
       <div className="flex items-center justify-between">
         <div>
@@ -350,7 +348,7 @@ function UltimaVisitaCard({ visita, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-xl shadow p-3 ${onClick ? 'cursor-pointer active:opacity-80' : ''}`}
+      className={`bg-white border border-slate-200 rounded-2xl p-3 ${onClick ? 'cursor-pointer active:opacity-80' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium truncate">{clienteNome || '...'}</p>

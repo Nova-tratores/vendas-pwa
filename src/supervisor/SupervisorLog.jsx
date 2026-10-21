@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Plus, Pencil, Trash2, KeyRound } from 'lucide-react'
 import { getAuditLogs } from '../lib/auditoria'
 
 function hojeLocal() {
@@ -6,7 +7,7 @@ function hojeLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const ACAO_ICON = { criar: '➕', alterar: '✏️', excluir: '🗑️', login: '🔑' }
+const ACAO_ICON = { criar: Plus, alterar: Pencil, excluir: Trash2, login: KeyRound }
 const ENTIDADE_LABEL = {
   clientes: 'Cliente', propriedades: 'Propriedade', pessoas: 'Pessoa', maquinas: 'Máquina',
   visitas: 'Visita', negocios: 'Negócio', sessao: 'Login', midia: 'Mídia', ficha: 'Ficha catálogo',
@@ -97,7 +98,7 @@ export default function SupervisorLog() {
                     <span className="text-slate-400 tabular-nums shrink-0 w-12">
                       {new Date(l.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    <span className="shrink-0">{ACAO_ICON[l.acao] || '•'}</span>
+                    <span className="shrink-0 text-slate-500">{ACAO_ICON[l.acao] ? (() => { const Ic = ACAO_ICON[l.acao]; return <Ic size={14} className="inline-block align-[-2px]" /> })() : '•'}</span>
                     <span className="min-w-0">
                       <span className="font-medium text-slate-700">{ENTIDADE_LABEL[l.entidade] || l.entidade}</span>
                       {l.detalhes && <span className="text-slate-500"> · {l.detalhes}</span>}

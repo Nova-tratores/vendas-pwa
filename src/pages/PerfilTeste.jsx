@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/sync'
+import Icone from '../components/Icone'
 import { PERGUNTAS, PERFIS, TIPOS, resultadoTeste } from '../lib/rotaFeed'
 
 // Teste de perfil do vendedor (José, 20/10/2026): 8 perguntas rápidas definem quanto o
@@ -44,7 +45,7 @@ export default function PerfilTeste() {
     return (
       <div className="max-w-xl mx-auto animate-fade-in">
         <div className="rounded-3xl p-6 text-white text-center shadow-lg animate-scale-in" style={{ background: `linear-gradient(150deg, ${perfil.cor}, #0f172a)` }}>
-          <div className="text-6xl mb-2" style={{ animation: 'pt-pula 1.2s ease' }}>{perfil.icone}</div>
+          <div className="text-6xl mb-2" style={{ animation: 'pt-pula 1.2s ease', color: perfil.cor }}><Icone nome={perfil.icone} size={64} className="mx-auto" /></div>
           <p className="text-xs font-bold uppercase tracking-widest opacity-80">Seu perfil de vendedor</p>
           <h2 className="text-3xl font-black mt-1">{perfil.nome}</h2>
           <p className="mt-3 text-sm leading-relaxed opacity-95">{perfil.texto}</p>
@@ -53,7 +54,7 @@ export default function PerfilTeste() {
           <p className="text-sm font-bold mb-3">Como fica a sua rota</p>
           {Object.entries(res.mix).sort((a, b) => b[1] - a[1]).map(([t, v], k) => (
             <div key={t} className="mb-3">
-              <div className="flex justify-between text-sm mb-1"><span>{TIPOS[t].icone} {TIPOS[t].nome} <span className="text-slate-400">· {TIPOS[t].frase}</span></span><b style={{ color: TIPOS[t].cor }}>{Math.round(v * 100)}%</b></div>
+              <div className="flex justify-between text-sm mb-1"><span className="inline-flex items-center gap-1"><Icone nome={TIPOS[t].icone} size={14} /> {TIPOS[t].nome} <span className="text-slate-400">· {TIPOS[t].frase}</span></span><b style={{ color: TIPOS[t].cor }}>{Math.round(v * 100)}%</b></div>
               <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
                 <div className="h-full rounded-full" style={{ width: `${v * 100}%`, background: TIPOS[t].cor, transformOrigin: 'left', animation: `pt-barra .9s ${k * 0.15}s cubic-bezier(.2,.8,.2,1) both` }} />
               </div>

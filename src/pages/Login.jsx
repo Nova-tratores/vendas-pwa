@@ -138,8 +138,9 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-blue-800 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <img src="/logo-nova.png" alt="Nova Tratores" className="w-56 max-w-full mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-center text-blue-800 mb-1">
-          Vendas App
+          NT Vendas
         </h1>
         <p className="text-sm text-center text-slate-500 mb-6">Entrar como vendedor</p>
 

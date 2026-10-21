@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CircleCheck } from 'lucide-react'
 import { construirAlertas, getMensagens, marcarLido } from '../lib/notificacoes'
+import Icone from '../components/Icone'
 
 const URG_CLS = {
   alta: 'border-l-red-500',
@@ -69,7 +71,7 @@ export default function Notificacoes() {
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Avisos</h3>
           {alertas.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-4xl mb-2">✅</p>
+              <p className="mb-2 flex justify-center text-green-600"><CircleCheck size={40} aria-hidden="true" /></p>
               <p className="text-slate-400 text-sm">Tudo em dia, nenhum aviso.</p>
             </div>
           ) : (
@@ -81,7 +83,7 @@ export default function Notificacoes() {
                   className={`w-full text-left bg-white rounded-xl shadow p-3 border-l-4 ${URG_CLS[a.urgencia] || URG_CLS.baixa} active:bg-slate-50`}
                 >
                   <div className="flex items-start gap-2">
-                    <span className="text-xl">{a.icon}</span>
+                    <span className="text-slate-500 mt-0.5"><Icone nome={a.icon} size={18} /></span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{a.titulo}</p>
                       <p className="text-xs text-slate-500">{a.detalhe}</p>

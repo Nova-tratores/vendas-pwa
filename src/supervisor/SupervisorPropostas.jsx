@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Tractor } from 'lucide-react'
 import { getPropostas, marcarPropostaResolvida } from '../lib/supabaseQueries'
 import { statusLabel, statusColor } from '../lib/funil'
 import VendedorAvatar from '../components/VendedorAvatar'
@@ -75,7 +76,7 @@ export default function SupervisorPropostas() {
                   <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${statusColor(n.status)}`}>{statusLabel(n.status)}</span>
                 </div>
 
-                {maquina && <p className="text-sm text-slate-700 mt-2">🚜 {maquina}</p>}
+                {maquina && <p className="text-sm text-slate-700 mt-2"><Tractor size={16} className="inline-block align-[-2px] mr-1" />{maquina}</p>}
 
                 <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                   {fmtR$(p.valor_pretendido) && <p><span className="text-slate-400">Pretendido:</span> {fmtR$(p.valor_pretendido)}</p>}

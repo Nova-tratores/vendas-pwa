@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Flag, Car, TriangleAlert, Clock, X } from 'lucide-react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, Tooltip } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -336,16 +337,16 @@ export default function SupervisorMapa() {
                     <VendedorAvatar id={p.vendedor_id} nome={p.vendedor_nome} size={32} />
                     <div className="min-w-0">
                       <p className="font-bold text-sm leading-tight">
-                        {p.sinalizada && <span title="Sinalizada">🚩 </span>}{p.cliente_nome || '—'}
+                        {p.sinalizada && <span title="Sinalizada" className="text-red-600"><Flag size={14} className="inline-block align-[-2px] mr-1" /></span>}{p.cliente_nome || '—'}
                       </p>
                       <p className="text-slate-500 leading-tight">{p.propriedade_nome || '—'}</p>
                     </div>
                   </div>
                   <p className="text-slate-500 mt-1">{new Date(p.data_visita).toLocaleString('pt-BR')}</p>
                   <p className="capitalize text-slate-600 mt-0.5">{p.tipo}</p>
-                  {p.veiculo && <p className="mt-1 text-slate-700 font-medium">🚗 {p.veiculo}</p>}
+                  {p.veiculo && <p className="mt-1 text-slate-700 font-medium"><Car size={14} className="inline-block align-[-2px] mr-1" />{p.veiculo}</p>}
                   {p.resumo && <p className="mt-1 italic">{p.resumo.slice(0, 120)}{p.resumo.length > 120 ? '...' : ''}</p>}
-                  {p.acionar_pos_vendas && <p className="mt-1 text-orange-600 font-medium">⚠ Pós-vendas acionado</p>}
+                  {p.acionar_pos_vendas && <p className="mt-1 text-orange-600 font-medium"><TriangleAlert size={14} className="inline-block align-[-2px] mr-1" />Pós-vendas acionado</p>}
                   {/* Filtro por vendedor direto do popup */}
                   <button
                     type="button"
@@ -376,7 +377,7 @@ export default function SupervisorMapa() {
                 <span className="text-emerald-400">{fmtDuracao(rota.resumo.dirigindo_min)} dirigindo</span>
                 {rota.resumo.inicio && <span className="text-slate-400 font-medium">{fmtHora(rota.resumo.inicio)} – {fmtHora(rota.resumo.fim)}</span>}
                 {!timelineAberta && eventos.length > 0 && (
-                  <button type="button" onClick={() => setTimelineAberta(true)} className="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600">🕒 timeline</button>
+                  <button type="button" onClick={() => setTimelineAberta(true)} className="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600 inline-flex items-center gap-1"><Clock size={12} /> timeline</button>
                 )}
               </>
             )}
@@ -388,8 +389,8 @@ export default function SupervisorMapa() {
           <div className="absolute top-3 right-3 bottom-16 z-[1000] w-[min(320px,calc(100%-24px))] flex flex-col rounded-xl bg-white shadow-xl border border-slate-200">
             <div className="px-3 py-2 border-b border-slate-100">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-extrabold text-slate-800">🕒 TIMELINE — {fmtDia(rota.data)}</p>
-                <button type="button" onClick={() => setTimelineAberta(false)} className="text-slate-400 hover:text-slate-700 px-1" title="Fechar">✕</button>
+                <p className="text-sm font-extrabold text-slate-800 inline-flex items-center gap-1.5"><Clock size={14} /> TIMELINE — {fmtDia(rota.data)}</p>
+                <button type="button" onClick={() => setTimelineAberta(false)} className="text-slate-400 hover:text-slate-700 px-1" title="Fechar"><X size={16} /></button>
               </div>
               <p className="text-xs text-slate-500">
                 {carroSel?.vendedor_nome} · {carroSel?.placa_exibicao}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Check, RefreshCw, Camera } from 'lucide-react'
 import { getProdutosAdmin, salvarOverride, formatBRL, clearEstoqueCache } from '../lib/catalogoSupabase'
 import { supabase } from '../lib/sync'
 import MidiasEditor from './MidiasEditor'
@@ -29,7 +30,7 @@ function BotaoForceResync() {
         type="button"
         onClick={disparar}
         disabled={estado === 'enviando'}
-        className={`text-xs px-3 py-1.5 rounded font-medium ${
+        className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded font-medium ${
           estado === 'erro' ? 'bg-red-100 text-red-700'
           : estado === 'ok' ? 'bg-green-100 text-green-700'
           : 'bg-amber-50 text-amber-800 active:bg-amber-100'
@@ -37,8 +38,8 @@ function BotaoForceResync() {
         title="Limpa o cache de TODOS os vendedores ativos. Eles refazem pull no próximo open do app."
       >
         {estado === 'enviando' ? 'Enviando...'
-          : estado === 'ok' ? '✓ Enviado'
-          : '🔄 Forçar resync (todos)'}
+          : estado === 'ok' ? <><Check size={14} /> Enviado</>
+          : <><RefreshCw size={14} /> Forçar resync (todos)</>}
       </button>
       {msg && <p className={`text-[10px] mt-1 ${estado === 'erro' ? 'text-red-600' : 'text-slate-500'}`}>{msg}</p>}
     </div>
@@ -164,7 +165,7 @@ function ProdutoRow({ produto, editando, form, setForm, salvando, onEditar, onCa
           {p.imagem_url ? (
             <img src={p.imagem_url} alt="" className="w-full h-full object-contain" loading="lazy" />
           ) : (
-            <span className="text-2xl">📷</span>
+            <Camera size={24} className="text-slate-400" />
           )}
         </div>
         <div className="flex-1 min-w-0">

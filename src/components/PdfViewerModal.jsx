@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 // (o build moderno exige Promise.withResolvers, Chrome 119+).
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
+import { ExternalLink, FileText } from 'lucide-react'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -55,7 +56,7 @@ export default function PdfViewerModal({ url, titulo, onFechar }) {
   return (
     <div className="fixed inset-0 z-[70] bg-black/95 flex flex-col animate-fade-in">
       <div className="flex items-center justify-between gap-3 p-4 text-white shrink-0">
-        <span className="text-sm text-white/70 truncate">📄 {titulo || 'Folheto técnico'}{pdf ? ` · ${pdf.numPages} pág.` : ''}</span>
+        <span className="text-sm text-white/70 truncate"><FileText size={14} className="inline-block align-[-2px] mr-1" />{titulo || 'Folheto técnico'}{pdf ? ` · ${pdf.numPages} pág.` : ''}</span>
         <div className="flex items-center gap-2 shrink-0">
           {pdf && (
             <>
@@ -71,10 +72,10 @@ export default function PdfViewerModal({ url, titulo, onFechar }) {
       <div ref={areaRef} className="flex-1 overflow-auto px-3 pb-6">
         {erro ? (
           <div className="h-full flex flex-col items-center justify-center gap-4 text-center text-white/80 px-6">
-            <span className="text-5xl">📄</span>
+            <FileText size={48} />
             <p>Não consegui abrir o folheto aqui.</p>
-            <a href={url} target="_blank" rel="noopener noreferrer" className="px-5 py-3 rounded-xl bg-white/10 text-sm">
-              Abrir em nova aba ↗
+            <a href={url} target="_blank" rel="noopener noreferrer" className="px-5 py-3 rounded-xl bg-white/10 text-sm inline-flex items-center gap-1.5">
+              Abrir em nova aba <ExternalLink size={14} />
             </a>
           </div>
         ) : !pdf || !largura ? (

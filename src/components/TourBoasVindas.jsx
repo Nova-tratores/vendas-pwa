@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import Icone from './Icone'
+import { TextoComIcones } from './AjudaModal'
 
 // Tour de boas-vindas em cartões. Cada passo pode destacar um item do menu
 // de baixo (destaque = rota do NavLink) — quem renderiza o menu recebe o
@@ -33,9 +35,9 @@ export default function TourBoasVindas({ show, passos, onFim, onDestaque }) {
         aria-modal="true"
         aria-label="Tour de boas-vindas"
       >
-        <div className="text-5xl text-center mb-3" aria-hidden="true">{passo.icone}</div>
+        <div className="flex justify-center mb-3 text-blue-700" aria-hidden="true"><Icone nome={passo.icone} size={44} strokeWidth={1.75} /></div>
         <h3 className="font-bold text-lg text-slate-800 text-center mb-2">{passo.titulo}</h3>
-        <p className="text-sm text-slate-600 text-center">{passo.texto}</p>
+        <p className="text-sm text-slate-600 text-center"><TextoComIcones texto={passo.texto} /></p>
         {passo.destaque && (
           <p className="text-xs text-blue-700 text-center mt-3 font-medium">↓ Fica no menu aqui embaixo</p>
         )}

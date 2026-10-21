@@ -1,4 +1,17 @@
 import { useState, useEffect } from 'react'
+import Icone, { ICONES } from './Icone'
+
+// Texto da ajuda com ícones na linha: "toque no {Mic}" desenha o microfone.
+// Nome entre chaves que não está em ICONES fica como texto.
+export function TextoComIcones({ texto, size = 14 }) {
+  if (typeof texto !== 'string') return texto
+  return texto.split(/(\{[A-Za-z0-9]+\})/).map((p, i) => {
+    const nome = p.startsWith('{') ? p.slice(1, -1) : null
+    return nome && ICONES[nome]
+      ? <Icone key={i} nome={nome} size={size} className="align-[-0.15em] mx-0.5" />
+      : p
+  })
+}
 
 // Ajuda contextual da tela atual (botão "?" do header).
 // conteudo: { titulo, resumo, secoes: [{ titulo, tipo: 'passos'|'dicas', itens: [] }] }
@@ -40,7 +53,7 @@ export default function AjudaModal({ show, onClose, conteudo, geral = [], onRevi
 
         <div className="overflow-y-auto px-5 py-4 space-y-5">
           {conteudo?.resumo && (
-            <p className="text-sm text-slate-600">{conteudo.resumo}</p>
+            <p className="text-sm text-slate-600"><TextoComIcones texto={conteudo.resumo} /></p>
           )}
 
           {(conteudo?.secoes || []).map((s) => (
@@ -53,7 +66,7 @@ export default function AjudaModal({ show, onClose, conteudo, geral = [], onRevi
                       <span className="shrink-0 w-5 h-5 rounded-full bg-blue-700 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">
                         {i + 1}
                       </span>
-                      <span>{it}</span>
+                      <span><TextoComIcones texto={it} /></span>
                     </li>
                   ))}
                 </ol>
@@ -62,7 +75,7 @@ export default function AjudaModal({ show, onClose, conteudo, geral = [], onRevi
                   {s.itens.map((it, i) => (
                     <li key={i} className="flex gap-2 text-sm text-slate-700">
                       <span className="shrink-0 text-blue-700">•</span>
-                      <span>{it}</span>
+                      <span><TextoComIcones texto={it} /></span>
                     </li>
                   ))}
                 </ul>
@@ -81,11 +94,11 @@ export default function AjudaModal({ show, onClose, conteudo, geral = [], onRevi
                       className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-left text-slate-700 active:bg-slate-50"
                       aria-expanded={aberta === i}
                     >
-                      <span>{g.pergunta}</span>
+                      <span><TextoComIcones texto={g.pergunta} /></span>
                       <span className="text-slate-400 shrink-0">{aberta === i ? '−' : '+'}</span>
                     </button>
                     {aberta === i && (
-                      <p className="px-3 pb-3 text-sm text-slate-600 animate-fade-in">{g.resposta}</p>
+                      <p className="px-3 pb-3 text-sm text-slate-600 animate-fade-in"><TextoComIcones texto={g.resposta} /></p>
                     )}
                   </div>
                 ))}

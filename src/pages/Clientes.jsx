@@ -7,6 +7,7 @@ import { completudePropriedade } from '../lib/completude'
 import { contatoVigentePorPropriedade } from '../lib/agenda'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
+import { House } from 'lucide-react'
 
 const EMPTY_CLIENTE = { nome: '', documento: '', telefone: '', email: '', observacoes: '' }
 
@@ -269,7 +270,7 @@ export default function Clientes() {
 
       {listaFinal.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-4xl mb-3">🏡</p>
+          <p className="mb-3 flex justify-center text-slate-300"><House size={40} /></p>
           <p className="text-slate-400">{busca ? 'Nenhum resultado' : 'Nenhuma propriedade cadastrada'}</p>
         </div>
       ) : (

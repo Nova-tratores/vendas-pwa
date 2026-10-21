@@ -5,6 +5,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { getAllRecords } from '../lib/db'
 import { PERIODOS, dentroDoPeriodo } from '../lib/tempo'
+import { TriangleAlert } from 'lucide-react'
 
 // Fix icone padrao do leaflet (Vite quebra URLs default)
 delete L.Icon.Default.prototype._getIconUrl
@@ -16,7 +17,7 @@ L.Icon.Default.mergeOptions({
 
 function iconeTipo(tipo) {
   const cores = {
-    presencial: '#1e40af',
+    presencial: '#991b1b',
     mensagem:   '#16a34a',
     telefonema: '#d97706',
     email:      '#7c3aed',
@@ -166,7 +167,7 @@ export default function VisitasMapa() {
                       <p className="text-slate-500">{p.cliente_nome}</p>
                       <p className="mt-1 capitalize"><b>{p.tipo}</b> · {dataStr}</p>
                       {p.resumo && <p className="mt-1 italic">{p.resumo.slice(0, 120)}{p.resumo.length > 120 ? '...' : ''}</p>}
-                      {p.acionar_pos_vendas && <p className="mt-1 text-orange-600 font-medium">⚠ Pós-vendas acionado</p>}
+                      {p.acionar_pos_vendas && <p className="mt-1 text-orange-600 font-medium flex items-center gap-1"><TriangleAlert size={12} /> Pós-vendas acionado</p>}
                     </div>
                   </Popup>
                 </Marker>
@@ -177,7 +178,7 @@ export default function VisitasMapa() {
       </div>
 
       <div className="flex gap-3 mt-2 text-[11px] text-slate-500 justify-center flex-wrap">
-        <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#1e40af' }}/> Presencial</span>
+        <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#991b1b' }}/> Presencial</span>
         <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#16a34a' }}/> Mensagem</span>
         <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#d97706' }}/> Telefonema</span>
         <span><span className="inline-block w-3 h-3 rounded-full" style={{ background: '#7c3aed' }}/> E-mail</span>

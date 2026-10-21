@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Eye, EyeOff, Star, Clapperboard, FileText, Play, Hourglass, TriangleAlert } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import {
   getMidiasProduto, getMidiasCatalogoProduto, uploadMidia, deletarMidia, resizeFotoParaUpload,
@@ -197,7 +198,7 @@ export default function MidiasEditor({ codigoProduto, catalogoProdutoId, marca, 
 
       <p className="text-[10px] text-slate-400 mt-1">
         Arquivo: máx 25MB (foto/PDF), 100MB (vídeo). Vídeo do YouTube baixa em ~1-2 min.
-        👁 = libera pro vendedor · ⭐ = entra no reel do Showroom/TV.
+        <Eye size={12} className="inline-block align-[-2px]" /> = libera pro vendedor · <Star size={12} className="inline-block align-[-2px]" /> = entra no reel do Showroom/TV.
       </p>
 
       {erro && <p className="text-xs text-red-600 mt-2 bg-red-50 rounded p-2">{erro}</p>}
@@ -251,7 +252,7 @@ function origemCurta(url) {
 }
 
 function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaque }) {
-  const icone = midia.tipo === 'foto' ? null : midia.tipo === 'video' ? '🎬' : '📄'
+  const IconeTipo = midia.tipo === 'foto' ? null : midia.tipo === 'video' ? Clapperboard : FileText
   const baixando = midia.status === 'pendente' || midia.status === 'baixando'
   const erro = midia.status === 'erro'
   const videoPronto = midia.tipo === 'video' && midia.status === 'pronto'
@@ -263,7 +264,7 @@ function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaqu
   const conteudoThumb = midia.tipo === 'foto' && midia.url_publica ? (
     <img src={midia.url_publica} alt={midia.titulo || ''} className="w-full h-full object-cover" loading="lazy" />
   ) : (
-    <span className="text-2xl">{icone}</span>
+    <span className="text-slate-500">{IconeTipo && <IconeTipo size={28} />}</span>
   )
 
   return (
@@ -286,7 +287,7 @@ function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaqu
             className="absolute inset-0 w-full h-full object-cover pointer-events-none"
           />
           <span className="absolute inset-0 flex items-center justify-center">
-            <span className="w-8 h-8 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-sm shadow">▶</span>
+            <span className="w-8 h-8 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-sm shadow"><Play size={16} className="ml-0.5" fill="currentColor" /></span>
           </span>
         </button>
       ) : (
@@ -302,27 +303,27 @@ function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaqu
         </a>
       )}
 
-      {baixando && <span className="absolute inset-x-0 bottom-0 bg-amber-500/90 text-white text-[9px] text-center py-0.5">⏳ baixando</span>}
-      {erro && <span className="absolute inset-x-0 bottom-0 bg-red-600/90 text-white text-[9px] text-center py-0.5" title={midia.erro || ''}>⚠ erro</span>}
+      {baixando && <span className="absolute inset-x-0 bottom-0 bg-amber-500/90 text-white text-[9px] text-center py-0.5 inline-flex items-center justify-center gap-0.5"><Hourglass size={10} /> baixando</span>}
+      {erro && <span className="absolute inset-x-0 bottom-0 bg-red-600/90 text-white text-[9px] text-center py-0.5" title={midia.erro || ''}><span className="inline-flex items-center justify-center gap-0.5"><TriangleAlert size={10} /> erro</span></span>}
 
-      {/* Toggles do vídeo pronto: liberar vendedor (👁) e destaque no Showroom (⭐) */}
+      {/* Toggles do vídeo pronto: liberar vendedor (olho) e destaque no Showroom (estrela) */}
       {videoPronto && (
         <div className="absolute inset-x-0 bottom-0">
           <button
             type="button"
             onClick={onToggleVendedor}
             title={midia.visivel_vendedor ? 'Liberado pro vendedor (clique p/ esconder)' : 'Oculto do vendedor (clique p/ liberar)'}
-            className={`block w-full text-[9px] text-center py-0.5 ${midia.visivel_vendedor ? 'bg-green-600/90 text-white' : 'bg-slate-700/80 text-white'}`}
+            className={`flex w-full items-center justify-center gap-0.5 text-[9px] text-center py-0.5 ${midia.visivel_vendedor ? 'bg-green-600/90 text-white' : 'bg-slate-700/80 text-white'}`}
           >
-            {midia.visivel_vendedor ? '👁 liberado' : '🚫 oculto'}
+            {midia.visivel_vendedor ? <><Eye size={10} /> liberado</> : <><EyeOff size={10} /> oculto</>}
           </button>
           <button
             type="button"
             onClick={onToggleDestaque}
             title={midia.destaque_showroom ? 'No reel do Showroom (clique p/ tirar)' : 'Fora do reel (clique p/ destacar)'}
-            className={`block w-full text-[9px] text-center py-0.5 ${midia.destaque_showroom ? 'bg-amber-500/90 text-white' : 'bg-slate-500/70 text-white'}`}
+            className={`flex w-full items-center justify-center gap-0.5 text-[9px] text-center py-0.5 ${midia.destaque_showroom ? 'bg-amber-500/90 text-white' : 'bg-slate-500/70 text-white'}`}
           >
-            {midia.destaque_showroom ? '⭐ no Showroom' : '☆ Showroom'}
+            {midia.destaque_showroom ? <><Star size={10} fill="currentColor" /> no Showroom</> : <><Star size={10} /> Showroom</>}
           </button>
         </div>
       )}
@@ -348,7 +349,7 @@ function MidiaThumb({ midia, onPlay, onDelete, onToggleVendedor, onToggleDestaqu
           title={midia.origem_url}
           className="block text-[9px] text-red-600 truncate underline"
         >
-          ▶ {origemCurta(midia.origem_url)}
+          <Play size={9} className="inline-block align-[-1px] mr-0.5" />{origemCurta(midia.origem_url)}
         </a>
       )}
     </div>

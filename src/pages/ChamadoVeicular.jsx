@@ -3,11 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/sync'
 import { CHECKLISTS, getChecklist } from '../lib/checklists'
 import { acharPlaca } from '../lib/placas'
+import { Camera } from 'lucide-react'
+import Icone from '../components/Icone'
 
 const TIPOS = [
-  { key: 'corretiva', label: 'Manutenção Corretiva', icon: '🔧', desc: 'Algo quebrou / precisa de conserto' },
-  { key: 'preventiva', label: 'Manutenção Preventiva', icon: '🛡️', desc: 'Revisão / troca programada' },
-  { key: 'checklist', label: 'Efetuar Checklist', icon: '📋', desc: 'Vistoria do veículo' },
+  { key: 'corretiva', label: 'Manutenção Corretiva', icon: 'Wrench', desc: 'Algo quebrou / precisa de conserto' },
+  { key: 'preventiva', label: 'Manutenção Preventiva', icon: 'Shield', desc: 'Revisão / troca programada' },
+  { key: 'checklist', label: 'Efetuar Checklist', icon: 'ClipboardList', desc: 'Vistoria do veículo' },
 ]
 
 const STATUS_ITEM = [
@@ -168,7 +170,7 @@ export default function ChamadoVeicular() {
                   tipo === t.key ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-slate-700 border-slate-300'
                 }`}
               >
-                <span className="text-2xl">{t.icon}</span>
+                <Icone nome={t.icon} size={22} />
                 <div>
                   <p className="text-sm font-medium">{t.label}</p>
                   <p className={`text-xs ${tipo === t.key ? 'text-blue-100' : 'text-slate-400'}`}>{t.desc}</p>
@@ -205,7 +207,7 @@ export default function ChamadoVeicular() {
               }}
               className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-700 text-white text-left"
             >
-              <span className="text-2xl">📸</span>
+              <Camera size={22} className="shrink-0" />
               <div>
                 <p className="text-sm font-bold">Checklist Mensal completo</p>
                 <p className="text-xs text-blue-100">20 itens com foto — o mesmo dos técnicos. É o que conta na Frota.</p>

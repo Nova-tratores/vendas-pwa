@@ -6,6 +6,7 @@ import {
   listarMeusCarros, estadoDoCarro, iniciarChecklist, salvarItem, concluirChecklist,
   STATUS_MES, concluido, mapaSalvos, primeiroPendente, erroDoItem, kmValido, resumoItens,
 } from '../lib/checklistVeiculo'
+import { Camera } from 'lucide-react'
 
 // Posição para o anti-fraude (início e fim). Sem GPS o checklist segue.
 async function posicao() {
@@ -314,7 +315,7 @@ export default function ChecklistVeiculo() {
           className="w-full rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 overflow-hidden flex items-center justify-center min-h-[180px]">
           {fotoPrev
             ? <img src={fotoPrev} alt={it.titulo} className="w-full max-h-72 object-contain" />
-            : <span className="text-sm text-slate-500 py-10">📷 Tirar foto</span>}
+            : <span className="text-sm text-slate-500 py-10 inline-flex items-center gap-1.5"><Camera size={16} /> Tirar foto</span>}
         </button>
         {fotoPrev && <button type="button" onClick={tirarFoto} className="text-xs text-blue-700">Tirar outra foto</button>}
 

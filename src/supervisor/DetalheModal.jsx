@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin, MessageCircle } from 'lucide-react'
 import VendedorAvatar from '../components/VendedorAvatar'
 import ComentariosModal from './ComentariosModal'
 import MiniMapaModal from './MiniMapaModal'
@@ -31,7 +32,7 @@ function LinhaVisita({ v, onComentar, onMapa }) {
           <VendedorAvatar id={v.vendedor_id} nome={v.vendedor_nome} size={28} />
           <div className="min-w-0">
             <p className="font-bold text-sm leading-tight truncate">
-              {v.sinalizada && <span title="Sinalizada">🚩 </span>}{titulo}
+              {v.sinalizada && <span title="Sinalizada" className="text-red-600"><Flag size={14} className="inline-block align-[-2px] mr-1" /></span>}{titulo}
             </p>
             {v.propriedade_nome && v.cliente_nome && (
               <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>
@@ -59,42 +60,42 @@ function LinhaVisita({ v, onComentar, onMapa }) {
       {/* Campos preenchidos na visita */}
       {v.pessoas?.length > 0 && (
         <p className="text-xs text-slate-600 mt-2">
-          <span className="text-slate-400">👤 Pessoas: </span>
+          <span className="text-slate-400"><User size={14} className="inline-block align-[-2px] mr-1" />Pessoas: </span>
           {v.pessoas.map((p) => p.cargo ? `${p.nome} (${p.cargo})` : p.nome).join(', ')}
         </p>
       )}
       {v.maquinas?.length > 0 && (
         <p className="text-xs text-slate-600 mt-1">
-          <span className="text-slate-400">🚜 Máquinas: </span>
+          <span className="text-slate-400"><Tractor size={14} className="inline-block align-[-2px] mr-1" />Máquinas: </span>
           {v.maquinas.map((m) => [m.marca, m.modelo].filter(Boolean).join(' ')).join(', ')}
         </p>
       )}
       {v.veiculo && (
         <p className="text-xs text-slate-600 mt-1">
-          <span className="text-slate-400">🚗 Veículo: </span>{v.veiculo}
+          <span className="text-slate-400"><Car size={14} className="inline-block align-[-2px] mr-1" />Veículo: </span>{v.veiculo}
         </p>
       )}
       {v.proximos_passos && (
         <p className="text-xs text-slate-600 mt-1">
-          <span className="text-slate-400">➡️ Próximos passos: </span>{v.proximos_passos}
+          <span className="text-slate-400"><ArrowRight size={14} className="inline-block align-[-2px] mr-1" />Próximos passos: </span>{v.proximos_passos}
         </p>
       )}
       {v.data_proximo_contato && (
         <p className="text-xs text-blue-600 mt-1 font-medium">
-          📅 Próximo contato: {new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}
+          <Calendar size={14} className="inline-block align-[-2px] mr-1" />Próximo contato: {new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}
         </p>
       )}
 
       <div className="flex items-center gap-3 mt-2">
         {v.latitude != null && v.longitude != null ? (
-          <button onClick={() => onMapa(v)} className="text-xs text-blue-600 font-medium">
-            📍 Ver no mapa
+          <button onClick={() => onMapa(v)} className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium">
+            <MapPin size={14} /> Ver no mapa
           </button>
         ) : v.tipo === 'presencial' ? (
           <span className="text-xs text-red-500 font-medium">Sem GPS</span>
         ) : null}
         {onComentar && (
-          <button onClick={() => onComentar(v)} className="text-xs text-blue-600 font-medium">💬 Comentar</button>
+          <button onClick={() => onComentar(v)} className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium"><MessageCircle size={14} /> Comentar</button>
         )}
       </div>
     </div>
@@ -118,7 +119,7 @@ function LinhaNegocio({ n, onComentar }) {
       )}
       <p className="text-xs text-slate-400 mt-1">Criado em {fmtData(n.created_at, false)}</p>
       {onComentar && (
-        <button onClick={() => onComentar(n)} className="text-xs text-blue-600 mt-2 font-medium">💬 Comentar</button>
+        <button onClick={() => onComentar(n)} className="inline-flex items-center gap-1 text-xs text-blue-600 mt-2 font-medium"><MessageCircle size={14} /> Comentar</button>
       )}
     </div>
   )

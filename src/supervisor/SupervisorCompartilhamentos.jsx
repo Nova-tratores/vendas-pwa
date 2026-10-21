@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Smartphone } from 'lucide-react'
 import { getCompartilhamentos } from '../lib/catalogoSupabase'
 
 function formatTelefone(digits) {
@@ -151,8 +152,8 @@ export default function SupervisorCompartilhamentos() {
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-1">
                     <span className="text-xs text-slate-500 truncate">{r.vendedor_nome || 'Sem nome'}</span>
-                    <span className="text-xs text-green-700 font-medium whitespace-nowrap shrink-0">
-                      📱 {formatTelefone(r.telefone)}
+                    <span className="text-xs text-green-700 font-medium whitespace-nowrap shrink-0 inline-flex items-center gap-1">
+                      <Smartphone size={14} /> {formatTelefone(r.telefone)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">

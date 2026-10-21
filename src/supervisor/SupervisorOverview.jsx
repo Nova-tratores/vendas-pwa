@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Printer } from 'lucide-react'
 import { getKPIs } from '../lib/supabaseQueries'
 import DetalheModal from './DetalheModal'
 import RelatorioImpressao, { RelSecao, RelTabela } from './RelatorioImpressao'
@@ -77,9 +78,9 @@ export default function SupervisorOverview() {
           <div className="relative">
             <button
               onClick={() => setMenuImpressao((m) => !m)}
-              className="bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
+              className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
             >
-              🖨️ Imprimir
+              <Printer size={16} /> Imprimir
             </button>
             {menuImpressao && (
               <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-lg border border-slate-200 z-20 overflow-hidden w-44">

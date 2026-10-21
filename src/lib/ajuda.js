@@ -3,6 +3,8 @@ import { matchPath } from 'react-router-dom'
 // Textos da ajuda dentro do app (botão "?" do header + tour de boas-vindas).
 // Chave = padrão de rota do React Router. Rótulos entre aspas são os textos
 // literais da tela — se renomear um botão, atualize aqui também.
+// Ícones: "icone" é o nome do lucide (ver components/Icone.jsx) e, dentro dos
+// textos, {NomeDoIcone} vira o ícone desenhado na linha (ex.: "toque no {Mic}").
 
 export function ajudaDaRota(pathname, mapa) {
   const chave = Object.keys(mapa).find((p) => p !== '*' && matchPath({ path: p, end: true }, pathname))
@@ -24,47 +26,47 @@ export function marcarTourVisto(papel, id) {
 
 export const TOUR_VENDEDOR = [
   {
-    icone: '👋',
-    titulo: 'Bem-vindo ao Vendas App',
+    icone: 'Hand',
+    titulo: 'Bem-vindo ao NT Vendas',
     texto: 'Aqui você registra suas visitas, acompanha seus negócios e consulta o catálogo — tudo pelo celular. Vamos dar uma volta rápida.',
   },
   {
-    icone: '📶',
+    icone: 'Wifi',
     titulo: 'Funciona sem internet',
     texto: 'No campo, sem sinal, pode usar normal: tudo fica guardado no celular e é enviado sozinho quando o sinal voltar. O número laranja no botão ↻ mostra quantos registros ainda faltam enviar.',
   },
   {
-    icone: '🏠',
+    icone: 'House',
     titulo: 'Início',
     texto: 'Seu resumo do dia: visitas da semana, contatos atrasados e negócios que precisam de atualização.',
     destaque: '/dashboard',
   },
   {
-    icone: '👤',
+    icone: 'User',
     titulo: 'Clientes',
-    texto: 'Todas as suas propriedades. Os ícones cinza (🌱 👥 🚜) mostram o que falta cadastrar — use "Incompletas primeiro" para completar.',
+    texto: 'Todas as suas propriedades. Os ícones cinza ({Sprout} {Users} {Tractor}) mostram o que falta cadastrar — use "Incompletas primeiro" para completar.',
     destaque: '/clientes',
   },
   {
-    icone: '📍',
+    icone: 'MapPin',
     titulo: 'Visitas',
-    texto: 'Toque em "+ Check-in" a cada contato com cliente: escolha o tipo, o cliente, com quem falou e escreva (ou dite no 🎤) o resumo. Sem GPS também dá para registrar.',
+    texto: 'Toque em "+ Check-in" a cada contato com cliente: escolha o tipo, o cliente, com quem falou e escreva (ou dite no {Mic}) o resumo. Sem GPS também dá para registrar.',
     destaque: '/visitas',
   },
   {
-    icone: '💰',
+    icone: 'Wallet',
     titulo: 'Negócios',
     texto: 'Seu funil de vendas. Negócios novos nascem dentro de uma visita ("+ Vincular Negócio"). Aqui você muda a etapa e marca a temperatura: Frio, Morno ou Quente.',
     destaque: '/negocios',
   },
   {
-    icone: '📦',
+    icone: 'Package',
     titulo: 'Catálogo',
-    texto: 'Fotos, ficha técnica, estoque e preço das máquinas. O botão "💬 Enviar no WhatsApp" manda foto e folheto direto para o cliente.',
+    texto: 'Fotos, ficha técnica, estoque e preço das máquinas. O botão "{MessageCircle} Enviar no WhatsApp" manda foto e folheto direto para o cliente.',
     destaque: '/catalogo',
   },
   {
-    icone: '❓',
+    icone: 'CircleHelp',
     titulo: 'Ficou com dúvida?',
     texto: 'Toque no "?" lá em cima, em qualquer tela, para ver como ela funciona. Para rever este tour, abra o menu ☰ → "Tour do app".',
   },
@@ -89,7 +91,7 @@ export const AJUDA_GERAL_VENDEDOR = [
   },
   {
     pergunta: 'A letra está pequena',
-    resposta: 'Menu ☰ → "⚙️ Config" → toque no "A" grande para aumentar.',
+    resposta: 'Menu ☰ → "{Settings} Config" → toque no "A" grande para aumentar.',
   },
   {
     pergunta: 'Não acho um cliente',
@@ -131,8 +133,8 @@ export const AJUDA_VENDEDOR = {
         tipo: 'passos',
         itens: [
           'Toque em "Próx. 7 dias" (ou "Atrasados").',
-          'Veja a distância "📍 X km de você" em cada cartão.',
-          'Toque em "🧭 Abrir rota no Maps" para ir até o cliente.',
+          'Veja a distância "{MapPin} X km de você" em cada cartão.',
+          'Toque em "{Compass} Abrir rota no Maps" para ir até o cliente.',
         ],
       },
       {
@@ -164,7 +166,7 @@ export const AJUDA_VENDEDOR = {
         titulo: 'Os ícones do cartão',
         tipo: 'dicas',
         itens: [
-          '🌱 Culturas · 👤 Pessoas · 🚜 Máquinas · 🕘 Histórico de visitas.',
+          '{Sprout} Culturas · {User} Pessoas · {Tractor} Máquinas · {Clock} Histórico de visitas.',
           'Ícone preto = já cadastrado; cinza = falta. Toque para preencher.',
           '"+ Visita" abre o check-in com a propriedade já escolhida.',
           '"N para completar" coloca no topo quem tem mais coisa faltando.',
@@ -219,7 +221,7 @@ export const AJUDA_VENDEDOR = {
         titulo: 'Dicas',
         tipo: 'dicas',
         itens: [
-          '"📍 Registrar visita nesta propriedade" abre o check-in já preenchido.',
+          '"{MapPin} Registrar visita nesta propriedade" abre o check-in já preenchido.',
           'Ainda não dá para editar uma pessoa: se errar, exclua (×) e cadastre de novo.',
         ],
       },
@@ -273,10 +275,10 @@ export const AJUDA_VENDEDOR = {
         tipo: 'passos',
         itens: [
           'Toque em "+ Check-in" e escolha o tipo.',
-          'Busque o cliente (ou toque num "📍 Perto de você").',
-          'Marque com quem conversou (ou "👤 Nova pessoa").',
-          'Se aparecer "⚠ Este cliente tem negócio em andamento", toque em "Atualizar →" e marque a temperatura.',
-          'Escreva o "Resumo da visita" — ou toque no 🎤 e fale.',
+          'Busque o cliente (ou toque num "{MapPin} Perto de você").',
+          'Marque com quem conversou (ou "{User} Nova pessoa").',
+          'Se aparecer "{TriangleAlert} Este cliente tem negócio em andamento", toque em "Atualizar →" e marque a temperatura.',
+          'Escreva o "Resumo da visita" — ou toque no {Mic} e fale.',
           'Se quiser, preencha "Próximo contato planejado" (vai para a Agenda).',
           'Toque em "Registrar Visita".',
         ],
@@ -296,10 +298,10 @@ export const AJUDA_VENDEDOR = {
         itens: [
           'Sem GPS? O botão vira "Registrar sem GPS" — pode salvar normal.',
           'Para abrir um negócio novo, use "+ Vincular Negócio" → "+ Criar Novo Negócio".',
-          'Máquina com problema? Marque a máquina e toque em "🛠️ Acionar Pós Vendas".',
+          'Máquina com problema? Marque a máquina e toque em "{Wrench} Acionar Pós Vendas".',
           'Data mais de 2h no passado vira visita "Retroativa" (o supervisor vê).',
           '"✎ editar" fica disponível por 48h; o "×" exclui e dá 6 segundos para "Desfazer".',
-          '"🗺️ Mapa" mostra onde você fez as visitas com GPS.',
+          '"{Map} Mapa" mostra onde você fez as visitas com GPS.',
         ],
       },
     ],
@@ -351,7 +353,7 @@ export const AJUDA_VENDEDOR = {
           'Em "Solicitação da Proposta", informe valor pretendido, pagamento, entrada, prazo e se tem máquina na troca — o supervisor recebe para cotar.',
           'Perdeu? Escolha "Fechamento Negativo" e o motivo. Isso ajuda a empresa a entender as perdas.',
           'Selo vermelho "Atrasado" = passou da previsão de fechamento.',
-          'O termômetro 🌡️ do cartão salva com um toque.',
+          'O termômetro {Thermometer} do cartão salva com um toque.',
           'O "×" exclui de vez, sem desfazer.',
         ],
       },
@@ -367,8 +369,8 @@ export const AJUDA_VENDEDOR = {
         tipo: 'dicas',
         itens: [
           'Use a busca ou os filtros de marca e categoria; toque na máquina para ver a ficha.',
-          '"⚖️ Comparar tratores" mostra a ficha técnica de 2 a 4 máquinas lado a lado.',
-          '"▶ Modo Showroom / TV" põe a vitrine em tela cheia para mostrar ao cliente. Para sair, toque em "🔒 Sair" e digite o PIN (peça ao supervisor).',
+          '"{Scale} Comparar tratores" mostra a ficha técnica de 2 a 4 máquinas lado a lado.',
+          '"{Play} Modo Showroom / TV" põe a vitrine em tela cheia para mostrar ao cliente. Para sair, toque em "{Lock} Sair" e digite o PIN (peça ao supervisor).',
           'Puxe a tela para baixo para atualizar o estoque.',
         ],
       },
@@ -383,7 +385,7 @@ export const AJUDA_VENDEDOR = {
         titulo: 'Enviar para o cliente no WhatsApp',
         tipo: 'passos',
         itens: [
-          'Toque em "💬 Enviar no WhatsApp".',
+          'Toque em "{MessageCircle} Enviar no WhatsApp".',
           'Marque o que enviar: título, descrição, foto, valor, folheto.',
           'Digite o telefone com DDD (o app lembra o último).',
           'Toque em "Compartilhar" e escolha o contato.',
@@ -439,8 +441,8 @@ export const AJUDA_VENDEDOR = {
         titulo: 'Ir até um cliente',
         tipo: 'passos',
         itens: [
-          'Toque na 🔍 e busque o cliente.',
-          'Toque em "🧭 Abrir navegação no Google Maps".',
+          'Toque na {Search} e busque o cliente.',
+          'Toque em "{Compass} Abrir navegação no Google Maps".',
         ],
       },
     ],
@@ -471,7 +473,7 @@ export const AJUDA_VENDEDOR = {
         tipo: 'passos',
         itens: [
           'Escolha a placa do veículo.',
-          'Toque em "📋 Efetuar Checklist" e escolha Diário, Semanal ou Mensal.',
+          'Toque em "{ClipboardList} Efetuar Checklist" e escolha Diário, Semanal ou Mensal.',
           'Marque cada item: OK, Não OK ou N/A (todos são obrigatórios).',
           'Toque em "Abrir chamado".',
         ],
@@ -500,22 +502,22 @@ AJUDA_VENDEDOR['/'] = AJUDA_VENDEDOR['/dashboard']
 
 const TOUR_SUP_COMUM = [
   {
-    icone: '👋',
+    icone: 'Hand',
     titulo: 'Bem-vindo ao painel',
     texto: 'Aqui você acompanha a equipe de vendas em tempo real: visitas, negócios, alertas e o catálogo.',
   },
   {
-    icone: '📊',
+    icone: 'ChartColumn',
     titulo: 'Início',
-    texto: 'Os números gerais da equipe. Clique em qualquer card para ver a lista que forma aquele número; "🖨️ Imprimir" gera o relatório.',
+    texto: 'Os números gerais da equipe. Clique em qualquer card para ver a lista que forma aquele número; "{Printer} Imprimir" gera o relatório.',
   },
   {
-    icone: '🗂️',
+    icone: 'FolderOpen',
     titulo: 'Menus no topo',
     texto: 'Equipe (vendedores, clientes, cidades), Catálogo, Vendas (visitas, calendário, propostas, pós-vendas) e Análise (histórico, evolução, alertas, log).',
   },
   {
-    icone: '🚩',
+    icone: 'Flag',
     titulo: 'Acompanhar as visitas',
     texto: 'Em Vendas → Visitas você filtra por vendedor e data, comenta, sinaliza e junta visitas repetidas.',
   },
@@ -525,7 +527,7 @@ export const tourSupervisor = {
   gestor: [
     ...TOUR_SUP_COMUM,
     {
-      icone: '❓',
+      icone: 'CircleHelp',
       titulo: 'Ficou com dúvida?',
       texto: 'O botão "Ajuda" no topo explica a tela em que você está.',
     },
@@ -533,12 +535,12 @@ export const tourSupervisor = {
   admin: [
     ...TOUR_SUP_COMUM,
     {
-      icone: '⚙️',
+      icone: 'Settings',
       titulo: 'Só para admin',
       texto: 'Gerir catálogo (máquinas, fotos, vídeos e folhetos), Produtos (preço/estoque manual), Configurações e Consumo de dados.',
     },
     {
-      icone: '❓',
+      icone: 'CircleHelp',
       titulo: 'Ficou com dúvida?',
       texto: 'O botão "Ajuda" no topo explica a tela em que você está.',
     },
@@ -567,7 +569,7 @@ export const AJUDA_SUPERVISOR = {
     secoes: [{
       titulo: 'Dicas', tipo: 'dicas', itens: [
         'Clique num card para ver a lista que forma aquele número.',
-        '"🖨️ Imprimir": versão simples (só números) ou detalhada (com visitas, pipeline e pós-vendas).',
+        '"{Printer} Imprimir": versão simples (só números) ou detalhada (com visitas, pipeline e pós-vendas).',
         '"Retroativas" = visitas lançadas mais de 2h depois do horário informado.',
       ],
     }],
@@ -655,9 +657,9 @@ export const AJUDA_SUPERVISOR = {
       ],
     }, {
       titulo: 'Dicas', tipo: 'dicas', itens: [
-        '"🚩 Sinalizar" marca uma visita suspeita (com motivo); clique de novo para desfazer.',
-        '"💬 Comentar" deixa uma observação na visita.',
-        '"📍 ver no mapa" abre a localização; "Sem GPS" = presencial sem coordenada.',
+        '"{Flag} Sinalizar" marca uma visita suspeita (com motivo); clique de novo para desfazer.',
+        '"{MessageCircle} Comentar" deixa uma observação na visita.',
+        '"{MapPin} ver no mapa" abre a localização; "Sem GPS" = presencial sem coordenada.',
         'Selos: "1ª" primeira visita, "Retro" retroativa, "PV" pós-vendas.',
       ],
     }],
@@ -713,7 +715,7 @@ export const AJUDA_SUPERVISOR = {
       titulo: 'Dicas', tipo: 'dicas', itens: [
         'Navegue pelos dias com ← → ou escolha a data.',
         'Filtre por "Vendedores" ou "Admin".',
-        'Ícones: ➕ criar · ✏️ alterar · 🗑️ excluir · 🔑 login.',
+        'Ícones: {Plus} criar · {Pencil} alterar · {Trash2} excluir · {KeyRound} login.',
       ],
     }],
   },
@@ -721,7 +723,7 @@ export const AJUDA_SUPERVISOR = {
     titulo: 'Catálogo',
     resumo: 'O catálogo como o vendedor vê: portfólio, estoque da loja, comparativo e Showroom.',
     secoes: [{
-      titulo: 'Dica', tipo: 'dicas', itens: ['Para sair do Showroom, clique em "🔒 Sair" e digite o PIN.'],
+      titulo: 'Dica', tipo: 'dicas', itens: ['Para sair do Showroom, clique em "{Lock} Sair" e digite o PIN.'],
     }],
   },
   '/supervisor/catalogo/:id': {
@@ -759,7 +761,7 @@ export const AJUDA_SUPERVISOR = {
       titulo: 'Dicas', tipo: 'dicas', itens: [
         'Linhas em âmbar = modelo vendido que não está no catálogo.',
         '"Mostrar só o que falta no catálogo" filtra só essas.',
-        '"❌ Adicionar" abre o Gerir catálogo já preenchido (só admin).',
+        '"{CircleX} Adicionar" abre o Gerir catálogo já preenchido (só admin).',
       ],
     }],
   },
@@ -770,7 +772,7 @@ export const AJUDA_SUPERVISOR = {
       titulo: 'Dicas', tipo: 'dicas', itens: [
         'Busque pelo modelo, marca ou código e clique em "Editar".',
         'O valor manual (override) substitui o do Omie no app.',
-        '"🔄 Forçar resync (todos)" faz todos os celulares baixarem os dados de novo — use quando algo não aparece para os vendedores.',
+        '"{RefreshCw} Forçar resync (todos)" faz todos os celulares baixarem os dados de novo — use quando algo não aparece para os vendedores.',
       ],
     }],
   },

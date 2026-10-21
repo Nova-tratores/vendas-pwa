@@ -7,6 +7,7 @@ import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
+import { MapPin, Thermometer, Wallet } from 'lucide-react'
 
 const STATUS_FUNIL = STATUS_NEGOCIO
 const STATUS_PERDIDO = 'fechamento_negativo'
@@ -208,7 +209,7 @@ export default function Negocios() {
 
       {negociosFiltrados.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-4xl mb-3">💰</p>
+          <p className="mb-3 flex justify-center text-slate-300"><Wallet size={40} /></p>
           <p className="text-slate-400">{filtroStatus === 'todos' ? 'Nenhum negócio cadastrado' : 'Nenhum negócio neste filtro'}</p>
           {filtroStatus === 'todos' && (
             <Link to="/visitas" className="text-blue-700 text-sm mt-2 font-medium inline-block">
@@ -274,7 +275,7 @@ export default function Negocios() {
                 {/* Termômetro + tendência (negócios em andamento) */}
                 {isAberto(n.status) && (
                   <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-sm" aria-hidden="true">🌡️</span>
+                    <Thermometer size={16} className="text-slate-500" aria-hidden="true" />
                     {TEMPERATURAS.map((t) => (
                       <button
                         key={t.key}
@@ -297,9 +298,9 @@ export default function Negocios() {
                   <button
                     type="button"
                     onClick={() => navigate('/visitas', { state: { negocioId: n.id, propriedadeId: n.propriedade_id, clienteId: n.cliente_id } })}
-                    className="mt-2 w-full py-2 rounded-lg text-sm font-medium border border-blue-200 bg-blue-50 text-blue-700 active:bg-blue-100"
+                    className="mt-2 w-full py-2 rounded-lg text-sm font-medium border border-blue-200 bg-blue-50 text-blue-700 active:bg-blue-100 flex items-center justify-center gap-1.5"
                   >
-                    📍 Registrar visita
+                    <MapPin size={16} /> Registrar visita
                   </button>
                 )}
 

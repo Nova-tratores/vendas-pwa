@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getRecord } from '../lib/db'
+import { Car, Tractor, User } from 'lucide-react'
 
 export const TIPO_LABELS = {
   presencial: 'Presencial',
@@ -114,12 +115,12 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
       {expandido && detalhes && (
         <div className="mt-1 bg-slate-50 rounded-lg p-2.5 space-y-1 text-xs text-slate-600">
           {detalhes.pessoas.length > 0 && (
-            <p>👤 {detalhes.pessoas.map((p) => p.cargo ? `${p.nome} (${p.cargo})` : p.nome).join(', ')}</p>
+            <p className="flex items-start gap-1"><User size={12} className="shrink-0 mt-0.5" /> <span>{detalhes.pessoas.map((p) => p.cargo ? `${p.nome} (${p.cargo})` : p.nome).join(', ')}</span></p>
           )}
           {detalhes.maquinas.length > 0 && (
-            <p>🚜 {detalhes.maquinas.map((m) => [m.marca, m.modelo].filter(Boolean).join(' ') || m.tipo).join(', ')}</p>
+            <p className="flex items-start gap-1"><Tractor size={12} className="shrink-0 mt-0.5" /> <span>{detalhes.maquinas.map((m) => [m.marca, m.modelo].filter(Boolean).join(' ') || m.tipo).join(', ')}</span></p>
           )}
-          {visita.veiculo && <p>🚗 Veículo: {visita.veiculo}</p>}
+          {visita.veiculo && <p className="flex items-center gap-1"><Car size={12} /> Veículo: {visita.veiculo}</p>}
           {detalhes.pessoas.length === 0 && detalhes.maquinas.length === 0 && !visita.veiculo && (
             <p className="text-slate-400">Itens não encontrados no cache local</p>
           )}

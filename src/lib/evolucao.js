@@ -88,6 +88,6 @@ export function montarSerie(eventos, granularidade, topN = 8) {
 
 // Paleta estável para as séries (índice → cor)
 export const CORES_SERIE = [
-  '#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed',
+  '#dc2626', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed',
   '#0891b2', '#db2777', '#65a30d', '#94a3b8',
 ]

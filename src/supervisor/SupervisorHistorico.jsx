@@ -30,7 +30,7 @@ function labelDia(key) {
 /**
  * Km estimado do dia: soma das distâncias em linha reta entre visitas
  * consecutivas que têm GPS (ordenadas pela hora). É uma estimativa por
- * baixo — não considera o trajeto real nem o deslocamento casa↔primeira
+ * baixo — não considera o trajeto real nem o deslocamento casa-primeira
  * visita.
  */
 function kmDoDia(visitas) {

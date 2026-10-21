@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Map as MapIcon, Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin, MessageCircle } from 'lucide-react'
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   getVisitas, getVendedores, getComentariosCount,
@@ -134,9 +135,9 @@ export default function SupervisorVisitas() {
           </button>
           <Link
             to="/supervisor/mapa"
-            className="bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
+            className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
           >
-            🗺️ Mapa
+            <MapIcon size={16} /> Mapa
           </Link>
         </div>
       </div>
@@ -230,7 +231,7 @@ export default function SupervisorVisitas() {
                     <VendedorAvatar id={v.vendedor_id} nome={v.vendedor_nome} size={30} />
                     <div className="min-w-0">
                       <p className="font-bold text-sm leading-tight truncate">
-                        {v.sinalizada && <span title="Sinalizada">🚩 </span>}{v.cliente_nome || v.propriedade_nome || '—'}
+                        {v.sinalizada && <span title="Sinalizada" className="text-red-600"><Flag size={14} className="inline-block align-[-2px] mr-1" /></span>}{v.cliente_nome || v.propriedade_nome || '—'}
                       </p>
                       {v.propriedade_nome && v.cliente_nome && <p className="text-xs text-slate-500 leading-tight truncate">{v.propriedade_nome}</p>}
                     </div>
@@ -244,36 +245,36 @@ export default function SupervisorVisitas() {
                 </div>
                 <p className="text-xs text-slate-500">{dataStr}</p>
                 {v.sinalizada && v.sinalizada_motivo && (
-                  <p className="text-xs text-red-600 mt-1">🚩 {v.sinalizada_motivo}</p>
+                  <p className="text-xs text-red-600 mt-1"><Flag size={14} className="inline-block align-[-2px] mr-1" />{v.sinalizada_motivo}</p>
                 )}
                 {v.resumo && <p className="text-sm text-slate-700 mt-2">{v.resumo}</p>}
 
                 {/* Campos preenchidos na visita */}
                 {v.pessoas?.length > 0 && (
                   <p className="text-xs text-slate-600 mt-2">
-                    <span className="text-slate-400">👤 Pessoas: </span>
+                    <span className="text-slate-400"><User size={14} className="inline-block align-[-2px] mr-1" />Pessoas: </span>
                     {v.pessoas.map((p) => p.cargo ? `${p.nome} (${p.cargo})` : p.nome).join(', ')}
                   </p>
                 )}
                 {v.maquinas?.length > 0 && (
                   <p className="text-xs text-slate-600 mt-1">
-                    <span className="text-slate-400">🚜 Máquinas: </span>
+                    <span className="text-slate-400"><Tractor size={14} className="inline-block align-[-2px] mr-1" />Máquinas: </span>
                     {v.maquinas.map((m) => [m.marca, m.modelo].filter(Boolean).join(' ')).join(', ')}
                   </p>
                 )}
                 {v.veiculo && (
                   <p className="text-xs text-slate-600 mt-1">
-                    <span className="text-slate-400">🚗 Veículo: </span>{v.veiculo}
+                    <span className="text-slate-400"><Car size={14} className="inline-block align-[-2px] mr-1" />Veículo: </span>{v.veiculo}
                   </p>
                 )}
                 {v.proximos_passos && (
                   <p className="text-xs text-slate-600 mt-1">
-                    <span className="text-slate-400">➡️ Próximos passos: </span>{v.proximos_passos}
+                    <span className="text-slate-400"><ArrowRight size={14} className="inline-block align-[-2px] mr-1" />Próximos passos: </span>{v.proximos_passos}
                   </p>
                 )}
                 {v.data_proximo_contato && (
                   <p className="text-xs text-blue-600 mt-1 font-medium">
-                    📅 Próximo contato: {new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    <Calendar size={14} className="inline-block align-[-2px] mr-1" />Próximo contato: {new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}
                   </p>
                 )}
 
@@ -282,7 +283,7 @@ export default function SupervisorVisitas() {
                     onClick={(e) => { e.stopPropagation(); setMapaAlvo(v) }}
                     className="inline-flex items-center gap-1 text-xs text-blue-600 underline mt-2"
                   >
-                    📍 {v.latitude.toFixed(4)}, {v.longitude.toFixed(4)} · ver no mapa
+                    <MapPin size={14} /> {v.latitude.toFixed(4)}, {v.longitude.toFixed(4)} · ver no mapa
                   </button>
                 ) : v.tipo === 'presencial' ? (
                   <p className="text-xs text-red-500 mt-1 font-medium">Sem GPS</p>
@@ -300,15 +301,15 @@ export default function SupervisorVisitas() {
                       <>
                         <button
                           onClick={() => toggleSinalizar(v)}
-                          className={`text-xs px-2 py-1 rounded-lg font-medium ${v.sinalizada ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600 active:bg-slate-200'}`}
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${v.sinalizada ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600 active:bg-slate-200'}`}
                         >
-                          {v.sinalizada ? '🚩 Sinalizada' : '🚩 Sinalizar'}
+                          <Flag size={14} /> {v.sinalizada ? 'Sinalizada' : 'Sinalizar'}
                         </button>
                         <button
                           onClick={() => setComentarioAlvo(v)}
-                          className="text-xs px-2 py-1 rounded-lg font-medium bg-slate-100 text-slate-600 active:bg-slate-200"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium bg-slate-100 text-slate-600 active:bg-slate-200"
                         >
-                          💬 Comentar{nComent > 0 ? ` (${nComent})` : ''}
+                          <MessageCircle size={14} /> Comentar{nComent > 0 ? ` (${nComent})` : ''}
                         </button>
                       </>
                     )}

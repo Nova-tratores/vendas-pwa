@@ -59,9 +59,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'Vendas App',
-        short_name: 'Vendas',
-        theme_color: '#1e40af',
+        name: 'NT Vendas',
+        short_name: 'NT Vendas',
+        theme_color: '#991b1b',
         background_color: '#f8fafc',
         display: 'standalone',
         start_url: '/',

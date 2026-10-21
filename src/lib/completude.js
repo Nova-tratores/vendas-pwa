@@ -24,7 +24,7 @@ export function completudePropriedade(prop, nPessoas = 0, nMaquinas = 0) {
 
 // Rótulo curto + ícone por campo faltante, pra montar chips no nudge.
 export const FALTA_INFO = {
-  cultivos: { icon: '🌱', rota: (propId) => '/clientes' },
-  pessoas: { icon: '👥', rota: (propId) => `/pessoas/${propId}` },
-  'máquinas': { icon: '🚜', rota: (propId) => `/maquinas/${propId}` },
+  cultivos: { icon: 'Sprout', rota: (propId) => '/clientes' },
+  pessoas: { icon: 'Users', rota: (propId) => `/pessoas/${propId}` },
+  'máquinas': { icon: 'Tractor', rota: (propId) => `/maquinas/${propId}` },
 }

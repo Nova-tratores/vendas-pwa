@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/sync'
 import { capturarGPS } from '../lib/gps'
 import ConfirmModal from '../components/ConfirmModal'
+import { Car, Compass, MapPin, RefreshCw, Search } from 'lucide-react'
 
 // Fix do icone padrao do leaflet (Vite bundling quebra as URLs default)
 delete L.Icon.Default.prototype._getIconUrl
@@ -31,7 +32,7 @@ function pinIcon(cor) {
   </svg>`
   return L.divIcon({ html: svg, className: '', iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -36] })
 }
-const CLIENTE_ICON = pinIcon('#1e40af')   // azul
+const CLIENTE_ICON = pinIcon('#991b1b')   // azul
 const ALVO_ICON = pinIcon('#dc2626')      // vermelho (cliente pesquisado / em rota)
 
 // Haversine: distancia em km entre 2 coords
@@ -218,7 +219,7 @@ export default function MapaClientes() {
         return [...prev, atualizado]
       })
       setFocus({ center: [lat, lng], zoom: 16 })
-      mostrarToast(`📍 ${nomeCliente(c)} salvo na sua posição atual!`)
+      mostrarToast(`${nomeCliente(c)} salvo na sua posição atual!`)
     } catch (err) {
       console.error('[MapaClientes] gravar', err)
       mostrarToast(err.message || 'Erro ao salvar coordenadas', 'erro')
@@ -254,9 +255,9 @@ export default function MapaClientes() {
           {origemErro && (
             <button
               onClick={iniciarRastreamento}
-              className="mt-1 text-[11px] font-semibold text-blue-700 active:text-blue-900"
+              className="mt-1 text-[11px] font-semibold text-blue-700 active:text-blue-900 inline-flex items-center gap-1"
             >
-              🔄 Permitir / tentar localização de novo
+              <RefreshCw size={12} /> Permitir / tentar localização de novo
             </button>
           )}
         </div>
@@ -297,15 +298,15 @@ export default function MapaClientes() {
                 )}
                 <p className="text-slate-500">{c.cidade || ''}{c.estado ? ` - ${c.estado}` : ''}</p>
                 {origem && (
-                  <p className="text-slate-600 mt-1">
-                    📍 {haversineKm(origem.lat, origem.lng, c.lat, c.lng)?.toFixed(1)} km
+                  <p className="text-slate-600 mt-1 flex items-center gap-1">
+                    <MapPin size={12} /> {haversineKm(origem.lat, origem.lng, c.lat, c.lng)?.toFixed(1)} km
                   </p>
                 )}
                 <button
                   onClick={() => localizarCliente(c)}
-                  className="mt-2 w-full bg-blue-700 text-white rounded py-1 font-medium"
+                  className="mt-2 w-full bg-blue-700 text-white rounded py-1 font-medium flex items-center justify-center gap-1"
                 >
-                  🧭 Traçar rota
+                  <Compass size={14} /> Traçar rota
                 </button>
               </div>
             </Popup>
@@ -315,7 +316,7 @@ export default function MapaClientes() {
         {rota?.coords && (
           <Polyline
             positions={rota.coords}
-            pathOptions={{ color: rota.fallback ? '#94a3b8' : '#1d4ed8', weight: 5, opacity: 0.8, dashArray: rota.fallback ? '8 8' : null }}
+            pathOptions={{ color: rota.fallback ? '#94a3b8' : '#b91c1c', weight: 5, opacity: 0.8, dashArray: rota.fallback ? '8 8' : null }}
           />
         )}
       </MapContainer>
@@ -326,12 +327,12 @@ export default function MapaClientes() {
           onClick={irParaMim}
           title="Centralizar na minha posição"
           className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-xl active:scale-95 transition"
-        >📍</button>
+        ><MapPin size={20} /></button>
         <button
           onClick={() => setPicker('locate')}
           title="Pesquisar cliente"
           className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-xl active:scale-95 transition"
-        >🔍</button>
+        ><Search size={20} /></button>
         <button
           onClick={() => setPicker('add')}
           title="Cadastrar cliente na minha posição"
@@ -351,7 +352,7 @@ export default function MapaClientes() {
               <p className="text-xs text-slate-700 mt-1">
                 {rotaLoading ? 'calculando rota…'
                   : rota ? <>
-                      🚗 <b>{rota.distKm?.toFixed(1)} km</b>
+                      <Car size={14} className="inline-block align-[-2px]" /> <b>{rota.distKm?.toFixed(1)} km</b>
                       {rota.durMin != null && <> · ~{Math.round(rota.durMin)} min</>}
                       {rota.fallback && <span className="text-slate-400"> (linha reta)</span>}
                     </>
@@ -365,9 +366,9 @@ export default function MapaClientes() {
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 block text-center bg-green-600 text-white rounded-lg py-2 text-sm font-medium active:bg-green-700"
+              className="mt-2 block text-center bg-green-600 text-white rounded-lg py-2 text-sm font-medium active:bg-green-700 flex items-center justify-center gap-1.5"
             >
-              🧭 Abrir navegação no Google Maps
+              <Compass size={16} /> Abrir navegação no Google Maps
             </a>
           )}
         </div>
@@ -497,10 +498,10 @@ function ClientePicker({ modo, onSelect, onClose }) {
                       {c.cidade || 'sem cidade'}{c.estado ? ` - ${c.estado}` : ''}
                     </p>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap ${
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center gap-0.5 ${
                     temCoord ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
                   }`}>
-                    {temCoord ? '📍 no mapa' : 'sem local'}
+                    {temCoord ? <><MapPin size={10} /> no mapa</> : 'sem local'}
                   </span>
                 </button>
               )

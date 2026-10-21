@@ -26,7 +26,7 @@ export async function construirAlertas() {
       alertas.push({
         tipo: 'contato',
         urgencia: atrasado ? 'alta' : 'media',
-        icon: '📅',
+        icon: 'Calendar',
         titulo: atrasado ? 'Contato atrasado' : 'Contato hoje',
         detalhe: `${propById[v.propriedade_id]?.nome || 'Propriedade'} — ${new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}`,
         data: v.data_proximo_contato,
@@ -43,7 +43,7 @@ export async function construirAlertas() {
       alertas.push({
         tipo: 'negocio',
         urgencia: 'media',
-        icon: '💰',
+        icon: 'Wallet',
         titulo: 'Negócio parado',
         detalhe: `${statusLabel(n.status)}${n.valor ? ` · R$ ${Number(n.valor).toLocaleString('pt-BR')}` : ''}`,
         data: (n.updated_at || n.created_at || '').slice(0, 10),
@@ -57,7 +57,7 @@ export async function construirAlertas() {
       alertas.push({
         tipo: 'posvendas',
         urgencia: 'media',
-        icon: '🛠️',
+        icon: 'Wrench',
         titulo: 'Pós-vendas pendente',
         detalhe: propById[v.propriedade_id]?.nome || 'Visita com máquina',
         data: (v.data_visita || '').slice(0, 10),

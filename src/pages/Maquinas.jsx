@@ -8,6 +8,7 @@ import { getMarcasDropdown, getModelosPorMarca } from '../lib/catalogoSupabase'
 import { TIPOS_MAQUINA, MARCAS } from '../lib/constants'
 import { ESTADOS_MAQUINA as ESTADOS, ESTADO_LABELS, FREQUENCIAS_USO, getMarcasPorTipo, marcasDoTipo } from '../lib/maquinaOpcoes'
 import MarcaSelect from '../components/MarcaSelect'
+import { Tractor } from 'lucide-react'
 const ESTADO_COLORS = { otimo: 'bg-green-100 text-green-800', bom: 'bg-blue-100 text-blue-800', regular: 'bg-yellow-100 text-yellow-800', critico: 'bg-red-100 text-red-800' }
 
 const EMPTY = {
@@ -232,7 +233,7 @@ export default function Maquinas() {
 
       {maquinas.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-4xl mb-3">🚜</p>
+          <p className="mb-3 flex justify-center text-slate-300"><Tractor size={40} /></p>
           <p className="text-slate-400">Nenhuma máquina cadastrada</p>
           <button onClick={() => setShowForm(true)} className="text-blue-700 text-sm mt-2 font-medium">
             Cadastrar primeira máquina

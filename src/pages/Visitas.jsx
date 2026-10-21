@@ -15,6 +15,7 @@ import VisitaCard, { TIPO_LABELS } from '../components/VisitaCard'
 import MarcaSelect from '../components/MarcaSelect'
 import { ESTADOS_MAQUINA, ESTADO_LABELS, FREQUENCIAS_USO, getMarcasPorTipo, marcasDoTipo } from '../lib/maquinaOpcoes'
 import { getMarcasDropdown } from '../lib/catalogoSupabase'
+import { Map as MapIcon, MapPin, TriangleAlert, User, Wrench } from 'lucide-react'
 
 const EMPTY_FORM = {
   propriedade_id: '',
@@ -496,9 +497,9 @@ export default function Visitas() {
           <div className="flex gap-2">
             <Link
               to="/visitas/mapa"
-              className="bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200"
+              className="bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm font-medium active:bg-slate-200 inline-flex items-center gap-1.5"
             >
-              🗺️ Mapa
+              <MapIcon size={16} /> Mapa
             </Link>
             <button onClick={handleNovaVisita} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
               + Check-in
@@ -644,7 +645,7 @@ export default function Visitas() {
               {/* Sugestão por proximidade: check-in presencial com GPS capturado */}
               {tipoPresencial && !showNovoCliente && sugestoesProximas.length > 0 && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 space-y-1.5 mb-2 animate-slide-up">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">📍 Perto de você (até 1 km)</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 flex items-center gap-1"><MapPin size={12} /> Perto de você (até 1 km)</p>
                   {sugestoesProximas.map(({ p, d }) => (
                     <button
                       key={p.id}
@@ -930,7 +931,7 @@ export default function Visitas() {
                 </div>
               ) : (
                 <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
-                  <p className="text-sm font-medium text-amber-800">⚠ Este cliente tem {negociosAbertosProp.length} negócio(s) em andamento</p>
+                  <p className="text-sm font-medium text-amber-800 flex items-center gap-1.5"><TriangleAlert size={16} className="shrink-0" /> Este cliente tem {negociosAbertosProp.length} negócio(s) em andamento</p>
                   <div className="space-y-1.5">
                     {negociosAbertosProp.map((n) => (
                       <button
@@ -964,7 +965,7 @@ export default function Visitas() {
                   onClick={() => setShowNovaPessoa(!showNovaPessoa)}
                   className={`text-xs font-medium px-2.5 py-1 rounded-lg ${showNovaPessoa ? 'text-blue-600' : 'text-blue-700 border border-blue-300'} ${!showNovaPessoa && form.pessoa_ids.length === 0 ? 'animate-pulse-glow' : ''}`}
                 >
-                  {showNovaPessoa ? 'Cancelar' : '👤 Nova pessoa'}
+                  {showNovaPessoa ? 'Cancelar' : <span className="inline-flex items-center gap-1"><User size={14} /> Nova pessoa</span>}
                 </button>
               </div>
 
@@ -1239,7 +1240,7 @@ export default function Visitas() {
                       : 'bg-orange-50 text-orange-700 border-orange-400 animate-pulse-glow'
                   }`}
                 >
-                  <span className="text-xl">🛠️</span>
+                  <Wrench size={20} />
                   {form.acionar_pos_vendas ? 'Pós Vendas SERÁ acionado' : 'Acionar Pós Vendas'}
                 </button>
               )}
@@ -1266,7 +1267,7 @@ export default function Visitas() {
             <AudioTextInput
               value={form.resumo}
               onChange={(val) => setForm((f) => ({ ...f, resumo: val }))}
-              placeholder="Digite ou toque no 🎤 para gravar"
+              placeholder="Digite ou toque no microfone para gravar"
               rows={3}
             />
           </div>
@@ -1277,7 +1278,7 @@ export default function Visitas() {
             <AudioTextInput
               value={form.proximos_passos}
               onChange={(val) => setForm((f) => ({ ...f, proximos_passos: val }))}
-              placeholder="Digite ou toque no 🎤 para gravar"
+              placeholder="Digite ou toque no microfone para gravar"
               rows={2}
             />
           </div>
@@ -1318,7 +1319,7 @@ export default function Visitas() {
       {/* Histórico */}
       {visitasOrdenadas.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-4xl mb-3">📍</p>
+          <p className="mb-3 flex justify-center text-slate-300"><MapPin size={40} /></p>
           <p className="text-slate-400">Nenhuma visita registrada</p>
           {!showForm && (
             <button onClick={handleNovaVisita} className="text-blue-700 text-sm mt-2 font-medium">

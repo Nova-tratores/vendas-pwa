@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { CircleCheck, CircleX } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getMaquinasMaisVendidas } from '../lib/catalogoSupabase'
 
@@ -167,14 +168,14 @@ export default function SupervisorMaisVendidas() {
                     </td>
                     <td className="px-3 py-2 text-center whitespace-nowrap">
                       {r.em_catalogo ? (
-                        <span className="text-xs text-green-700 font-medium">✅ No catálogo</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-green-700 font-medium"><CircleCheck size={14} /> No catálogo</span>
                       ) : (
                         <Link
                           to="/supervisor/catalogo-admin"
                           state={{ novoProduto: { marca: r.marca, modelo: r.item, familia: r.familia } }}
-                          className="text-xs text-amber-700 font-medium hover:underline"
+                          className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium hover:underline"
                         >
-                          ❌ Adicionar
+                          <CircleX size={14} /> Adicionar
                         </Link>
                       )}
                     </td>

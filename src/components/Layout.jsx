@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Bell, Calendar, CircleHelp, Car, Compass, DoorOpen, House, Lightbulb, MapPin, Menu, Package, RefreshCw, Settings, User, UserCircle, Wallet } from 'lucide-react'
 import { setSyncCallback, setAuthRequiredCallback, syncAll, countPending, supabase } from '../lib/sync'
 import { clearAll } from '../lib/db'
 import ConfigModal from './ConfigModal'
@@ -9,18 +10,25 @@ import TourBoasVindas from './TourBoasVindas'
 import { AJUDA_VENDEDOR, AJUDA_GERAL_VENDEDOR, TOUR_VENDEDOR, ajudaDaRota, tourJaVisto, marcarTourVisto } from '../lib/ajuda'
 
 const navItems = [
-  { to: '/dashboard', label: 'Início', icon: '🏠' },
-  { to: '/rota', label: 'Rota', icon: '🧭' },
-  { to: '/agenda', label: 'Agenda', icon: '📅' },
-  { to: '/clientes', label: 'Clientes', icon: '👤' },
-  { to: '/catalogo', label: 'Catálogo', icon: '📦' },
-  { to: '/visitas', label: 'Visitas', icon: '📍' },
-  { to: '/negocios', label: 'Negócios', icon: '💰' },
+  { to: '/dashboard', label: 'Início', icon: House },
+  { to: '/rota', label: 'Rota', icon: Compass },
+  { to: '/agenda', label: 'Agenda', icon: Calendar },
+  { to: '/inteligencia', label: 'Inteligência', icon: Lightbulb },
+  { to: '/clientes', label: 'Clientes', icon: User },
+  { to: '/catalogo', label: 'Catálogo', icon: Package },
+  { to: '/visitas', label: 'Visitas', icon: MapPin },
+  { to: '/negocios', label: 'Negócios', icon: Wallet },
 ]
 
 export default function Layout() {
   const navigate = useNavigate()
-  const vendedor = JSON.parse(localStorage.getItem('vendedor') || '{}')
+  const lerVendedor = () => { try { return JSON.parse(localStorage.getItem('vendedor') || '{}') } catch { return {} } }
+  const [vendedor, setVendedor] = useState(lerVendedor)
+  useEffect(() => {
+    const atualizar = () => setVendedor(lerVendedor())
+    window.addEventListener('vendedor-atualizado', atualizar)
+    return () => window.removeEventListener('vendedor-atualizado', atualizar)
+  }, [])
   const [online, setOnline] = useState(navigator.onLine)
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', detail: '' })
   const [pending, setPending] = useState(0)
@@ -92,7 +100,7 @@ export default function Layout() {
     const naoEnviados = await countPending()
     if (naoEnviados > 0 && !window.confirm(
       `Você tem ${naoEnviados} registro(s) ainda não enviado(s). Se sair agora, eles serão PERDIDOS.\n\n` +
-      'Conecte à internet e toque no ↻ antes de sair. Sair mesmo assim?'
+      'Conecte à internet e toque no botão de sincronizar antes de sair. Sair mesmo assim?'
     )) return
     // Limpa IDB ANTES de fazer signOut/clear pra evitar deixar dados do
     // vendedor logado expostos caso outro vendedor logue no mesmo celular.
@@ -113,8 +121,10 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col">
       <header className="bg-blue-800 text-white px-4 py-3 flex items-center justify-between safe-top">
         <div className="flex items-center gap-2 shrink-0">
-          <h1 className="text-lg font-bold whitespace-nowrap">Vendas App</h1>
-          <span className="text-base leading-none" aria-label="Brasil" title="Brasil">🇧🇷</span>
+          {/* Logo da Nova Tratores (em branco sobre o vermelho); toque volta ao Início */}
+          <button onClick={() => navigate('/dashboard')} className="flex items-center active:opacity-70" aria-label="NT Vendas — voltar ao início">
+            <img src="/logo-nova.png" alt="Nova Tratores" className="h-7 w-auto" style={{ filter: 'brightness(0) invert(1)' }} />
+          </button>
           <span className={`w-2 h-2 rounded-full ${online ? 'bg-green-400' : 'bg-red-400'}`} />
         </div>
         <div className="flex items-center gap-2 min-w-0">
@@ -124,8 +134,8 @@ export default function Layout() {
             disabled={!online || isSyncing}
             className="relative text-xs bg-blue-900 px-2 py-1 rounded active:bg-blue-950 disabled:opacity-50"
           >
-            <span className={isSyncing ? 'animate-spin inline-block' : ''}>
-              {isSyncing ? '⟳' : '↻'}
+            <span className={`flex ${isSyncing ? 'animate-spin' : ''}`}>
+              <RefreshCw size={16} aria-hidden="true" />
             </span>
             {pending > 0 && !isSyncing && (
               <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
@@ -133,15 +143,20 @@ export default function Layout() {
               </span>
             )}
           </button>
-          <span className="text-sm opacity-80 truncate">{vendedor.nome}</span>
+          <button onClick={() => navigate('/perfil')} className="flex items-center gap-1.5 min-w-0 active:opacity-70" aria-label="Meu perfil">
+            {vendedor.foto
+              ? <img src={vendedor.foto} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-white/40 shrink-0" />
+              : <UserCircle size={22} className="shrink-0 opacity-90" aria-hidden="true" />}
+            <span className="text-sm opacity-80 truncate">{vendedor.nome}</span>
+          </button>
 
           <button
             onClick={() => setAjudaAberta(true)}
-            className="shrink-0 w-7 h-7 rounded-full border border-white/60 text-sm font-bold leading-none flex items-center justify-center active:bg-blue-950"
+            className="shrink-0 w-7 h-7 rounded-full text-sm font-bold leading-none flex items-center justify-center active:bg-blue-950"
             aria-label="Ajuda desta tela"
             title="Ajuda"
           >
-            ?
+            <CircleHelp size={20} aria-hidden="true" />
           </button>
 
           {/* Menu hamburguer */}
@@ -152,7 +167,7 @@ export default function Layout() {
               aria-label="Menu"
               aria-expanded={menuAberto}
             >
-              ☰
+              <Menu size={20} aria-hidden="true" />
               {notifCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
                   {notifCount > 9 ? '9+' : notifCount}
@@ -175,7 +190,7 @@ export default function Layout() {
                     }}
                     className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
                   >
-                    <span className="flex items-center gap-2"><span>🔔</span> Notificações</span>
+                    <span className="flex items-center gap-2"><Bell size={16} aria-hidden="true" /> Notificações</span>
                     {notifCount > 0 && (
                       <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center">
                         {notifCount > 9 ? '9+' : notifCount}
@@ -185,11 +200,20 @@ export default function Layout() {
                   <button
                     onClick={() => {
                       setMenuAberto(false)
+                      navigate('/inteligencia')
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left font-semibold text-blue-700 active:bg-slate-100"
+                  >
+                    <Lightbulb size={16} aria-hidden="true" /> Inteligência de Vendas
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuAberto(false)
                       navigate('/chamado-veicular')
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
                   >
-                    <span>🚗</span> Chamado Veicular
+                    <Car size={16} aria-hidden="true" /> Chamado Veicular
                   </button>
                   <div className="border-t border-slate-100 my-1" />
                   <button
@@ -199,7 +223,7 @@ export default function Layout() {
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
                   >
-                    <span>❓</span> Ajuda
+                    <CircleHelp size={16} aria-hidden="true" /> Ajuda
                   </button>
                   <button
                     onClick={() => {
@@ -208,7 +232,16 @@ export default function Layout() {
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
                   >
-                    <span>🧭</span> Tour do app
+                    <Compass size={16} aria-hidden="true" /> Tour do app
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuAberto(false)
+                      navigate('/perfil')
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
+                  >
+                    <UserCircle size={16} aria-hidden="true" /> Meu perfil
                   </button>
                   <button
                     onClick={() => {
@@ -217,7 +250,7 @@ export default function Layout() {
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
                   >
-                    <span>⚙️</span> Config
+                    <Settings size={16} aria-hidden="true" /> Config
                   </button>
                   <div className="border-t border-slate-100 my-1" />
                   <button
@@ -227,7 +260,7 @@ export default function Layout() {
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-red-600 active:bg-red-50"
                   >
-                    <span>🚪</span> Sair
+                    <DoorOpen size={16} aria-hidden="true" /> Sair
                   </button>
                 </div>
               </>
@@ -300,13 +333,13 @@ export default function Layout() {
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2.5 text-xs transition-colors ${
+              `flex-1 min-w-0 flex flex-col items-center py-2.5 text-[10px] transition-colors ${
                 isActive ? 'text-blue-700 font-bold' : 'text-slate-400'
               } ${navDestaque === item.to ? 'bg-blue-50 text-blue-700 font-bold animate-pulse-glow rounded-lg' : ''}`
             }
           >
-            <span className="text-xl mb-0.5">{item.icon}</span>
-            {item.label}
+            <item.icon size={20} className="mb-0.5" aria-hidden="true" />
+            <span className="max-w-full whitespace-nowrap tracking-tight">{item.label}</span>
           </NavLink>
         ))}
       </nav>

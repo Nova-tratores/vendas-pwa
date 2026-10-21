@@ -5,6 +5,7 @@ import { similaridadeNome } from '../lib/sugestao'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import { CULTURAS } from '../lib/constants'
+import { House, Tractor, Users } from 'lucide-react'
 
 const EMPTY = {
   nome: '', endereco: '', cidade: '', estado: '',
@@ -117,7 +118,7 @@ export default function Propriedades() {
 
       {props.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-4xl mb-3">🏡</p>
+          <p className="mb-3 flex justify-center text-slate-300"><House size={40} /></p>
           <p className="text-slate-400">Nenhuma propriedade cadastrada</p>
           <button onClick={() => setShowForm(true)} className="text-blue-700 text-sm mt-2 font-medium">
             Cadastrar primeira propriedade
@@ -145,15 +146,15 @@ export default function Propriedades() {
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => navigate(`/pessoas/${p.id}`)}
-                  className="flex-1 bg-blue-50 text-blue-700 py-2 rounded-lg text-xs font-medium active:bg-blue-100"
+                  className="flex-1 bg-blue-50 text-blue-700 py-2 rounded-lg text-xs font-medium active:bg-blue-100 flex items-center justify-center gap-1"
                 >
-                  👥 Pessoas
+                  <Users size={14} /> Pessoas
                 </button>
                 <button
                   onClick={() => navigate(`/maquinas/${p.id}`)}
-                  className="flex-1 bg-amber-50 text-amber-700 py-2 rounded-lg text-xs font-medium active:bg-amber-100"
+                  className="flex-1 bg-amber-50 text-amber-700 py-2 rounded-lg text-xs font-medium active:bg-amber-100 flex items-center justify-center gap-1"
                 >
-                  🚜 Máquinas
+                  <Tractor size={14} /> Máquinas
                 </button>
               </div>
             </div>

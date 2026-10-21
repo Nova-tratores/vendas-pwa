@@ -4,6 +4,7 @@ import { getByIndex, saveRecord, getRecord, deleteRecord, registrarLog } from '.
 import { maskTelefone } from '../lib/masks'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
+import { MapPin, Users } from 'lucide-react'
 
 const VINCULOS = ['proprietario', 'familiar', 'funcionario', 'gerente', 'outro']
 const VINCULO_LABEL = { proprietario: 'Proprietário', familiar: 'Familiar', funcionario: 'Funcionário', gerente: 'Gerente', outro: 'Outro' }
@@ -73,9 +74,9 @@ export default function Pessoas() {
       {/* Atalho: abre o check-in em /visitas já com esta propriedade selecionada */}
       <button
         onClick={() => navigate('/visitas', { state: { propriedadeId: Number(propriedadeId) } })}
-        className="w-full mb-4 text-sm font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg py-2 active:bg-blue-100"
+        className="w-full mb-4 text-sm font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg py-2 active:bg-blue-100 flex items-center justify-center gap-1.5"
       >
-        📍 Registrar visita nesta propriedade
+        <MapPin size={16} /> Registrar visita nesta propriedade
       </button>
 
       {showForm && (
@@ -95,7 +96,7 @@ export default function Pessoas() {
 
       {pessoas.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-4xl mb-3">👥</p>
+          <p className="mb-3 flex justify-center text-slate-300"><Users size={40} /></p>
           <p className="text-slate-400">Nenhuma pessoa cadastrada</p>
           <button onClick={() => setShowForm(true)} className="text-blue-700 text-sm mt-2 font-medium">
             Cadastrar primeira pessoa

@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#1e40af" />
+    <meta name="theme-color" content="#991b1b" />
     <meta name="background-color" content="#f8fafc" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Vendas App" />
+    <meta name="apple-mobile-web-app-title" content="NT Vendas" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
     <meta name="description" content="App de vendas offline-first para equipe de campo" />
@@ -23,11 +23,12 @@
       #splash {
         position: fixed; inset: 0; z-index: 9999;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: #1e40af;
+        background: #991b1b;
         transition: opacity 0.3s ease;
       }
       #splash.hide { opacity: 0; pointer-events: none; }
-      #splash svg { width: 80px; height: 80px; }
+      #splash .logo { background: #fff; border-radius: 16px; padding: 14px 18px; }
+      #splash .logo img { display: block; width: 220px; max-width: 70vw; }
       #splash p { color: white; font-family: sans-serif; font-size: 20px; font-weight: 700; margin-top: 16px; }
       #splash .dots { display: flex; gap: 6px; margin-top: 24px; }
       #splash .dot {
@@ -39,16 +40,13 @@
       @keyframes pulse { 0%,80%,100% { opacity: 0.4; } 40% { opacity: 1; } }
     </style>
 
-    <title>Vendas App</title>
+    <title>NT Vendas</title>
   </head>
   <body class="bg-slate-50 text-slate-900">
     <!-- Splash Screen -->
     <div id="splash">
-      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-        <rect width="512" height="512" rx="96" fill="rgba(255,255,255,0.15)"/>
-        <text x="256" y="340" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="260" fill="#ffffff">VA</text>
-      </svg>
-      <p>Vendas App</p>
+      <div class="logo"><img src="/logo-nova.png" alt="Nova Tratores" /></div>
+      <p>NT Vendas</p>
       <div class="dots">
         <div class="dot"></div>
         <div class="dot"></div>

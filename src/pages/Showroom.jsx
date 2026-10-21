@@ -12,6 +12,8 @@ import {
   getVideosShowroom, getCategoriasAplicacao, getCultivos,
 } from '../lib/catalogoSupabase'
 import PdfViewerModal from '../components/PdfViewerModal'
+import { Camera, Clapperboard, FileText, Lock, Play, Search, Sprout, Tractor } from 'lucide-react'
+import Icone, { ICONES, nomeDoIcone } from '../components/Icone'
 
 // ====================================================================
 // Modo Showroom / TV — vitrine digital do portfólio curado.
@@ -37,12 +39,12 @@ const OCULTAR_CURSOR = 4000       // ms até esconder cursor/controles
 const VIDEO_SEGURANCA = 120000    // ms máx num vídeo do reel (evita travar)
 const SHOWROOM_PIN_PADRAO = '2024' // PIN pra sair do quiosque (override: localStorage 'showroom_pin')
 
-// Emoji por categoria de aplicação (fallback do ícone até termos um set próprio).
+// Ícone lucide por categoria de aplicação (nome do componente em components/Icone.jsx).
 const ICONE_CATEGORIA = {
-  tratores: '🚜', preparo_solo: '🌍', plantio_semeadura: '🌱',
-  adubacao_distribuicao: '🧪', pulverizacao: '💧', forragem_pecuaria: '🐄',
-  colheita: '🌾', transporte_movimentacao: '🚛', diversos: '📦',
-  agricultura_precisao: '🛰️', atv_utv: '🏍️',
+  tratores: 'Tractor', preparo_solo: 'Globe', plantio_semeadura: 'Sprout',
+  adubacao_distribuicao: 'FlaskConical', pulverizacao: 'Droplet', forragem_pecuaria: 'Beef',
+  colheita: 'Wheat', transporte_movimentacao: 'Truck', diversos: 'Package',
+  agricultura_precisao: 'Satellite', atv_utv: 'Bike',
 }
 
 // Pra onde mandar ao tocar num produto/vídeo no app do vendedor (não no kiosk).
@@ -388,8 +390,8 @@ export default function Showroom() {
             {produtos.length} máquinas{videos.length ? ` · ${videos.length} vídeos` : ''}
           </p>
         </div>
-        <button onClick={iniciar} className="px-10 py-5 rounded-2xl bg-[#E11B22] hover:bg-[#A3141A] text-2xl font-semibold shadow-lg active:scale-95 transition">
-          ▶ Iniciar apresentação
+        <button onClick={iniciar} className="px-10 py-5 rounded-2xl bg-[#E11B22] hover:bg-[#A3141A] text-2xl font-semibold shadow-lg active:scale-95 transition inline-flex items-center gap-3">
+          <Play size={26} /> Iniciar apresentação
         </button>
         <p className="text-sm text-[#8C8478] max-w-md">
           Toque na tela para explorar por operação ou marca. Sozinha, a vitrine avança automaticamente.
@@ -453,16 +455,16 @@ export default function Showroom() {
 
           {/* Controles inferiores */}
           <div className={`absolute inset-x-0 bottom-0 z-30 flex items-center justify-between px-6 pb-5 transition-opacity duration-500 ${controlesVisiveis ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <button onClick={solicitarSaida} className="px-4 py-2 rounded-full bg-black/40 text-[#B5ADA3] text-sm backdrop-blur">🔒 Sair</button>
+            <button onClick={solicitarSaida} className="px-4 py-2 rounded-full bg-black/40 text-[#B5ADA3] text-sm backdrop-blur inline-flex items-center gap-1.5"><Lock size={14} /> Sair</button>
             <div className="flex items-center gap-3">
               {videos.length > 0 && (
-                <button onClick={() => { setListaAberta(true); registrarInteracaoAtracao() }} className="px-4 py-2 rounded-full bg-black/40 text-[#B5ADA3] text-sm backdrop-blur">
-                  🎬 Vídeos ({videos.length})
+                <button onClick={() => { setListaAberta(true); registrarInteracaoAtracao() }} className="px-4 py-2 rounded-full bg-black/40 text-[#B5ADA3] text-sm backdrop-blur inline-flex items-center gap-1.5">
+                  <Clapperboard size={14} /> Vídeos ({videos.length})
                 </button>
               )}
               <span className="text-[#8C8478] text-sm tabular-nums">{Math.min(indice + 1, total)} / {total}</span>
-              <button onClick={togglePausa} className="w-11 h-11 rounded-full bg-black/40 text-white text-lg backdrop-blur">
-                {pausado ? '▶' : '❚❚'}
+              <button onClick={togglePausa} className="w-11 h-11 rounded-full bg-black/40 text-white text-lg backdrop-blur flex items-center justify-center">
+                {pausado ? <Play size={18} /> : '❚❚'}
               </button>
             </div>
           </div>
@@ -571,7 +573,7 @@ function FontesShowroom() {
 }
 
 // ====================================================================
-// NAVEGAÇÃO — Browse (operação ↔ marca)
+// NAVEGAÇÃO — Browse (operação / marca)
 // ====================================================================
 function BrowseView({ eixo, setEixo, categorias, cultivos, marcas, busca, setBusca, onAbrirCategoria, onAbrirCultivo, onAbrirMarca, onBuscar, onSair }) {
   return (
@@ -596,7 +598,7 @@ function BrowseView({ eixo, setEixo, categorias, cultivos, marcas, busca, setBus
           onSubmit={(e) => { e.preventDefault(); onBuscar() }}
           className="flex-1 min-w-[220px] max-w-md flex items-center gap-2 bg-[#211C17] rounded-full px-4 py-2.5"
         >
-          <span className="text-[#8C8478]">🔍</span>
+          <span className="text-[#8C8478] flex"><Search size={18} /></span>
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
@@ -620,7 +622,7 @@ function BrowseView({ eixo, setEixo, categorias, cultivos, marcas, busca, setBus
                   onClick={() => onAbrirCategoria(c)}
                   className="group bg-[#211C17] hover:bg-[#2C261F] rounded-2xl p-6 text-left transition active:scale-[0.98] border border-transparent hover:border-[#E11B22]/40"
                 >
-                  <div className="text-5xl mb-4">{ICONE_CATEGORIA[c.id] || '🔧'}</div>
+                  <div className="mb-4"><Icone nome={ICONE_CATEGORIA[c.id] || 'Wrench'} size={48} /></div>
                   <p className="text-xl font-semibold sw-display leading-tight">{c.nome}</p>
                   <p className="text-[#8C8478] text-sm mt-1">{c.qtd} {c.qtd === 1 ? 'máquina' : 'máquinas'}</p>
                 </button>
@@ -638,7 +640,7 @@ function BrowseView({ eixo, setEixo, categorias, cultivos, marcas, busca, setBus
                   onClick={() => onAbrirCultivo(c)}
                   className="group bg-[#211C17] hover:bg-[#2C261F] rounded-2xl p-6 text-left transition active:scale-[0.98] border border-transparent hover:border-[#E11B22]/40"
                 >
-                  <div className="text-5xl mb-4">{c.icone || '🌱'}</div>
+                  <div className="mb-4">{nomeDoIcone(c.icone) ? <Icone nome={c.icone} size={48} /> : <Sprout size={48} />}</div>
                   <p className="text-xl font-semibold sw-display leading-tight">{c.nome}</p>
                   <p className="text-[#8C8478] text-sm mt-1">{c.qtd} {c.qtd === 1 ? 'máquina' : 'máquinas'}</p>
                 </button>
@@ -686,7 +688,7 @@ function SegBtn({ ativo, onClick, children }) {
 function Vazio({ texto }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-20">
-      <p className="text-5xl">🚜</p>
+      <Tractor size={48} />
       <p className="text-[#B5ADA3] text-lg">{texto}</p>
     </div>
   )
@@ -710,7 +712,7 @@ function ListaView({ contexto, produtos, busca, setBusca, onAbrir, onVoltar }) {
       {contexto?.tipo === 'busca' && (
         <div className="px-8 lg:px-12 pb-3">
           <div className="flex items-center gap-2 bg-[#211C17] rounded-full px-4 py-2.5 max-w-md">
-            <span className="text-[#8C8478]">🔍</span>
+            <span className="text-[#8C8478] flex"><Search size={18} /></span>
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
@@ -746,7 +748,7 @@ function CardMaquina({ produto, onAbrir }) {
         {produto.foto_principal_url ? (
           <img src={produto.foto_principal_url} alt={produto.titulo} className="w-full h-full object-contain p-2" loading="lazy" />
         ) : (
-          <span className="text-4xl">📷</span>
+          <Camera size={36} className="text-slate-300" />
         )}
         {LABEL_CONDICAO[produto.condicao] && (
           <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur text-[#F5F1EC] text-[11px] font-medium">
@@ -818,7 +820,7 @@ function FichaView({ produto, onVoltar, onInteracao }) {
           {fotos[0] ? (
             <img src={fotos[0]} alt={produto.titulo} className="max-h-full max-w-full object-contain drop-shadow-2xl" />
           ) : (
-            <span className="text-6xl">📷</span>
+            <Camera size={56} className="text-white/40" />
           )}
           {LABEL_CONDICAO[produto.condicao] && (
             <span className="absolute top-5 right-5 px-3 py-1 rounded-full bg-black/50 backdrop-blur text-sm font-medium">
@@ -869,17 +871,17 @@ function FichaView({ produto, onVoltar, onInteracao }) {
           <div className="flex flex-wrap gap-3 pt-2">
             {fotos.length > 0 && (
               <BotaoMidia onClick={() => { setOverlay({ tipo: 'galeria' }); onInteracao?.() }}>
-                📷 Fotos ({fotos.length})
+                <Camera size={16} /> Fotos ({fotos.length})
               </BotaoMidia>
             )}
             {videos.length > 0 && online && (
               <BotaoMidia onClick={() => { setOverlay({ tipo: 'video', idx: 0 }); onInteracao?.() }}>
-                ▶ Vídeo{videos.length > 1 ? `s (${videos.length})` : ''}
+                <Play size={16} /> Vídeo{videos.length > 1 ? `s (${videos.length})` : ''}
               </BotaoMidia>
             )}
             {folhetoUrl && (
               <BotaoMidia onClick={() => { setOverlay({ tipo: 'folheto' }); onInteracao?.() }}>
-                📄 Folheto técnico
+                <FileText size={16} /> Folheto técnico
               </BotaoMidia>
             )}
           </div>
@@ -908,7 +910,7 @@ function FichaView({ produto, onVoltar, onInteracao }) {
 
 function BotaoMidia({ onClick, children }) {
   return (
-    <button onClick={onClick} className="px-5 py-3 rounded-xl bg-[#211C17] hover:bg-[#2C261F] text-[#F5F1EC] font-medium text-sm transition active:scale-[0.98] border border-white/10">
+    <button onClick={onClick} className="px-5 py-3 rounded-xl bg-[#211C17] hover:bg-[#2C261F] text-[#F5F1EC] font-medium text-sm transition active:scale-[0.98] border border-white/10 inline-flex items-center gap-2">
       {children}
     </button>
   )
@@ -1035,7 +1037,7 @@ function VideoSlide({ video, pausado, onEnded, onAbrir }) {
       <div className="absolute bottom-0 inset-x-0 p-8 lg:p-12 bg-gradient-to-t from-black/85 via-black/40 to-transparent pointer-events-none">
         {video.marca && <p className="text-[#B5ADA3] text-lg font-semibold uppercase tracking-wide sw-body">{video.marca}</p>}
         <p className="text-white text-3xl lg:text-5xl font-bold leading-tight sw-display">{video.titulo || video.subtitulo || ''}</p>
-        <p className="text-white/60 text-sm mt-2">▶ Toque para ver a ficha</p>
+        <p className="text-white/60 text-sm mt-2 flex items-center gap-1.5"><Play size={14} /> Toque para ver a ficha</p>
       </div>
     </div>
   )
@@ -1052,7 +1054,7 @@ function ListaVideos({ videos, onFechar, onEscolher }) {
         {videos.map((v) => (
           <button key={v.id} onClick={() => onEscolher(v)} className="text-left bg-white/5 rounded-xl overflow-hidden active:scale-[0.98] transition">
             <div className="aspect-video bg-[#2C261F] flex items-center justify-center overflow-hidden">
-              {v.foto ? <img src={v.foto} alt="" className="w-full h-full object-cover" /> : <span className="text-4xl">🎬</span>}
+              {v.foto ? <img src={v.foto} alt="" className="w-full h-full object-cover" /> : <Clapperboard size={36} className="text-white/40" />}
             </div>
             <div className="p-3">
               {v.marca && <p className="text-[#8C8478] text-xs uppercase tracking-wide">{v.marca}</p>}

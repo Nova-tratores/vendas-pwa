@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getAllRecords, saveRecord } from '../lib/db'
+import { Tractor } from 'lucide-react'
 
 // Cascata família → marca → modelo. Família vem do ERP (cache `cat_maquinas`);
 // marca/modelo combinam ERP + opções criadas pelo vendedor (`opcoes_maquina`).
@@ -113,7 +114,7 @@ export default function MaquinaSelect({ familia, marca, modelo, onChange }) {
       )}
 
       {ehMahindra && (
-        <a href="/catalogo" className="inline-block text-xs text-blue-700 font-medium">🚜 Ver no catálogo Mahindra →</a>
+        <a href="/catalogo" className="inline-flex items-center gap-1 text-xs text-blue-700 font-medium"><Tractor size={14} /> Ver no catálogo Mahindra →</a>
       )}
     </div>
   )

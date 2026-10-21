@@ -6,6 +6,11 @@ import {
   registrarCompartilhamento,
 } from '../lib/catalogoSupabase'
 import PdfViewerModal from '../components/PdfViewerModal'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { Camera, CircleHelp, ExternalLink, FileText, MessageCircle } from 'lucide-react'
+
+// Ícone de câmera em HTML puro (usado quando a foto falha e o innerHTML é trocado).
+const CAMERA_SVG = renderToStaticMarkup(<Camera size={56} />)
 
 export default function CatalogoDetalhe() {
   const { id } = useParams()
@@ -52,7 +57,7 @@ export default function CatalogoDetalhe() {
   if (naoEncontrado || !produtoCurado) {
     return (
       <div className="text-center py-12">
-        <p className="text-4xl mb-3">❓</p>
+        <p className="mb-3 flex justify-center text-slate-300"><CircleHelp size={40} /></p>
         <p className="text-slate-400">Produto não encontrado</p>
         <Link to=".." className="text-blue-700 text-sm mt-3 inline-block">← Voltar ao catálogo</Link>
       </div>
@@ -149,10 +154,10 @@ function CompartilharWhatsApp({ partes, meta }) {
       linhas.push('', partes.descricao.trim())
     }
     if (selecoes.valor && partes.valor > 0) {
-      linhas.push('', `💰 ${formatBRL(partes.valor)}`)
+      linhas.push('', `Valor: ${formatBRL(partes.valor)}`)
     }
     if (selecoes.folheto && partes.folhetoUrl && !enviarComoArquivo) {
-      linhas.push('', `📄 Folheto técnico: ${partes.folhetoUrl}`)
+      linhas.push('', `Folheto técnico: ${partes.folhetoUrl}`)
     }
     linhas.push('', '— Nova Tratores')
     return linhas.join('\n').replace(/^\n+/, '')
@@ -271,9 +276,9 @@ function CompartilharWhatsApp({ partes, meta }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="block w-full bg-green-600 text-white text-center py-3 rounded-xl font-medium text-sm active:bg-green-700 animate-fade-in mb-2"
+        className="block w-full bg-green-600 text-white text-center py-3 rounded-xl font-medium text-sm active:bg-green-700 animate-fade-in mb-2 flex items-center justify-center gap-2"
       >
-        💬 Enviar no WhatsApp
+        <MessageCircle size={16} /> Enviar no WhatsApp
       </button>
 
       {open && (
@@ -396,7 +401,7 @@ function GaleriaMidias({ midias }) {
           className="block w-full text-left bg-white rounded-xl shadow p-3 mb-3 active:bg-slate-50 animate-fade-in"
         >
           <div className="flex items-center gap-3">
-            <span className="text-3xl">📄</span>
+            <FileText size={30} className="text-red-600 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-700 truncate">{p.titulo || 'Documento PDF'}</p>
               <p className="text-xs text-slate-500">Toque para abrir</p>
@@ -444,11 +449,11 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
               className="w-full h-full object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
-                e.currentTarget.parentElement.innerHTML = '<span class="text-6xl">📷</span>'
+                e.currentTarget.parentElement.innerHTML = `<span class="text-slate-300">${CAMERA_SVG}</span>`
               }}
             />
           ) : (
-            <span className="text-6xl">📷</span>
+            <Camera size={56} className="text-slate-300" />
           )}
         </div>
         <div className="p-4">
@@ -596,10 +601,10 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
       {produto.folheto_url && (
         <button
           onClick={() => setFolhetoAberto(true)}
-          className="block w-full bg-blue-700 text-white text-center py-3 rounded-xl font-medium text-sm active:bg-blue-800 animate-fade-in"
+          className="block w-full bg-blue-700 text-white text-center py-3 rounded-xl font-medium text-sm active:bg-blue-800 animate-fade-in flex items-center justify-center gap-2"
           style={{ animationDelay: '0.25s' }}
         >
-          📄 Abrir folheto técnico
+          <FileText size={16} /> Abrir folheto técnico
         </button>
       )}
 
@@ -612,10 +617,10 @@ function DetalhePortfolio({ produto, estoque, loadingEstoque }) {
           href={produto.url_site}
           target="_blank"
           rel="noopener noreferrer"
-          className="block w-full bg-slate-100 text-slate-700 text-center py-2.5 rounded-xl text-xs mt-2 active:bg-slate-200 animate-fade-in"
+          className="block w-full bg-slate-100 text-slate-700 text-center py-2.5 rounded-xl text-xs mt-2 active:bg-slate-200 animate-fade-in flex items-center justify-center gap-1"
           style={{ animationDelay: '0.3s' }}
         >
-          Ver no site do fabricante ↗
+          Ver no site do fabricante <ExternalLink size={14} />
         </a>
       )}
     </div>
@@ -641,7 +646,7 @@ function DetalheEstoque({ item, loading }) {
   if (!item) {
     return (
       <div className="text-center py-12">
-        <p className="text-4xl mb-3">❓</p>
+        <p className="mb-3 flex justify-center text-slate-300"><CircleHelp size={40} /></p>
         <p className="text-slate-400">Produto não encontrado no estoque</p>
         <Link to=".." className="text-blue-700 text-sm mt-3 inline-block">← Voltar ao catálogo</Link>
       </div>
@@ -661,11 +666,11 @@ function DetalheEstoque({ item, loading }) {
               className="w-full h-full object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
-                e.currentTarget.parentElement.innerHTML = '<span class="text-6xl">📷</span>'
+                e.currentTarget.parentElement.innerHTML = `<span class="text-slate-300">${CAMERA_SVG}</span>`
               }}
             />
           ) : (
-            <span className="text-6xl">📷</span>
+            <Camera size={56} className="text-slate-300" />
           )}
         </div>
         <div className="p-4">

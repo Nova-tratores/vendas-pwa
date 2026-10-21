@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Sprout, Users, Tractor } from 'lucide-react'
 import {
   getClientes, getPropriedades, getPessoas, getMaquinas, getVisitas, getVendedores,
 } from '../lib/supabaseQueries'
@@ -143,9 +144,9 @@ export default function SupervisorClientes() {
                     </p>
                     <div className="flex gap-1 mt-1.5 flex-wrap">
                       <Badge ok={f.visitas.length > 0}>{f.visitas.length} visita{f.visitas.length !== 1 ? 's' : ''}</Badge>
-                      <Badge ok={f.temCulturas}>🌱 Culturas</Badge>
-                      <Badge ok={f.temPessoas}>👥 Pessoas</Badge>
-                      <Badge ok={f.temMaquinas}>🚜 Máquinas</Badge>
+                      <Badge ok={f.temCulturas}><Sprout size={12} className="inline-block align-[-2px] mr-0.5" />Culturas</Badge>
+                      <Badge ok={f.temPessoas}><Users size={12} className="inline-block align-[-2px] mr-0.5" />Pessoas</Badge>
+                      <Badge ok={f.temMaquinas}><Tractor size={12} className="inline-block align-[-2px] mr-0.5" />Máquinas</Badge>
                     </div>
                   </div>
                   <span className="text-slate-400 text-sm shrink-0">{aberto ? '▲' : '▼'}</span>
@@ -178,7 +179,7 @@ export default function SupervisorClientes() {
                               )}
                               <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
                                 <div>
-                                  <p className="text-slate-400 font-medium mb-0.5">👥 Pessoas</p>
+                                  <p className="text-slate-400 font-medium mb-0.5"><Users size={14} className="inline-block align-[-2px] mr-1" />Pessoas</p>
                                   {p.pessoas.length === 0 ? (
                                     <p className="text-slate-300 italic">nenhuma</p>
                                   ) : p.pessoas.map((pe) => (
@@ -186,7 +187,7 @@ export default function SupervisorClientes() {
                                   ))}
                                 </div>
                                 <div>
-                                  <p className="text-slate-400 font-medium mb-0.5">🚜 Máquinas</p>
+                                  <p className="text-slate-400 font-medium mb-0.5"><Tractor size={14} className="inline-block align-[-2px] mr-1" />Máquinas</p>
                                   {p.maquinas.length === 0 ? (
                                     <p className="text-slate-300 italic">nenhuma</p>
                                   ) : p.maquinas.map((m) => (

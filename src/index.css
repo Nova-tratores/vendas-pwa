@@ -151,3 +151,7 @@ input, textarea, select {
 .leaflet-container {
   isolation: isolate;
 }
+
+/* Início: cartões entram suavemente */
+@keyframes ini-entra { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+.ini-entra { animation: ini-entra .35s ease both }

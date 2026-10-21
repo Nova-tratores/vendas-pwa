@@ -3,7 +3,7 @@
 // Foto real pode entrar depois trocando o miolo por <img src={foto_url}>.
 
 const PALETA = [
-  '#1e40af', '#16a34a', '#d97706', '#7c3aed', '#dc2626',
+  '#991b1b', '#16a34a', '#d97706', '#7c3aed', '#dc2626',
   '#0891b2', '#db2777', '#65a30d', '#ea580c', '#4f46e5',
   '#0d9488', '#9333ea',
 ]

@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css'
 import { getAllRecords } from '../lib/db'
 import { contatoVigentePorPropriedade, alterarDataProximoContato } from '../lib/agenda'
 import PullToRefresh from '../components/PullToRefresh'
+import SemanaPortal from '../components/agenda/SemanaPortal'
+import { Calendar, Compass, MapPin } from 'lucide-react'
 
 // Fix do icone padrao do leaflet (Vite bundling quebra as URLs default)
 delete L.Icon.Default.prototype._getIconUrl
@@ -25,7 +27,7 @@ const ORIGEM_ICON = L.divIcon({
 })
 
 function iconeAgenda(urgencia) {
-  const cores = { atrasado: '#dc2626', hoje: '#d97706', futuro: '#1e40af' }
+  const cores = { atrasado: '#dc2626', hoje: '#d97706', futuro: '#991b1b' }
   const cor = cores[urgencia] || '#64748b'
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
     <path d="M16 0 C7.2 0 0 7.2 0 16 c0 12 16 24 16 24 s16-12 16-24 c0-8.8-7.2-16-16-16 z" fill="${cor}" stroke="#fff" stroke-width="1.5"/>
@@ -191,6 +193,8 @@ export default function Agenda() {
           </p>
         </div>
 
+        <SemanaPortal />
+
         {/* Toggle Lista/Mapa */}
         <div className="flex gap-1 mb-3 border-b border-slate-200">
           <TabButton ativo={aba === 'lista'} onClick={() => setAba('lista')}>Lista</TabButton>
@@ -217,7 +221,7 @@ export default function Agenda() {
           <p className="text-sm text-slate-500 text-center py-8">Carregando...</p>
         ) : filtrados.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-4xl mb-3">📅</p>
+            <p className="mb-3 flex justify-center text-slate-300"><Calendar size={40} /></p>
             <p className="text-slate-400">Nada agendado nesse filtro</p>
           </div>
         ) : aba === 'lista' ? (
@@ -328,9 +332,9 @@ function CardAgenda({ item, index, origem, onAlterado }) {
           <button
             type="button"
             onClick={() => { setNovaData(item.data); setEditandoData(true) }}
-            className="ml-2 text-blue-700 font-medium"
+            className="ml-2 text-blue-700 font-medium inline-flex items-center gap-1"
           >
-            📅 alterar data
+            <Calendar size={12} /> alterar data
           </button>
         )}
       </p>
@@ -369,8 +373,8 @@ function CardAgenda({ item, index, origem, onAlterado }) {
         </div>
       )}
       {item.distanciaKm != null && (
-        <p className="text-xs text-slate-600">
-          📍 <b>{item.distanciaKm.toFixed(1)} km</b> de você
+        <p className="text-xs text-slate-600 flex items-center gap-1">
+          <MapPin size={12} /> <b>{item.distanciaKm.toFixed(1)} km</b> de você
         </p>
       )}
       {item.resumo_ultimo && (
@@ -383,9 +387,9 @@ function CardAgenda({ item, index, origem, onAlterado }) {
           href={mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block mt-2 text-xs text-blue-700 font-medium active:text-blue-900"
+          className="inline-flex items-center gap-1 mt-2 text-xs text-blue-700 font-medium active:text-blue-900"
         >
-          🧭 Abrir rota no Maps
+          <Compass size={12} /> Abrir rota no Maps
         </a>
       )}
     </div>
@@ -433,7 +437,7 @@ function MapaAgenda({ pontos, origem }) {
                       : `em ${p.diasAte}d`}</b>
                   </p>
                   {p.distanciaKm != null && (
-                    <p className="text-slate-600 mt-1">📍 {p.distanciaKm.toFixed(1)} km</p>
+                    <p className="text-slate-600 mt-1 flex items-center gap-1"><MapPin size={12} /> {p.distanciaKm.toFixed(1)} km</p>
                   )}
                   {p.cidade && <p className="text-slate-500">{p.cidade}{p.estado ? `/${p.estado}` : ''}</p>}
                 </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Radio, Clock, TriangleAlert, Wallet, CircleCheck } from 'lucide-react'
 import { getVisitas, getMetricasPorVendedor, getConfig } from '../lib/supabaseQueries'
 
 export default function SupervisorAlertas() {
@@ -94,10 +95,10 @@ export default function SupervisorAlertas() {
   }
 
   const ICONES = {
-    sem_gps: '📡',
-    retroativa: '🕐',
-    inativo: '⚠️',
-    negocio_parado: '💰',
+    sem_gps: Radio,
+    retroativa: Clock,
+    inativo: TriangleAlert,
+    negocio_parado: Wallet,
   }
 
   if (loading) {
@@ -120,7 +121,7 @@ export default function SupervisorAlertas() {
 
       {alertas.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-4xl mb-3">✅</p>
+          <CircleCheck size={40} className="mx-auto mb-3 text-green-600" />
           <p className="text-slate-400">Nenhum alerta no momento</p>
         </div>
       ) : (
@@ -132,7 +133,7 @@ export default function SupervisorAlertas() {
                 {alertasAlta.map((a, i) => (
                   <div key={i} className={`rounded-xl shadow p-4 border-l-4 ${CORES[a.severidade]}`}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span>{ICONES[a.tipo]}</span>
+                      <span className="text-slate-600 shrink-0">{ICONES[a.tipo] && (() => { const Ic = ICONES[a.tipo]; return <Ic size={16} /> })()}</span>
                       <p className="font-medium text-sm">{a.titulo}</p>
                     </div>
                     <p className="text-sm text-slate-700">{a.detalhe}</p>
@@ -150,7 +151,7 @@ export default function SupervisorAlertas() {
                 {alertasMedia.map((a, i) => (
                   <div key={i} className={`rounded-xl shadow p-4 border-l-4 ${CORES[a.severidade]}`}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span>{ICONES[a.tipo]}</span>
+                      <span className="text-slate-600 shrink-0">{ICONES[a.tipo] && (() => { const Ic = ICONES[a.tipo]; return <Ic size={16} /> })()}</span>
                       <p className="font-medium text-sm">{a.titulo}</p>
                     </div>
                     <p className="text-sm text-slate-700">{a.detalhe}</p>

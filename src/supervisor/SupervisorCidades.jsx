@@ -206,7 +206,7 @@ export default function SupervisorCidades() {
 
       <p className="text-xs text-slate-400 mt-3">
         Após alterar, os vendedores recebem as novas propriedades na próxima sincronização.
-        Para forçar agora, use “🔄 Forçar resync (todos)” em Catálogo → Produtos (só admin).
+        Para forçar agora, use “Forçar resync (todos)” em Catálogo → Produtos (só admin).
       </p>
     </div>
   )

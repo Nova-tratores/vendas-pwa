@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Play, ExternalLink } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   getMarcas, getProdutosCatalogo, salvarMarca, deletarMarca,
@@ -8,6 +9,7 @@ import {
   getCategoriasAplicacao,
 } from '../lib/catalogoSupabase'
 import MidiasEditor from './MidiasEditor'
+import Icone from '../components/Icone'
 
 function slugify(s) {
   return (s || '')
@@ -544,7 +546,7 @@ function MiniaturasMidias({ minis, onFoco }) {
             <>
               {/* #t=1 pinta o frame de 1s como capa (frame 0 costuma ser preto) */}
               <video src={`${m.url}#t=1`} preload="metadata" muted playsInline className="w-full h-full object-cover pointer-events-none" />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white text-[10px]">▶</span>
+              <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white text-[10px]"><Play size={12} fill="currentColor" /></span>
             </>
           )}
         </button>
@@ -863,9 +865,9 @@ function MaquinaForm({ produto, marcas, produtos = [], focoInicial, onClose, onS
                   type="button"
                   key={c.id}
                   onClick={() => toggleCultivo(c.id)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition ${sel ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-slate-300 text-slate-600'}`}
+                  className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition ${sel ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-slate-300 text-slate-600'}`}
                 >
-                  {c.icone ? `${c.icone} ` : ''}{c.nome}
+                  <Icone nome={c.icone} size={12} />{c.nome}
                 </button>
               )
             })}
@@ -911,7 +913,7 @@ function MaquinaForm({ produto, marcas, produtos = [], focoInicial, onClose, onS
       <div ref={secoes.folheto}>
         <Campo label="Folheto técnico (PDF)">
           <div className="flex items-center gap-2">
-            {form.folheto_url && <a href={form.folheto_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-700 underline truncate flex-1">ver atual ↗</a>}
+            {form.folheto_url && <a href={form.folheto_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-700 underline truncate flex-1">ver atual <ExternalLink size={12} className="inline-block align-[-2px]" /></a>}
             <label className={`text-xs px-3 py-1.5 rounded font-medium cursor-pointer ${enviandoFolheto ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-700'}`}>
               {enviandoFolheto ? 'Enviando...' : 'Enviar PDF'}
               <input type="file" accept="application/pdf" disabled={enviandoFolheto} onChange={(e) => enviarArquivo(e, 'folheto')} className="hidden" />

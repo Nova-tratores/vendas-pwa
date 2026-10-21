@@ -4,6 +4,7 @@ import { getRecord, getByIndex, getAllRecords } from '../lib/db'
 import { PERIODOS, dentroDoPeriodo } from '../lib/tempo'
 import PullToRefresh from '../components/PullToRefresh'
 import VisitaCard from '../components/VisitaCard'
+import { MapPin } from 'lucide-react'
 
 // Histórico de visitas de um cliente — agrega as visitas de TODAS as
 // propriedades do mesmo dono. Acessado pelo ícone no card da aba Clientes
@@ -90,7 +91,7 @@ export default function VisitasCliente() {
         </div>
       ) : visitasFiltradas.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-4xl mb-3">📍</p>
+          <p className="mb-3 flex justify-center text-slate-300"><MapPin size={40} /></p>
           <p className="text-slate-400">
             {visitas.length === 0 ? 'Nenhuma visita registrada para este cliente' : 'Nenhuma visita neste período'}
           </p>

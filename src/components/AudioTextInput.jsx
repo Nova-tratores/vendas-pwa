@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Mic } from 'lucide-react'
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
@@ -16,7 +17,7 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
  * nos. Zero risco de duplicacao.
  *
  * Tradeoff: em alguns mobiles a sessao pode encerrar sozinha apos longo
- * silencio. O usuario apenas aperta 🎤 de novo. Preferivel a duplicacao.
+ * silencio. O usuario apenas aperta o microfone de novo. Preferivel a duplicacao.
  */
 export default function AudioTextInput({ value, onChange, placeholder, rows = 3 }) {
   const [gravando, setGravando] = useState(false)
@@ -148,7 +149,7 @@ export default function AudioTextInput({ value, onChange, placeholder, rows = 3 
           }`}
           title={gravando ? 'Parar gravação' : 'Gravar áudio'}
         >
-          {gravando ? '■' : '🎤'}
+          {gravando ? '■' : <Mic size={18} />}
         </button>
       )}
     </div>

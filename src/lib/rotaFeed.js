@@ -10,29 +10,29 @@
 export const LOJA = [-23.2085475, -49.3709057]
 
 export const TIPOS = {
-  carteira: { nome: 'Carteira', cor: '#dc2626', fundo: '#fef2f2', icone: '🤝', frase: 'já compra com a gente' },
-  recuperar: { nome: 'Recuperar', cor: '#d97706', fundo: '#fffbeb', icone: '🔁', frase: 'negócio parado ou perdido' },
-  novos: { nome: 'Cliente novo', cor: '#16a34a', fundo: '#f0fdf4', icone: '🌱', frase: 'ainda não compra com a gente' },
+  carteira: { nome: 'Carteira', cor: '#dc2626', fundo: '#fef2f2', icone: 'Handshake', frase: 'já compra com a gente' },
+  recuperar: { nome: 'Recuperar', cor: '#d97706', fundo: '#fffbeb', icone: 'Repeat', frase: 'negócio parado ou perdido' },
+  novos: { nome: 'Cliente novo', cor: '#16a34a', fundo: '#f0fdf4', icone: 'Sprout', frase: 'ainda não compra com a gente' },
 }
 
 export const PERFIS = {
   conquistador: {
-    nome: 'Conquistador', icone: '🚀', cor: '#16a34a',
+    nome: 'Conquistador', icone: 'Rocket', cor: '#16a34a',
     texto: 'Você gosta de abrir porteira e conhecer gente nova. Seu feed traz mais propriedades que ainda não compram com a gente.',
     mix: { novos: 0.5, carteira: 0.3, recuperar: 0.2 },
   },
   relacionamento: {
-    nome: 'Relacionamento', icone: '🤝', cor: '#dc2626',
+    nome: 'Relacionamento', icone: 'Handshake', cor: '#dc2626',
     texto: 'Você ganha pela confiança e pela presença. Seu feed traz mais clientes da carteira para renovar e vender implemento.',
     mix: { carteira: 0.6, recuperar: 0.25, novos: 0.15 },
   },
   negociador: {
-    nome: 'Negociador', icone: '💼', cor: '#d97706',
+    nome: 'Negociador', icone: 'Briefcase', cor: '#d97706',
     texto: 'Você é bom de fechar e de virar o jogo. Seu feed traz mais propostas paradas e clientes que perderam negócio.',
     mix: { recuperar: 0.5, carteira: 0.3, novos: 0.2 },
   },
   equilibrado: {
-    nome: 'Equilibrado', icone: '⚖️', cor: '#991b1b',
+    nome: 'Equilibrado', icone: 'Scale', cor: '#991b1b',
     texto: 'Você vai bem em tudo. Seu feed mistura carteira, recuperação e clientes novos na mesma medida.',
     mix: { carteira: 0.4, recuperar: 0.35, novos: 0.25 },
   },
