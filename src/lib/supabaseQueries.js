@@ -51,7 +51,9 @@ async function enriquecerVisitas(visitas) {
       : Promise.resolve({ data: [] }),
     // cultura fica na propriedade (entra na nota de completude da visita)
     propIds.length
-      ? supabase.from('propriedades').select('id, culturas').in('id', propIds)
+      // "propriedades" no app = portal_nt_clientes_PRINCIPAL no banco (lib/sync TABLE_MAP);
+      // a tabela "propriedades" não existe e a cultura saía sempre como "falta"
+      ? supabase.from('portal_nt_clientes_PRINCIPAL').select('id, culturas').in('id', propIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -65,6 +67,37 @@ async function enriquecerVisitas(visitas) {
     maquinas: (v.maquina_ids || []).map((id) => maquinasMap.get(id)).filter(Boolean),
     culturas: culturasMap.get(v.propriedade_id) || [],
   }))
+}
+
+/**
+ * Ficha de uma propriedade para o supervisor: dados, proprietário, pessoas,
+ * máquinas, negócios e todas as visitas (com a régua de completude).
+ */
+export async function getFichaPropriedade(propriedadeId) {
+  const id = Number(propriedadeId)
+  const [propRes, pessoasRes, maquinasRes, negociosRes, visitasRes] = await Promise.all([
+    supabase.from('portal_nt_clientes_PRINCIPAL').select('*').eq('id', id).maybeSingle(),
+    supabase.from('pessoas').select('*').eq('propriedade_id', id).order('nome'),
+    supabase.from('maquinas').select('*').eq('propriedade_id', id),
+    supabase.from('negocios').select('*').eq('propriedade_id', id).order('created_at', { ascending: false }),
+    supabase.from('vw_visitas_detalhadas').select('*').eq('propriedade_id', id).order('data_visita', { ascending: false }),
+  ])
+  if (propRes.error) throw propRes.error
+  const prop = propRes.data
+  let dono = null
+  if (prop?.cliente_dono_id) {
+    const { data } = await supabase.from('clientes_vendas').select('*').eq('id', prop.cliente_dono_id).maybeSingle()
+    dono = data || null
+  }
+  const visitas = await enriquecerVisitas((visitasRes.data || []).filter((v) => !v.deleted_at && !v.duplicada_de))
+  return {
+    propriedade: prop,
+    dono,
+    pessoas: pessoasRes.data || [],
+    maquinas: maquinasRes.data || [],
+    negocios: negociosRes.data || [],
+    visitas,
+  }
 }
 
 // Liga/desliga a sinalização de uma visita (com motivo opcional).

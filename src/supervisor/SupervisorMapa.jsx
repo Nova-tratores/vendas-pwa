@@ -5,6 +5,8 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { getVisitas, getVendedores } from '../lib/supabaseQueries'
 import VendedorAvatar, { primeiroNome, corVendedor } from '../components/VendedorAvatar'
+import IconesCompletude, { SeloNota } from './IconesCompletude'
+import FichaPropriedadeModal from './FichaPropriedadeModal'
 import {
   carrosDosVendedores, rotaDoDia, STATUS, hojeBR, fmtHora, fmtDuracao, fmtDia, fmtKm, haQuanto, corParada, juntarVisitas,
   diasDoPeriodo, combinarRotas, rotuloSituacaoParada,
@@ -81,6 +83,7 @@ const TIPOS = [
 const linkMapa = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`
 
 export default function SupervisorMapa() {
+  const [ficha, setFicha] = useState(null) // { id, aba } da propriedade aberta a partir de uma visita
   const hoje = hojeBR()
   const [visitas, setVisitas] = useState([])
   const [vendedores, setVendedores] = useState([])
@@ -365,11 +368,21 @@ export default function SupervisorMapa() {
                       <p className="text-slate-500 leading-tight">{p.propriedade_nome || '—'}</p>
                     </div>
                   </div>
-                  <p className="text-slate-500 mt-1">{new Date(p.data_visita).toLocaleString('pt-BR')}</p>
+                  <p className="text-slate-500 mt-1 flex items-center justify-between gap-2">{new Date(p.data_visita).toLocaleString('pt-BR')} <SeloNota v={p} /></p>
+                  {/* o que a visita tem (verde) e o que falta (vermelho) */}
+                  <div className="mt-1"><IconesCompletude v={p} /></div>
                   <p className="capitalize text-slate-600 mt-0.5">{p.tipo}</p>
                   {p.veiculo && <p className="mt-1 text-slate-700 font-medium"><Car size={14} className="inline-block align-[-2px] mr-1" />{p.veiculo}</p>}
                   {p.resumo && <p className="mt-1 italic">{p.resumo.slice(0, 120)}{p.resumo.length > 120 ? '...' : ''}</p>}
                   {p.acionar_pos_vendas && <p className="mt-1 text-orange-600 font-medium"><TriangleAlert size={14} className="inline-block align-[-2px] mr-1" />Pós-vendas acionado</p>}
+                  {p.propriedade_id && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {[['resumo', 'Propriedade'], ['pessoas', 'Pessoas'], ['visitas', 'Histórico de visitas']].map(([aba, rot]) => (
+                        <button key={aba} type="button" onClick={() => setFicha({ id: p.propriedade_id, aba })}
+                          className="px-2 py-1 rounded-md bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200">{rot}</button>
+                      ))}
+                    </div>
+                  )}
                   {/* Filtro por vendedor direto do popup */}
                   <button
                     type="button"
@@ -499,6 +512,7 @@ export default function SupervisorMapa() {
           ))}
         </div>
       )}
+      {ficha && <FichaPropriedadeModal propriedadeId={ficha.id} aba={ficha.aba} onClose={() => setFicha(null)} />}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Map as MapIcon, Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin, MessageCircle, Sprout, FileText, ListChecks, Briefcase } from 'lucide-react'
+import { Map as MapIcon, Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin, MessageCircle } from 'lucide-react'
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   getVisitas, getVendedores, getComentariosCount,
@@ -8,6 +8,8 @@ import {
 import VendedorAvatar from '../components/VendedorAvatar'
 import ComentariosModal from './ComentariosModal'
 import MiniMapaModal from './MiniMapaModal'
+import IconesCompletude, { SeloNota } from './IconesCompletude'
+import FichaPropriedadeModal from './FichaPropriedadeModal'
 import { notaVisita, passaFiltroNota, completadaDepois } from '../lib/completudeVisita'
 
 const TIPOS = [
@@ -26,9 +28,6 @@ const FILTROS_NOTA = [
   { key: 'oportunidade', label: 'Oportunidade sem negócio' },
 ]
 
-// ícone de cada item da régua, na ordem da linha "tem / falta" do card
-const ICONE_ITEM = { resumo: FileText, pessoa: User, cultura: Sprout, maquina: Tractor, passos: ListChecks, retorno: Calendar, negocio: Briefcase }
-
 const TIPO_COLORS = {
   presencial: 'bg-blue-100 text-blue-800',
   mensagem: 'bg-green-100 text-green-800',
@@ -45,6 +44,7 @@ export default function SupervisorVisitas() {
 
   const [comentarioAlvo, setComentarioAlvo] = useState(null) // visita p/ comentar
   const [mapaAlvo, setMapaAlvo] = useState(null)             // visita p/ ver no mapa
+  const [ficha, setFicha] = useState(null)                   // { id, aba } da propriedade aberta
   const [mostrarOcultas, setMostrarOcultas] = useState(false)
   const [modoJuntar, setModoJuntar] = useState(false)
   const [selecao, setSelecao] = useState([])                 // ids selecionados (juntar)
@@ -300,10 +300,7 @@ export default function SupervisorVisitas() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <span title={`Completude ${nota.nota}/100 — ${nota.faixa.label}${nota.faltam.length ? ` · falta: ${nota.faltam.join(', ')}` : ''}`}
-                      className="inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-200" style={{ color: nota.faixa.cor }}>
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: nota.faixa.cor }} />{nota.nota}
-                    </span>
+                    <SeloNota v={v} nota={nota} />
                     <span className={`text-xs px-2 py-0.5 rounded-full ${TIPO_COLORS[v.tipo] || 'bg-slate-100 text-slate-700'}`}>{v.tipo}</span>
                     {v.primeira_visita && <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700" title="Primeira visita nesta propriedade">1ª</span>}
                     {v.retroativa && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Retro</span>}
@@ -317,17 +314,7 @@ export default function SupervisorVisitas() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-xs text-slate-500">{dataStr}</p>
                   {/* o que tem (verde) e o que falta (vermelho) — mesma régua da nota */}
-                  <span className="inline-flex items-center gap-1.5">
-                    {nota.itens.filter((i) => !i.naoSeAplica).map((i) => {
-                      const Icone = ICONE_ITEM[i.key]
-                      return (
-                        <span key={i.key} title={`${i.label}: ${i.ok ? 'preenchido' : 'falta'}`} className="inline-flex items-center">
-                          <Icone size={13} className={i.ok ? 'text-green-600' : 'text-red-500'} />
-                          <span className={`text-[10px] font-bold ${i.ok ? 'text-green-600' : 'text-red-500'}`}>{i.ok ? '✓' : '✗'}</span>
-                        </span>
-                      )
-                    })}
-                  </span>
+                  <IconesCompletude v={v} nota={nota} />
                 </div>
                 {v.sinalizada && v.sinalizada_motivo && (
                   <p className="text-xs text-red-600 mt-1"><Flag size={14} className="inline-block align-[-2px] mr-1" />{v.sinalizada_motivo}</p>
@@ -373,6 +360,16 @@ export default function SupervisorVisitas() {
                 ) : v.tipo === 'presencial' ? (
                   <p className="text-xs text-red-500 mt-1 font-medium">Sem GPS</p>
                 ) : null}
+
+                {/* Atalhos para a propriedade da visita */}
+                {v.propriedade_id && !modoJuntar && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[['resumo', 'Propriedade'], ['pessoas', 'Pessoas'], ['visitas', 'Histórico de visitas'], ['negocios', 'Negócios']].map(([aba, rot]) => (
+                      <button key={aba} onClick={(e) => { e.stopPropagation(); setFicha({ id: v.propriedade_id, aba }) }}
+                        className="text-xs px-2 py-1 rounded-lg font-medium bg-blue-50 text-blue-700 active:bg-blue-100">{rot}</button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Ações do supervisor */}
                 {!modoJuntar && (
@@ -465,6 +462,8 @@ export default function SupervisorVisitas() {
         onClose={() => setComentarioAlvo(null)}
         onChanged={carregar}
       />
+
+      {ficha && <FichaPropriedadeModal propriedadeId={ficha.id} aba={ficha.aba} onClose={() => setFicha(null)} />}
 
       <MiniMapaModal
         show={!!mapaAlvo}
