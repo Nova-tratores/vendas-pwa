@@ -1,6 +1,6 @@
 // Gamificação: XP = nota da visita, nível em cv, sequência com proteção mensal.
 import { describe, it, expect } from 'vitest'
-import { nivelDe, subiuDeNivel, sequencia, chama, perfilVendedor, camposParaVerde } from '../lib/gamificacao'
+import { nivelDe, subiuDeNivel, sequencia, chama, perfilVendedor, camposParaVerde, resumoDisponivel, resumoSemana } from '../lib/gamificacao'
 import { notaVisita } from '../lib/completudeVisita'
 
 describe('nível em cv', () => {
@@ -45,5 +45,33 @@ describe('perfil e "quase lá"', () => {
     const n = notaVisita({ resumo: 'x', pessoas: [{ cargo: 'GERENTE' }], culturas: ['Café'], maquina_ids: [1], proximos_passos: 'y' })
     expect(n.nota).toBe(65)
     expect(camposParaVerde(n)).toBe(1) // o retorno (20) já fecha
+  })
+})
+
+describe('resumo de sexta', () => {
+  const sexta = new Date(2026, 9, 23, 16) // sex 23/10
+  const visita = (dia, extra = {}) => ({ data_visita: new Date(2026, 9, dia, 10).toISOString(), resumo: 'oi', ...extra })
+  const verde = {
+    resumo: 'Conversei com o Fernando sobre a plantadeira; a dele está com 12 anos e falha na distribuição do adubo, quer ver proposta.',
+    pessoa_ids: [1], propriedade_id: 9, maquina_ids: [3], proximos_passos: 'Levar proposta', data_proximo_contato: '2026-10-28', negocio_id: 1,
+  }
+  const ctx = { pessoasById: { 1: { cargo: 'FAMILIAR' } }, propById: { 9: { culturas: ['Grãos'] } } }
+
+  it('aparece de sexta 15h ao domingo', () => {
+    expect(resumoDisponivel(sexta)).toBe(true)
+    expect(resumoDisponivel(new Date(2026, 9, 23, 10))).toBe(false)
+    expect(resumoDisponivel(new Date(2026, 9, 26, 9))).toBe(false)
+  })
+
+  it('compara com a semana anterior, acha a melhor visita, dá selos e missões', () => {
+    const r = resumoSemana([
+      visita(19, verde), visita(20, verde), visita(21, verde),
+      visita(14), visita(15),
+    ], ctx, sexta)
+    expect(r.semana).toMatchObject({ feitas: 3, completas: 3, media: 100 })
+    expect(r.anterior).toEqual({ feitas: 2, media: 10 })
+    expect(r.melhor.n.nota).toBe(100)
+    expect(r.selos.map((s) => s.key)).toEqual(expect.arrayContaining(['semana_verde', 'olho_na_maquina', 'agenda_cheia']))
+    expect(r.missoes.length).toBeGreaterThan(0)
   })
 })

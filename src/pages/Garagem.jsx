@@ -6,6 +6,7 @@ import Trator from '../components/gamificacao/Trator'
 import { NIVEIS } from '../lib/gamificacao'
 import { carregarPerfil } from '../lib/gamificacaoLocal'
 import { somLigado, ligarSom, somPartida } from '../lib/recompensas'
+import { getMensagens } from '../lib/notificacoes'
 
 const CHAMAS = ['', '🔥', '🔥', '🔥🔥', '🔥🔥🔥']
 const TAM_CHAMA = ['text-3xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl']
@@ -13,8 +14,18 @@ const TAM_CHAMA = ['text-3xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl']
 export default function Garagem() {
   const [perfil, setPerfil] = useState(null)
   const [som, setSom] = useState(somLigado())
+  const [curtidas, setCurtidas] = useState(0)
 
   useEffect(() => { carregarPerfil().then(setPerfil).catch(() => setPerfil(null)) }, [])
+  // visitas curtidas pelo supervisor (mensagens com o link de curtida)
+  useEffect(() => {
+    let vend = {}
+    try { vend = JSON.parse(localStorage.getItem('vendedor') || '{}') } catch { /* sem vendedor */ }
+    if (!vend.id) return
+    getMensagens(vend.id)
+      .then((ms) => setCurtidas(ms.filter((m) => String(m.link || '').startsWith('/visitas?curtida=')).length))
+      .catch(() => {})
+  }, [])
 
   if (!perfil) return <p className="p-4 text-sm text-slate-500">Carregando sua garagem…</p>
   const { xp, nivel, sequencia, chama } = perfil
@@ -50,6 +61,13 @@ export default function Garagem() {
           </p>
         </div>
       </section>
+
+      {curtidas > 0 && (
+        <section className="bg-white rounded-xl shadow p-4 flex items-center gap-3">
+          <span className="text-3xl" aria-hidden="true">👏</span>
+          <p className="text-sm"><b>{curtidas}</b> {curtidas === 1 ? 'visita sua foi curtida' : 'visitas suas foram curtidas'} pelo supervisor.</p>
+        </section>
+      )}
 
       <section className="bg-white rounded-xl shadow p-4">
         <h3 className="text-sm font-bold mb-2">Coleção</h3>

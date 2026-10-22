@@ -92,3 +92,83 @@ export function camposParaVerde(nota) {
   }
   return faltam.length
 }
+
+// ── Resumo de sexta (fase 2) ────────────────────────────────────────────────
+
+const segundaDa = (d) => {
+  const s = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  s.setDate(s.getDate() - ((s.getDay() + 6) % 7))
+  return s
+}
+
+/** O resumo aparece de sexta 15h até domingo (a semana já rendeu). */
+export function resumoDisponivel(agora = new Date()) {
+  const d = agora.getDay()
+  return (d === 5 && agora.getHours() >= 15) || d === 6 || d === 0
+}
+
+const SELOS = [
+  { key: 'semana_verde', nome: 'Semana verde', icone: '🟢', desc: 'todas as visitas da semana completas', teste: (s) => s.feitas >= 3 && s.completas === s.feitas },
+  { key: 'maratona', nome: 'Maratona', icone: '🏃', desc: '10 ou mais visitas na semana', teste: (s) => s.feitas >= 10 },
+  { key: 'desbravador', nome: 'Desbravador', icone: '🧭', desc: '3 ou mais primeiras visitas', teste: (s) => s.primeiras >= 3 },
+  { key: 'olho_na_maquina', nome: 'Olho na máquina', icone: '🚜', desc: 'máquina registrada em todas as visitas', teste: (s) => s.feitas >= 3 && s.comMaquina === s.feitas },
+  { key: 'agenda_cheia', nome: 'Agenda cheia', icone: '📅', desc: 'retorno marcado em todas as visitas', teste: (s) => s.feitas >= 3 && s.comRetorno === s.feitas },
+  { key: 'chama_5', nome: 'Chama acesa', icone: '🔥', desc: '5 dias úteis seguidos com visita completa', teste: (s) => s.sequencia >= 5 },
+]
+
+const MISSOES_POR_CAMPO = {
+  resumo: 'Escreva no resumo o que o cliente quer e por quê (12+ palavras).',
+  pessoa: 'Anote o cargo de quem você conversou em toda visita.',
+  cultura: 'Registre a cultura principal de toda propriedade visitada.',
+  maquina: 'Vincule pelo menos 1 máquina em cada visita.',
+  passos: 'Feche toda visita com os próximos passos combinados.',
+  retorno: 'Marque o retorno (+7, +15, +30) antes de sair do cliente.',
+  negocio: 'Cliente com interesse? Abra o negócio na hora.',
+}
+
+/**
+ * Resumo da semana do vendedor (segunda até hoje) comparado à anterior.
+ * @param visitas do vendedor (IndexedDB) · ctx = { pessoasById, propById }
+ */
+export function resumoSemana(visitas, ctx, hoje = new Date()) {
+  const ini = segundaDa(hoje)
+  const iniAnt = new Date(ini); iniAnt.setDate(iniAnt.getDate() - 7)
+  const fimProx = new Date(ini); fimProx.setDate(fimProx.getDate() + 14)
+  const validas = visitas.filter((v) => !v.deleted_at && !v.duplicada_de && v.data_visita)
+  const comNota = (lista) => lista.map((v) => ({ v, n: notaVisita(visitaParaNota(v, ctx)) }))
+  const daSemana = comNota(validas.filter((v) => new Date(v.data_visita) >= ini && new Date(v.data_visita) <= hoje))
+  const anterior = comNota(validas.filter((v) => new Date(v.data_visita) >= iniAnt && new Date(v.data_visita) < ini))
+  const media = (l) => (l.length ? Math.round(l.reduce((s, x) => s + x.n.nota, 0) / l.length) : 0)
+
+  const perfil = perfilVendedor(visitas, ctx, hoje)
+  const xpSemana = daSemana.reduce((s, x) => s + x.n.nota, 0)
+  const stats = {
+    feitas: daSemana.length,
+    completas: daSemana.filter((x) => x.n.nota >= 80).length,
+    primeiras: daSemana.filter((x) => x.v.primeira_visita).length,
+    comMaquina: daSemana.filter((x) => (x.v.maquina_ids || []).length > 0).length,
+    comRetorno: daSemana.filter((x) => x.n.itens.find((i) => i.key === 'retorno').ok).length,
+    sequencia: perfil.sequencia.dias,
+  }
+  const melhor = [...daSemana].sort((a, b) => b.n.nota - a.n.nota || String(b.v.data_visita).localeCompare(String(a.v.data_visita)))[0] || null
+
+  // missões: os 2 campos que mais faltaram na semana + os retornos já marcados
+  const faltas = {}
+  for (const x of daSemana) for (const i of x.n.itens) if (!i.ok) faltas[i.key] = (faltas[i.key] || 0) + 1
+  const missoes = Object.entries(faltas).sort((a, b) => b[1] - a[1]).slice(0, 2)
+    .map(([k, n]) => ({ key: k, texto: MISSOES_POR_CAMPO[k], faltou: n }))
+  const proxSeg = new Date(ini); proxSeg.setDate(proxSeg.getDate() + 7)
+  const dia = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const retornosProxima = validas.filter((v) => v.data_proximo_contato >= dia(proxSeg) && v.data_proximo_contato < dia(fimProx)).length
+  if (retornosProxima) missoes.push({ key: 'retornos', texto: `Cumprir os ${retornosProxima} retorno${retornosProxima > 1 ? 's' : ''} marcado${retornosProxima > 1 ? 's' : ''} para a semana que vem.` })
+  if (!missoes.length) missoes.push({ key: 'manter', texto: 'Manter todas as visitas verdes e a chama acesa.' })
+
+  return {
+    semana: { ini: dia(ini), ...stats, media: media(daSemana), xp: xpSemana },
+    anterior: { feitas: anterior.length, media: media(anterior) },
+    melhor,
+    selos: SELOS.filter((s) => s.teste(stats)).map(({ teste: _t, ...s }) => s),
+    nivel: perfil.nivel,
+    missoes,
+  }
+}

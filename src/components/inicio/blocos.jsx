@@ -269,3 +269,18 @@ export function GaragemMini() {
     </button>
   )
 }
+
+/** Sexta 15h até domingo: chamada para o resumo da semana. */
+export function ResumoSemanaChamada() {
+  const navigate = useNavigate()
+  const [ok, setOk] = useState(false)
+  useEffect(() => { import('../../lib/gamificacao').then((m) => setOk(m.resumoDisponivel())) }, [])
+  if (!ok) return null
+  return (
+    <button type="button" onClick={() => navigate('/resumo-semana')}
+      className="w-full rounded-xl shadow p-3 text-left text-white" style={{ background: 'linear-gradient(135deg,#1e3a8a,#7c2d12)' }}>
+      <span className="block text-sm font-bold">🎬 Seu resumo da semana está pronto</span>
+      <span className="block text-xs text-white/80">Visitas, melhor visita, selos e as missões da semana que vem.</span>
+    </button>
+  )
+}

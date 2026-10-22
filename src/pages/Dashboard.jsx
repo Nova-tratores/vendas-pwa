@@ -8,7 +8,7 @@ import { completudePropriedade, FALTA_INFO } from '../lib/completude'
 import Icone from '../components/Icone'
 import { Calendar, ClipboardList, Clock, Hourglass, MapPin, Plus, TriangleAlert, Users, Wallet } from 'lucide-react'
 import RotaHoje from '../components/inicio/RotaHoje'
-import { Atalhos, ClimaMini, FeedHoje, GaragemMini, NoticiasHoje, TituloBloco } from '../components/inicio/blocos'
+import { Atalhos, ClimaMini, FeedHoje, GaragemMini, NoticiasHoje, ResumoSemanaChamada, TituloBloco } from '../components/inicio/blocos'
 import TaxasPlanoSafra from '../components/inicio/TaxasPlanoSafra'
 import { contatoVigentePorPropriedade } from '../lib/agenda'
 
@@ -190,6 +190,7 @@ export default function Dashboard() {
       </button>
 
       <Atalhos />
+      <div className="mt-3"><ResumoSemanaChamada /></div>
       <div className="mt-3"><GaragemMini /></div>
 
       {/* Rota de hoje: mapa + paradas, mexe direto aqui */}

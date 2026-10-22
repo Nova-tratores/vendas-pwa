@@ -215,6 +215,17 @@ export async function enviarMensagem({ vendedorId, titulo, corpo, autorNome, lin
   if (error) throw error
 }
 
+// Curtida do supervisor numa visita = mensagem ao vendedor com este link
+// (reconhecimento humano; sem tabela própria).
+export const linkCurtida = (visitaId) => `/visitas?curtida=${visitaId}`
+
+/** Ids das visitas já curtidas pelo supervisor. */
+export async function getCurtidas(ids) {
+  if (!ids.length) return new Set()
+  const { data } = await supabase.from('mensagens_vendedor').select('link').in('link', ids.map(linkCurtida))
+  return new Set((data || []).map((m) => Number(String(m.link).split('=')[1])))
+}
+
 /** Edições de visitas registradas pelo app (audit_logs_vendas), por visita. */
 export async function getEdicoesVisitas(ids) {
   if (!ids.length) return {}

@@ -3,7 +3,7 @@ import { Map as MapIcon, Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin,
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   getVisitas, getVendedores, getComentariosCount,
-  setSinalizada, juntarVisitas, desfazerJuntar, enviarMensagem, getEdicoesVisitas,
+  setSinalizada, juntarVisitas, desfazerJuntar, enviarMensagem, getEdicoesVisitas, getCurtidas, linkCurtida,
 } from '../lib/supabaseQueries'
 import VendedorAvatar from '../components/VendedorAvatar'
 import ComentariosModal from './ComentariosModal'
@@ -51,6 +51,7 @@ export default function SupervisorVisitas() {
   const [confirmJuntar, setConfirmJuntar] = useState(null)   // { a, b, principal }
   const [filtroNota, setFiltroNota] = useState('')
   const [edicoes, setEdicoes] = useState({}) // visita_id -> edições (audit_logs_vendas)
+  const [curtidas, setCurtidas] = useState(new Set()) // visitas já curtidas
 
   const [filtros, setFiltros] = useState({
     vendedor_id: searchParams.get('vendedor_id') || '',
@@ -82,6 +83,7 @@ export default function SupervisorVisitas() {
       setVisitas(vis)
       setComentCount(await getComentariosCount('visita', vis.map((v) => v.id)))
       setEdicoes(await getEdicoesVisitas(vis.map((v) => v.id)).catch(() => ({})))
+      setCurtidas(await getCurtidas(vis.map((v) => v.id)).catch(() => new Set()))
     } catch (err) {
       console.error('[Visitas]', err)
     }
@@ -90,6 +92,25 @@ export default function SupervisorVisitas() {
 
   function updateFiltro(key, value) {
     setFiltros((f) => ({ ...f, [key]: value }))
+  }
+
+  // Reconhecimento: o vendedor recebe "Seu supervisor curtiu a visita ao …"
+  async function curtir(v) {
+    if (curtidas.has(v.id)) return
+    let sup = {}
+    try { sup = JSON.parse(localStorage.getItem('supervisor') || '{}') } catch { /* sem nome */ }
+    try {
+      await enviarMensagem({
+        vendedorId: v.vendedor_id,
+        titulo: '👏 Seu supervisor curtiu sua visita',
+        corpo: `${sup.nome || 'Seu supervisor'} curtiu a visita ao ${v.cliente_nome || v.propriedade_nome || 'cliente'} (${new Date(v.data_visita).toLocaleDateString('pt-BR')}).`,
+        autorNome: sup.nome || 'Supervisor',
+        link: linkCurtida(v.id),
+      })
+      setCurtidas((s) => new Set([...s, v.id]))
+    } catch (e) {
+      alert('Não foi possível curtir: ' + (e.message || e))
+    }
   }
 
   async function toggleSinalizar(v) {
@@ -363,6 +384,14 @@ export default function SupervisorVisitas() {
                       </span>
                     ) : (
                       <>
+                        <button
+                          onClick={() => curtir(v)}
+                          disabled={curtidas.has(v.id)}
+                          title={curtidas.has(v.id) ? 'Você já curtiu esta visita' : 'Avisa o vendedor que a visita ficou boa'}
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${curtidas.has(v.id) ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600 active:bg-slate-200'}`}
+                        >
+                          👏 {curtidas.has(v.id) ? 'Curtida' : 'Curtir'}
+                        </button>
                         <button
                           onClick={() => toggleSinalizar(v)}
                           className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg font-medium ${v.sinalizada ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600 active:bg-slate-200'}`}
