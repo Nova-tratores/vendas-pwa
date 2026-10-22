@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getAllRecords, getByIndex, getRecord, deleteRecord, saveRecord, registrarLog, getServerId } from '../lib/db'
 import { useCheckin } from '../hooks/useCheckin'
@@ -7,6 +7,11 @@ import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
 import { TIPOS_MAQUINA, MARCAS, CULTURAS } from '../lib/constants'
 import { notaVisita, dataMaisDias, semRetornoJustificado, PREFIXO_SEM_RETORNO, faltouNaUltima } from '../lib/completudeVisita'
+import { camposParaVerde, subiuDeNivel } from '../lib/gamificacao'
+import { carregarPerfil } from '../lib/gamificacaoLocal'
+import { tic, celebrarVisitaCompleta } from '../lib/recompensas'
+import ContadorXP from '../components/gamificacao/ContadorXP'
+import SubiuNivel from '../components/gamificacao/SubiuNivel'
 import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPERATURAS } from '../lib/funil'
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
@@ -65,6 +70,7 @@ export default function Visitas() {
   const [negocioVinculado, setNegocioVinculado] = useState(null)
   const [negUpdate, setNegUpdate] = useState({ temperatura: '', novo_prazo: '', novo_valor: '' })
   const [editTarget, setEditTarget] = useState(null)
+  const [nivelNovo, setNivelNovo] = useState(null) // tela cheia de subida de nível
   const [editForm, setEditForm] = useState(null)
   const [veiculosDisp, setVeiculosDisp] = useState([])
 
@@ -260,6 +266,9 @@ export default function Visitas() {
     if (salvando) return // duplo toque no botão criava visita duplicada
     setSalvando(true)
     try {
+      // recompensa: XP antes de salvar, para detectar a subida de nível
+      const notaSalva = notaForm.nota
+      const xpAntes = await carregarPerfil().then((p) => p.xp).catch(() => null)
       await salvarVisita(form)
       // Se a visita está ligada a um negócio em andamento, atualiza o estado
       // do negócio (temperatura obrigatória; novo prazo/valor se informados).
@@ -282,6 +291,11 @@ export default function Visitas() {
       setShowForm(false)
       resetFormVisita()
       carregar()
+      if (notaSalva >= 80) celebrarVisitaCompleta()
+      if (xpAntes != null) {
+        const n = subiuDeNivel(xpAntes, xpAntes + notaSalva)
+        if (n) setTimeout(() => setNivelNovo(n), notaSalva >= 80 ? 1100 : 0)
+      }
       setTimeout(() => setSucesso(false), 3000)
     } catch (err) {
       alert(err.message)
@@ -317,6 +331,13 @@ export default function Visitas() {
       { pessoasById: Object.fromEntries(pessoasDisp.map((p) => [p.id, p])), propById: { [propSelecionada.id]: propSelecionada } },
     )
     : null
+  // "tic" (vibração curta) a cada campo que sobe a nota
+  const notaAnterior = useRef(0)
+  useEffect(() => {
+    if (notaForm.nota > notaAnterior.current && form.propriedade_id) tic()
+    notaAnterior.current = notaForm.nota
+  }, [notaForm.nota, form.propriedade_id])
+  const paraVerde = camposParaVerde(notaForm)
   // visita presencial sempre sai com retorno: data ou "sem retorno" com motivo
   const faltaRetorno = tipoPresencial && !form.data_proximo_contato && !semRetornoJustificado(form.proximos_passos)
   function semRetorno() {
@@ -558,6 +579,7 @@ export default function Visitas() {
   return (
     <PullToRefresh onRefresh={carregar}>
     <div>
+      {nivelNovo && <SubiuNivel nivel={nivelNovo} onFechar={() => setNivelNovo(null)} />}
       <div className="flex items-center justify-between mb-4 gap-2">
         <h2 className="text-xl font-bold">Visitas</h2>
         {!showForm && (
@@ -1389,8 +1411,13 @@ export default function Visitas() {
           {form.propriedade_id && (
             <div className="rounded-lg border border-slate-200 p-2">
               <div className="flex items-center justify-between text-xs mb-1">
-                <span className="font-bold" style={{ color: notaForm.faixa.cor }}>Visita {notaForm.nota}%</span>
-                <span className="text-slate-500 truncate ml-2">{notaForm.faltam.length ? `falta: ${notaForm.faltam.join(', ')}` : 'completa'}</span>
+                <span className="font-bold" style={{ color: notaForm.faixa.cor }}>
+                  Visita {notaForm.nota}% · <ContadorXP valor={notaForm.nota} className="text-green-700" />
+                </span>
+                <span className="text-slate-500 truncate ml-2">
+                  {paraVerde === 1 ? <b className="text-amber-700">Falta 1 campo para verde!</b>
+                    : notaForm.faltam.length ? `falta: ${notaForm.faltam.join(', ')}` : 'completa 🎉'}
+                </span>
               </div>
               <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{ width: `${notaForm.nota}%`, background: notaForm.faixa.cor }} />

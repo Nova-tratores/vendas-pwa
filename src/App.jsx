@@ -25,6 +25,7 @@ import ChamadoVeicular from './pages/ChamadoVeicular'
 import ChecklistVeiculo from './pages/ChecklistVeiculo'
 import Notificacoes from './pages/Notificacoes'
 import CompletarVisita from './pages/CompletarVisita'
+import Garagem from './pages/Garagem'
 import Perfil from './pages/Perfil'
 import Menu from './pages/Menu'
 import ContatosTipo from './pages/ContatosTipo'
@@ -140,6 +141,7 @@ export default function App() {
         <Route path="visitas" element={<Visitas />} />
         <Route path="visitas/mapa" element={<VisitasMapa />} />
         <Route path="completar-visita/:id" element={<CompletarVisita />} />
+        <Route path="garagem" element={<Garagem />} />
         <Route path="historico-visitas/:propriedadeId" element={<VisitasCliente />} />
         <Route path="chamado-veicular" element={<ChamadoVeicular />} />
         <Route path="checklist-veiculo" element={<ChecklistVeiculo />} />

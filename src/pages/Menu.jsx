@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bell, Calculator, Calendar, Car, ChevronRight, CircleHelp, ClipboardCheck, Compass, DoorOpen, Handshake,
-  Lightbulb, MapPin, Map as IconeMapa, Newspaper, Package, Plus, Repeat, Settings, Sprout, Target, User, UserCircle, Users, Wallet,
+  Lightbulb, MapPin, Map as IconeMapa, Newspaper, Package, Plus, Repeat, Settings, Sprout, Target, Tractor, User, UserCircle, Users, Wallet,
 } from 'lucide-react'
 import { carregarContatos } from '../lib/contatosVendedor'
 
@@ -48,6 +48,7 @@ const MODULOS = [
     titulo: 'Eu e o carro',
     itens: [
       { to: '/perfil', rotulo: 'Meu perfil', icone: UserCircle },
+      { to: '/garagem', rotulo: 'Minha garagem', icone: Tractor },
       { to: '/checklist-veiculo', rotulo: 'Checklist do carro', icone: ClipboardCheck },
       { to: '/chamado-veicular', rotulo: 'Chamado veicular', icone: Car },
       { to: '/perfil-teste', rotulo: 'Teste de perfil', icone: Users },

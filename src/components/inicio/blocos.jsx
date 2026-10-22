@@ -243,3 +243,29 @@ export function Atalhos() {
     </div>
   )
 }
+
+/** Nível, XP e sequência do vendedor — atalho para a Garagem. */
+export function GaragemMini() {
+  const [perfil, setPerfil] = useState(null)
+  const navigate = useNavigate()
+  useEffect(() => {
+    import('../../lib/gamificacaoLocal').then((m) => m.carregarPerfil()).then(setPerfil).catch(() => {})
+  }, [])
+  if (!perfil) return null
+  const { nivel, xp, sequencia } = perfil
+  return (
+    <button type="button" onClick={() => navigate('/garagem')}
+      className="w-full bg-white rounded-xl shadow p-3 flex items-center gap-3 text-left">
+      <span className="text-2xl" aria-hidden="true">{sequencia.dias > 0 ? '🔥' : '🚜'}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-bold">{nivel.cv} cv · {sequencia.dias} {sequencia.dias === 1 ? 'dia' : 'dias'} seguidos</span>
+        <span className="block h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+          <span className="block h-full bg-green-600 rounded-full" style={{ width: `${nivel.pct}%` }} />
+        </span>
+        <span className="block text-[11px] text-slate-500 mt-0.5">
+          {xp.toLocaleString('pt-BR')} XP{nivel.proximo ? ` · faltam ${nivel.faltaXp.toLocaleString('pt-BR')} para ${nivel.proximo.cv} cv` : ''}
+        </span>
+      </span>
+    </button>
+  )
+}
