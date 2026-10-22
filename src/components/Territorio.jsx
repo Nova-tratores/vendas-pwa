@@ -10,6 +10,7 @@ import 'leaflet/dist/leaflet.css'
 import { municipiosTerritorio, territorioDoMunicipio } from '../lib/mapaVendedores'
 
 const CHAVE_MUN = 'nt-territorio-municipio'
+const CHAVE_LISTA = 'nt-territorio-municipios' // lista guardada no aparelho (abre na hora)
 const PIRAJU = 3538808
 
 const NIVEIS_PADRAO = [
@@ -23,7 +24,9 @@ const NIVEIS_PADRAO = [
 const fmtHa = (n) => `${Math.round(Number(n) || 0).toLocaleString('pt-BR')} ha`
 
 export default function Territorio({ supervisor = false, vendedores = [] }) {
-  const [municipios, setMunicipios] = useState([])
+  const [municipios, setMunicipios] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CHAVE_LISTA) || '[]') } catch { return [] }
+  })
   const [ibge, setIbge] = useState(() => {
     try { return Number(localStorage.getItem(CHAVE_MUN)) || PIRAJU } catch { return PIRAJU }
   })
@@ -34,7 +37,13 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
   const [mapa, setMapa] = useState(null)
 
   useEffect(() => {
-    municipiosTerritorio().then((d) => setMunicipios(d.municipios || [])).catch((e) => setErro(e.message))
+    municipiosTerritorio()
+      .then((d) => {
+        setMunicipios(d.municipios || [])
+        try { localStorage.setItem(CHAVE_LISTA, JSON.stringify(d.municipios || [])) } catch { /* sem storage */ }
+      })
+      .catch((e) => { if (!municipios.length) setErro(e.message) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

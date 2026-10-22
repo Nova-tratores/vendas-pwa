@@ -4,6 +4,7 @@ import {
   addVendedorCidade, removeVendedorCidade,
 } from '../lib/supabaseQueries'
 import VendedorAvatar, { primeiroNome, corVendedor } from '../components/VendedorAvatar'
+import { agruparCidades } from '../lib/cidadesCanon'
 
 // Atribuição de cidades a vendedores: define quais clientes (por cidade) cada
 // vendedor enxerga/baixa no app. Uma cidade pode ter vários vendedores.
@@ -50,33 +51,51 @@ export default function SupervisorCidades() {
     return s
   }, [vinculos, vendedorSel])
 
+  // Uma linha por município oficial: "Carlopolis", "CARLOPOLIS (PR)" e
+  // "Carloplolis" são a mesma cidade (lib/cidadesCanon). Marcar a linha atribui
+  // todas as grafias; grafia nova que aparecer depois deixa a linha "parcial".
+  const grupos = useMemo(() => agruparCidades(cidades), [cidades])
+  const estadoDoGrupo = (g) => {
+    const n = g.grafias.filter((x) => atribuidasDoSel.has(x.cidade)).length
+    return n === 0 ? 'nenhuma' : n === g.grafias.length ? 'todas' : 'parcial'
+  }
+
   const cidadesFiltradas = useMemo(() => {
-    const t = busca.trim().toLowerCase()
-    if (!t) return cidades
-    return cidades.filter((c) => c.cidade.toLowerCase().includes(t))
-  }, [cidades, busca])
+    const sem = (x) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    const t = sem(busca.trim())
+    if (!t) return grupos
+    return grupos.filter((g) => sem(g.nome).includes(t) || g.grafias.some((x) => sem(x.cidade).includes(t)))
+  }, [grupos, busca])
 
   const resumoSel = useMemo(() => {
-    let clientes = 0
-    for (const c of cidades) if (atribuidasDoSel.has(c.cidade)) clientes += c.total
-    return { cidades: atribuidasDoSel.size, clientes }
-  }, [cidades, atribuidasDoSel])
+    let clientes = 0, cid = 0
+    for (const g of grupos) {
+      const marcadas = g.grafias.filter((x) => atribuidasDoSel.has(x.cidade))
+      if (marcadas.length) cid++
+      for (const x of marcadas) clientes += x.total
+    }
+    return { cidades: cid, clientes }
+  }, [grupos, atribuidasDoSel])
 
   const vendById = useMemo(
     () => Object.fromEntries(vendedores.map((v) => [v.id, v])),
     [vendedores]
   )
 
-  async function toggle(cidade) {
+  // Liga/desliga o município inteiro (todas as grafias de uma vez)
+  async function toggle(grupo, marcar = estadoDoGrupo(grupo) !== 'todas') {
     if (!vendedorSel || salvando) return
-    const jaTem = atribuidasDoSel.has(cidade)
+    const alvo = grupo.grafias.map((x) => x.cidade).filter((c) => atribuidasDoSel.has(c) !== marcar)
+    if (!alvo.length) return
     // Otimista
-    setVinculos((prev) => jaTem
-      ? prev.filter((v) => !(v.vendedor_id === vendedorSel && v.cidade === cidade))
-      : [...prev, { vendedor_id: vendedorSel, cidade }])
+    setVinculos((prev) => marcar
+      ? [...prev, ...alvo.map((cidade) => ({ vendedor_id: vendedorSel, cidade }))]
+      : prev.filter((v) => !(v.vendedor_id === vendedorSel && alvo.includes(v.cidade))))
     try {
-      if (jaTem) await removeVendedorCidade(vendedorSel, cidade)
-      else await addVendedorCidade(vendedorSel, cidade)
+      for (const c of alvo) {
+        if (marcar) await addVendedorCidade(vendedorSel, c)
+        else await removeVendedorCidade(vendedorSel, c)
+      }
     } catch (err) {
       alert('Não foi possível salvar: ' + err.message)
       carregar() // reverte pro estado real
@@ -85,14 +104,17 @@ export default function SupervisorCidades() {
 
   async function aplicarLote(marcar) {
     if (!vendedorSel || salvando) return
-    const alvo = cidadesFiltradas.filter((c) => atribuidasDoSel.has(c.cidade) !== marcar)
+    const alvo = cidadesFiltradas.filter((g) => (estadoDoGrupo(g) === 'todas') !== marcar)
     if (alvo.length === 0) return
     if (!confirm(`${marcar ? 'Atribuir' : 'Remover'} ${alvo.length} cidade(s) ${marcar ? 'a' : 'de'} ${primeiroNome(vendById[vendedorSel]?.nome)}?`)) return
     setSalvando(true)
     try {
-      for (const c of alvo) {
-        if (marcar) await addVendedorCidade(vendedorSel, c.cidade)
-        else await removeVendedorCidade(vendedorSel, c.cidade)
+      for (const g of alvo) {
+        for (const x of g.grafias) {
+          if (atribuidasDoSel.has(x.cidade) === marcar) continue
+          if (marcar) await addVendedorCidade(vendedorSel, x.cidade)
+          else await removeVendedorCidade(vendedorSel, x.cidade)
+        }
       }
       await carregar()
     } catch (err) {
@@ -176,21 +198,31 @@ export default function SupervisorCidades() {
         {cidadesFiltradas.length === 0 && (
           <p className="p-4 text-sm text-slate-400">Nenhuma cidade encontrada.</p>
         )}
-        {cidadesFiltradas.map((c) => {
-          const marcada = atribuidasDoSel.has(c.cidade)
-          const outros = [...(vendedoresPorCidade.get(c.cidade) || [])].filter((id) => id !== vendedorSel)
+        {cidadesFiltradas.map((g) => {
+          const estado = estadoDoGrupo(g)
+          const marcada = estado === 'todas'
+          const outros = [...new Set(g.grafias.flatMap((x) => [...(vendedoresPorCidade.get(x.cidade) || [])]))].filter((id) => id !== vendedorSel)
           return (
             <label
-              key={c.cidade}
-              className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer active:bg-slate-50 ${marcada ? 'bg-blue-50/40' : ''}`}
+              key={g.chave}
+              className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer active:bg-slate-50 ${estado !== 'nenhuma' ? 'bg-blue-50/40' : ''}`}
             >
               <input
                 type="checkbox"
                 checked={marcada}
-                onChange={() => toggle(c.cidade)}
+                ref={(el) => { if (el) el.indeterminate = estado === 'parcial' }}
+                onChange={() => toggle(g)}
                 className="w-4 h-4 accent-blue-600"
               />
-              <span className="flex-1 text-sm">{c.cidade}</span>
+              <span className="flex-1 text-sm min-w-0">
+                {g.nome}{g.uf ? <span className="text-slate-400"> · {g.uf}</span> : null}
+                {g.grafias.length > 1 && (
+                  <span className="block text-[11px] text-slate-400 truncate" title={g.grafias.map((x) => x.cidade).join(' · ')}>
+                    {g.grafias.length} grafias: {g.grafias.map((x) => x.cidade).join(' · ')}
+                  </span>
+                )}
+                {estado === 'parcial' && <span className="block text-[11px] text-amber-600">grafia nova não marcada — toque para incluir</span>}
+              </span>
               {outros.length > 0 && (
                 <span className="flex -space-x-1.5" title="Também atribuída a outros vendedores">
                   {outros.slice(0, 4).map((id) => (
@@ -198,7 +230,7 @@ export default function SupervisorCidades() {
                   ))}
                 </span>
               )}
-              <span className="text-xs text-slate-400 w-16 text-right">{c.total} cli.</span>
+              <span className="text-xs text-slate-400 w-16 text-right">{g.total} cli.</span>
             </label>
           )
         })}
