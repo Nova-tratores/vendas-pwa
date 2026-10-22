@@ -48,6 +48,7 @@ import SupervisorOverview from './supervisor/SupervisorOverview'
 import SupervisorVendedores from './supervisor/SupervisorVendedores'
 import SupervisorEvolucao from './supervisor/SupervisorEvolucao'
 import SupervisorVisitas from './supervisor/SupervisorVisitas'
+import SupervisorCompletude from './supervisor/SupervisorCompletude'
 import SupervisorPosVendas from './supervisor/SupervisorPosVendas'
 import SupervisorAlertas from './supervisor/SupervisorAlertas'
 import SupervisorProdutos from './supervisor/SupervisorProdutos'
@@ -189,6 +190,7 @@ export default function App() {
         <Route path="evolucao" element={<SupervisorEvolucao />} />
         <Route path="historico" element={<SupervisorHistorico />} />
         <Route path="visitas" element={<SupervisorVisitas />} />
+        <Route path="completude" element={<SupervisorCompletude />} />
         <Route path="semana" element={<SupervisorSemana />} />
         <Route path="propostas" element={<SupervisorPropostas />} />
         <Route path="pos-vendas" element={<SupervisorPosVendas />} />

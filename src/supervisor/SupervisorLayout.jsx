@@ -25,6 +25,7 @@ const MENUS = [
   ] },
   { label: 'Vendas', items: [
     { to: '/supervisor/visitas', label: 'Visitas' },
+    { to: '/supervisor/completude', label: 'Completude das visitas' },
     { to: '/supervisor/semana', label: 'Calendário' },
     { to: '/supervisor/propostas', label: 'Propostas' },
     { to: '/supervisor/pos-vendas', label: 'Pós Vendas' },

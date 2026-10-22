@@ -161,3 +161,82 @@ export function completadaDepois(visita, logs) {
     .sort((a, b) => b - a)[0]
   return tardia ? new Date(tardia).toISOString() : null
 }
+
+// ── Painel do supervisor (fase 3) ────────────────────────────────────────────
+
+const distM = (a, b) => {
+  const R = 6371000, rad = (x) => (x * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+/** Por vendedor: feitas, completas (≥ 80), % e quantas vezes faltou cada campo. */
+export function resumoPorVendedor(visitas) {
+  const por = new Map()
+  for (const v of visitas) {
+    const k = v.vendedor_id
+    if (!por.has(k)) por.set(k, { vendedor_id: k, nome: v.vendedor_nome || '—', feitas: 0, completas: 0, falta: {}, aplica: {} })
+    const r = por.get(k)
+    const n = notaVisita(v)
+    r.feitas++
+    if (n.nota >= 80) r.completas++
+    for (const i of n.itens) {
+      if (i.naoSeAplica) continue
+      r.aplica[i.key] = (r.aplica[i.key] || 0) + 1
+      if (!i.ok) r.falta[i.key] = (r.falta[i.key] || 0) + 1
+    }
+  }
+  return [...por.values()]
+    .map((r) => ({
+      ...r,
+      pct: r.feitas ? Math.round((r.completas / r.feitas) * 100) : 0,
+      // % das visitas (em que o campo se aplica) sem aquele campo
+      pctFalta: Object.fromEntries(ITENS_NOTA.map((i) => [i.key, r.aplica[i.key] ? Math.round(((r.falta[i.key] || 0) / r.aplica[i.key]) * 100) : null])),
+    }))
+    .sort((a, b) => b.feitas - a.feitas)
+}
+
+/**
+ * Alertas automáticos do painel.
+ * @param visitas do período (com nota)
+ * @param todas   visitas recentes de todos (para retornos vencidos)
+ */
+export function alertasCompletude(visitas, todas = visitas, hoje = dataMaisDias(0)) {
+  // 📍 GPS repetido: mesmo vendedor, propriedades diferentes, < 100 m e < 60 min
+  const gps = []
+  const comGps = visitas.filter((v) => v.latitude != null && v.longitude != null)
+    .sort((a, b) => String(a.data_visita).localeCompare(String(b.data_visita)))
+  for (let i = 0; i < comGps.length; i++) {
+    for (let j = i + 1; j < comGps.length; j++) {
+      const a = comGps[i], b = comGps[j]
+      const min = (new Date(b.data_visita) - new Date(a.data_visita)) / 60000
+      if (min > 60) break
+      if (a.vendedor_id !== b.vendedor_id || a.propriedade_id === b.propriedade_id) continue
+      const m = distM({ lat: +a.latitude, lng: +a.longitude }, { lat: +b.latitude, lng: +b.longitude })
+      if (m < 100) gps.push({ a, b, metros: Math.round(m), minutos: Math.round(min) })
+    }
+  }
+
+  // 🕒 retroativas em excesso: 30%+ das visitas do vendedor (com 5 ou mais)
+  const retro = resumoPorVendedor(visitas)
+    .map((r) => ({ ...r, retro: visitas.filter((v) => v.vendedor_id === r.vendedor_id && v.retroativa).length }))
+    .filter((r) => r.feitas >= 5 && r.retro / r.feitas >= 0.3)
+    .map((r) => ({ vendedor_id: r.vendedor_id, nome: r.nome, retro: r.retro, feitas: r.feitas }))
+
+  // 💼 resumo indica interesse, mas não há negócio
+  const semNegocio = visitas.filter((v) => notaVisita(v).oportunidadeSemNegocio)
+
+  // 📅 retornos vencidos: a última visita da propriedade marcou retorno antes de hoje
+  const ultimaPorProp = new Map()
+  for (const v of todas) {
+    if (!v.propriedade_id) continue
+    const u = ultimaPorProp.get(v.propriedade_id)
+    if (!u || String(v.data_visita) > String(u.data_visita)) ultimaPorProp.set(v.propriedade_id, v)
+  }
+  const vencidos = [...ultimaPorProp.values()]
+    .filter((v) => v.data_proximo_contato && v.data_proximo_contato < hoje)
+    .sort((a, b) => a.data_proximo_contato.localeCompare(b.data_proximo_contato))
+
+  return { gps, retro, semNegocio, vencidos }
+}

@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   notaVisita, resumoReal, indicaInteresse, passaFiltroNota, dataMaisDias, semRetornoJustificado,
   incompletasDoDia, faltouNaUltima, completadaDepois, horaDoAvisoDoDia, visitaParaNota,
+  resumoPorVendedor, alertasCompletude,
 } from '../lib/completudeVisita'
 
 const completa = {
@@ -93,5 +94,37 @@ describe('cobrança da completude', () => {
     expect(completadaDepois(v, [{ acao: 'alterar', detalhes: 'Edição: sem alterações', data_hora: '2026-10-23T10:00:00Z' }])).toBeNull()
     expect(completadaDepois(v, [{ acao: 'alterar', detalhes: 'Completou: máquina', data_hora: '2026-10-21T09:00:00Z' }])).toBeNull()
     expect(completadaDepois(v, [{ acao: 'alterar', detalhes: 'Completou: máquina', data_hora: '2026-10-23T10:00:00Z' }])).toBe('2026-10-23T10:00:00.000Z')
+  })
+})
+
+describe('painel do supervisor', () => {
+  const v = (o) => ({ vendedor_id: 1, vendedor_nome: 'Matheus', resumo: 'oi', pessoas: [], culturas: [], maquina_ids: [], ...o })
+
+  it('feitas × completas e o que cada um esquece', () => {
+    const [r] = resumoPorVendedor([v({ id: 1 }), v({ id: 2, ...completa })])
+    expect(r).toMatchObject({ feitas: 2, completas: 1, pct: 50 })
+    expect(r.pctFalta.maquina).toBe(50)
+    expect(r.pctFalta.negocio).toBe(0) // só a visita com interesse conta, e ela tem negócio
+  })
+
+  it('GPS repetido: propriedades diferentes no mesmo ponto em menos de 1 h', () => {
+    const { gps } = alertasCompletude([
+      v({ id: 1, propriedade_id: 10, data_visita: '2026-10-22T10:00:00Z', latitude: -23.2, longitude: -49.3 }),
+      v({ id: 2, propriedade_id: 11, data_visita: '2026-10-22T10:20:00Z', latitude: -23.2001, longitude: -49.3001 }),
+      v({ id: 3, propriedade_id: 12, data_visita: '2026-10-22T14:00:00Z', latitude: -23.2, longitude: -49.3 }),
+    ])
+    expect(gps.map((g) => [g.a.id, g.b.id])).toEqual([[1, 2]])
+  })
+
+  it('retroativas em excesso e retornos vencidos', () => {
+    const vis = [1, 2, 3, 4, 5].map((i) => v({ id: i, retroativa: i <= 2, propriedade_id: i, data_visita: `2026-10-0${i}T10:00:00Z` }))
+    const { retro, vencidos } = alertasCompletude(vis, [
+      ...vis,
+      v({ id: 9, propriedade_id: 20, data_visita: '2026-10-01T10:00:00Z', data_proximo_contato: '2026-10-10' }),
+      v({ id: 10, propriedade_id: 21, data_visita: '2026-10-01T10:00:00Z', data_proximo_contato: '2026-10-10' }),
+      v({ id: 11, propriedade_id: 21, data_visita: '2026-10-12T10:00:00Z' }), // voltou: não está vencido
+    ], '2026-10-22')
+    expect(retro).toEqual([{ vendedor_id: 1, nome: 'Matheus', retro: 2, feitas: 5 }])
+    expect(vencidos.map((x) => x.id)).toEqual([9])
   })
 })
