@@ -1,7 +1,8 @@
 // Perfil de gamificação do vendedor lido do IndexedDB (as visitas dele já
 // sincronizadas no aparelho). Regras em ./gamificacao.
 import { getAllRecords } from './db'
-import { perfilVendedor, resumoSemana } from './gamificacao'
+import { perfilVendedor, resumoSemana, nivelDe } from './gamificacao'
+import { XP_POR_CONFIRMACAO } from './tratoresCliente'
 
 const CHAVE_MISSOES = 'nt-missoes'
 
@@ -41,7 +42,18 @@ async function carregarBase() {
 
 export async function carregarPerfil(hoje = new Date()) {
   const { visitas, ctx, missoes } = await carregarBase()
-  return perfilVendedor(visitas, ctx, hoje, missoes)
+  const perfil = perfilVendedor(visitas, ctx, hoje, missoes)
+  // cada trator localizado em campo vale XP (lib/tratoresLocal)
+  try {
+    const { carregarConfirmacoes, minhasConfirmacoes } = await import('./tratoresLocal')
+    const n = minhasConfirmacoes(await carregarConfirmacoes())
+    if (n) {
+      perfil.xp += n * XP_POR_CONFIRMACAO
+      perfil.nivel = nivelDe(perfil.xp)
+      perfil.tratoresLocalizados = n
+    }
+  } catch { /* sem confirmações */ }
+  return perfil
 }
 
 /** Base completa (para o Bônus de Safra e afins). */

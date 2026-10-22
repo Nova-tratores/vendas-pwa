@@ -12,6 +12,7 @@ import { carregarPerfil, carregarMissoes, missoesAtivas } from '../lib/gamificac
 import { tic, celebrarVisitaCompleta } from '../lib/recompensas'
 import ContadorXP from '../components/gamificacao/ContadorXP'
 import SubiuNivel from '../components/gamificacao/SubiuNivel'
+import TratoresDaPropriedade from '../components/TratoresDaPropriedade'
 import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPERATURAS } from '../lib/funil'
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
@@ -661,6 +662,8 @@ export default function Visitas() {
           {form.tipo && (<>
           {propSelecionada ? (
             <div className="space-y-2">
+              {/* na visita presencial: trator nosso deste cliente — onde está? */}
+              {tipoPresencial && <TratoresDaPropriedade propriedade={propSelecionada} nomeDono={donoNome} gpsVisita={gpsData} />}
               {faltouAntes && (
                 <p className="text-xs bg-amber-50 text-amber-800 border border-amber-200 rounded-lg px-3 py-2">
                   Da última vez ({new Date(faltouAntes.visita.data_visita).toLocaleDateString('pt-BR')}) faltou: <b>{faltouAntes.faltam.join(', ')}</b>. Repare nisso hoje.

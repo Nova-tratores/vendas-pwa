@@ -4,7 +4,7 @@
 // O mesmo componente serve o vendedor (só as conquistas dele) e o supervisor
 // (equipe inteira ou um vendedor). Dados do portal: /api/crm-vendas/territorio.
 import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { municipiosTerritorio, territorioDoMunicipio } from '../lib/mapaVendedores'
@@ -20,6 +20,13 @@ const NIVEIS_PADRAO = [
   { key: 'quente', label: 'Quente', cor: '#15803d' },
   { key: 'cliente', label: 'Comprou', cor: '#ca8a04' },
 ]
+
+// pino do trator localizado em campo
+const ICONE_TRATOR = L.divIcon({
+  className: '',
+  html: '<div style="font-size:20px;line-height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">🚜</div>',
+  iconSize: [22, 22], iconAnchor: [11, 11],
+})
 
 const fmtHa = (n) => `${Math.round(Number(n) || 0).toLocaleString('pt-BR')} ha`
 
@@ -117,6 +124,23 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
         </div>
       )}
 
+      {dados?.tratores?.vendidos > 0 && (
+        <details className="bg-white rounded-xl shadow p-3">
+          <summary className="text-sm cursor-pointer">
+            🚜 <b>{dados.tratores.vendidos}</b> trator{dados.tratores.vendidos > 1 ? 'es' : ''} nosso{dados.tratores.vendidos > 1 ? 's' : ''} vendido{dados.tratores.vendidos > 1 ? 's' : ''} aqui
+            <span className="text-slate-500"> · {dados.tratores.localizados} localizado{dados.tratores.localizados === 1 ? '' : 's'} no mapa</span>
+          </summary>
+          <p className="text-[11px] text-slate-500 mt-1 mb-2">Na visita ao dono, o app pergunta onde o trator está. Cada confirmação põe o trator no mapa e vale XP.</p>
+          <ul className="space-y-1 max-h-60 overflow-y-auto">
+            {dados.tratores.lista.map((t, i) => (
+              <li key={i} className="text-xs text-slate-700">
+                {t.localizado ? '📍' : '❔'} Mahindra {t.modelo} · {t.cliente}{t.entrega ? <span className="text-slate-400"> · {t.entrega}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <div className="relative bg-white rounded-xl shadow overflow-hidden" style={{ height: '62vh', minHeight: 380 }}>
         {carregando && (
           <div className="absolute inset-0 z-[1001] flex items-center justify-center bg-white/60 text-sm text-slate-600">Desenhando os imóveis…</div>
@@ -139,11 +163,21 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
                 layer.bindPopup(
                   `<b>${nivel?.label || p.nivel}</b><br/>${fmtHa(p.area_ha)}${p.cultura ? ` · ${p.cultura}` : ''}`
                   + (p.visitas ? `<br/>${p.visitas} visita${p.visitas > 1 ? 's' : ''} · última ${new Date(p.ultima_visita + 'T12:00:00').toLocaleDateString('pt-BR')}` : '<br/>Ainda não visitado')
+                  + (p.trator ? '<br/><b style="color:#15803d">🚜 trator nosso localizado aqui</b>' : '')
                   + `<br/><span style="color:#94a3b8;font-size:10px">${p.cod_car}</span>`,
                 )
               }}
             />
           )}
+          {(dados?.tratores?.pinos || []).map((t, i) => (
+            <Marker key={`t${i}`} position={[t.lat, t.lng]} icon={ICONE_TRATOR} zIndexOffset={4000}>
+              <Popup>
+                <b>Mahindra {t.modelo || ''}</b> · chassi …{t.chassis_fim}<br />
+                {t.cliente}<br />
+                <span style={{ fontSize: 11, color: '#64748b' }}>localizado por {t.vendedor_nome || 'vendedor'} em {new Date(t.confirmado_em).toLocaleDateString('pt-BR')}</span>
+              </Popup>
+            </Marker>
+          ))}
         </MapContainer>
       </div>
     </div>
