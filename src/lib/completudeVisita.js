@@ -103,3 +103,61 @@ export function dataMaisDias(dias, hoje = new Date()) {
   const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + dias)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
+// ── Cobrança (fase 2) ────────────────────────────────────────────────────────
+
+/** Visita do IndexedDB → formato da régua (pessoas com cargo, culturas da propriedade). */
+export function visitaParaNota(v, { pessoasById = {}, propById = {} } = {}) {
+  return {
+    ...v,
+    pessoas: (v.pessoa_ids || []).map((id) => pessoasById[id]).filter(Boolean),
+    culturas: propById[v.propriedade_id]?.culturas || [],
+  }
+}
+
+const diaLocal = (iso) => {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Visitas de hoje abaixo de "completa" (≥ 80), mais antiga primeiro. */
+export function incompletasDoDia(visitas, ctx, agora = new Date()) {
+  const hoje = diaLocal(agora)
+  return visitas
+    .filter((v) => !v.deleted_at && !v.duplicada_de && v.data_visita && diaLocal(v.data_visita) === hoje)
+    .map((v) => ({ v, n: notaVisita(visitaParaNota(v, ctx)) }))
+    .filter(({ n }) => n.nota < 80)
+    .sort((a, b) => String(a.v.data_visita).localeCompare(String(b.v.data_visita)))
+}
+
+/** O aviso do fim do dia só aparece a partir das 17h30. */
+export const horaDoAvisoDoDia = (agora = new Date()) => agora.getHours() * 60 + agora.getMinutes() >= 17 * 60 + 30
+
+// o que dá para coletar na próxima visita (resumo/passos/retorno são da visita em si)
+const COLETAVEIS = ['pessoa', 'cultura', 'maquina', 'negocio']
+
+/** "Da última vez faltou: …" — a última visita da propriedade e o que dá para coletar hoje. */
+export function faltouNaUltima(visitasDaPropriedade, ctx) {
+  const ultima = visitasDaPropriedade
+    .filter((v) => !v.deleted_at && !v.duplicada_de)
+    .sort((a, b) => String(b.data_visita).localeCompare(String(a.data_visita)))[0]
+  if (!ultima) return null
+  const n = notaVisita(visitaParaNota(ultima, ctx))
+  const faltam = n.itens.filter((i) => !i.ok && COLETAVEIS.includes(i.key)).map((i) => i.label)
+  return faltam.length ? { visita: ultima, faltam } : null
+}
+
+// edição que não mexeu em nada não conta como "completou"
+const EDICAO_VAZIA = /sem altera/i
+
+/** Visita completada mais de 48 h depois de registrada (transparência, não punição). */
+export function completadaDepois(visita, logs) {
+  const base = new Date(visita.created_at || visita.data_visita).getTime()
+  if (!base) return null
+  const tardia = (logs || [])
+    .filter((l) => l.acao === 'alterar' && !EDICAO_VAZIA.test(l.detalhes || ''))
+    .map((l) => new Date(l.data_hora).getTime())
+    .filter((t) => t - base > 48 * 3600_000)
+    .sort((a, b) => b - a)[0]
+  return tardia ? new Date(tardia).toISOString() : null
+}

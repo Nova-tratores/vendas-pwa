@@ -1,6 +1,9 @@
 // Nota de completude da visita: a mesma régua para o vendedor e o supervisor.
 import { describe, it, expect } from 'vitest'
-import { notaVisita, resumoReal, indicaInteresse, passaFiltroNota, dataMaisDias, semRetornoJustificado } from '../lib/completudeVisita'
+import {
+  notaVisita, resumoReal, indicaInteresse, passaFiltroNota, dataMaisDias, semRetornoJustificado,
+  incompletasDoDia, faltouNaUltima, completadaDepois, horaDoAvisoDoDia, visitaParaNota,
+} from '../lib/completudeVisita'
 
 const completa = {
   resumo: 'Conversei com o Fernando sobre a plantadeira; a dele está com 12 anos e falha na distribuição do adubo, quer ver proposta da nova.',
@@ -50,5 +53,45 @@ describe('nota de completude da visita', () => {
 
   it('atalhos de retorno', () => {
     expect(dataMaisDias(7, new Date(2026, 9, 28))).toBe('2026-11-04')
+  })
+})
+
+describe('cobrança da completude', () => {
+  const ctx = { pessoasById: { 1: { nome: 'Fernando', cargo: 'FAMILIAR' }, 2: { nome: 'Alex' } }, propById: { 9: { culturas: ['Grãos'] } } }
+
+  it('visita do IndexedDB vira o formato da régua', () => {
+    const v = visitaParaNota({ pessoa_ids: [1, 2], propriedade_id: 9 }, ctx)
+    expect(v.pessoas.length).toBe(2)
+    expect(v.culturas).toEqual(['Grãos'])
+  })
+
+  it('incompletas de hoje, mais antiga primeiro; completas e de ontem ficam fora', () => {
+    const agora = new Date(2026, 9, 22, 18, 0)
+    const hoje = (h) => new Date(2026, 9, 22, h, 0).toISOString()
+    const r = incompletasDoDia([
+      { id: 1, data_visita: hoje(15), resumo: 'oi' },
+      { id: 2, data_visita: hoje(9), resumo: 'oi' },
+      { id: 3, data_visita: new Date(2026, 9, 21, 10).toISOString(), resumo: 'oi' },
+      { id: 4, data_visita: hoje(11), ...{ resumo: completa.resumo, pessoa_ids: [1], propriedade_id: 9, maquina_ids: [3], proximos_passos: 'x', data_proximo_contato: '2026-10-30', negocio_id: 1 } },
+    ], ctx, agora)
+    expect(r.map((x) => x.v.id)).toEqual([2, 1])
+    expect(horaDoAvisoDoDia(agora)).toBe(true)
+    expect(horaDoAvisoDoDia(new Date(2026, 9, 22, 17, 0))).toBe(false)
+  })
+
+  it('"da última vez faltou" usa a visita mais recente e só o que dá para coletar', () => {
+    const r = faltouNaUltima([
+      { id: 1, data_visita: '2026-10-01T10:00:00Z', propriedade_id: 9, pessoa_ids: [1], maquina_ids: [3] },
+      { id: 2, data_visita: '2026-10-15T10:00:00Z', propriedade_id: 9, pessoa_ids: [2], resumo: 'quer comprar um trator novo' },
+    ], ctx)
+    expect(r.visita.id).toBe(2)
+    expect(r.faltam).toEqual(['pessoa com cargo', 'máquina', 'negócio'])
+  })
+
+  it('completada depois de 48 h; edição sem alteração não conta', () => {
+    const v = { created_at: '2026-10-20T10:00:00Z' }
+    expect(completadaDepois(v, [{ acao: 'alterar', detalhes: 'Edição: sem alterações', data_hora: '2026-10-23T10:00:00Z' }])).toBeNull()
+    expect(completadaDepois(v, [{ acao: 'alterar', detalhes: 'Completou: máquina', data_hora: '2026-10-21T09:00:00Z' }])).toBeNull()
+    expect(completadaDepois(v, [{ acao: 'alterar', detalhes: 'Completou: máquina', data_hora: '2026-10-23T10:00:00Z' }])).toBe('2026-10-23T10:00:00.000Z')
   })
 })

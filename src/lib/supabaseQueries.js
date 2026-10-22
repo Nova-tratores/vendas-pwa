@@ -203,14 +203,29 @@ export async function removeVendedorCidade(vendedorId, cidade) {
 // Mensagens do supervisor para vendedores (Notificações)
 // ============================================
 
-export async function enviarMensagem({ vendedorId, titulo, corpo, autorNome }) {
+export async function enviarMensagem({ vendedorId, titulo, corpo, autorNome, link }) {
   const { error } = await supabase.from('mensagens_vendedor').insert({
     vendedor_id: vendedorId ?? null, // null = todos
     titulo: titulo || null,
     corpo,
     created_by: autorNome || 'Supervisor',
+    // link interno do app (botão "Abrir" na notificação do vendedor)
+    ...(link ? { link } : {}),
   })
   if (error) throw error
+}
+
+/** Edições de visitas registradas pelo app (audit_logs_vendas), por visita. */
+export async function getEdicoesVisitas(ids) {
+  if (!ids.length) return {}
+  const { data } = await supabase
+    .from('audit_logs_vendas')
+    .select('entidade_id, acao, detalhes, data_hora')
+    .eq('entidade', 'visitas').eq('acao', 'alterar')
+    .in('entidade_id', ids)
+  const porVisita = {}
+  for (const l of data || []) (porVisita[l.entidade_id] ||= []).push(l)
+  return porVisita
 }
 
 export async function getMensagensEnviadas() {

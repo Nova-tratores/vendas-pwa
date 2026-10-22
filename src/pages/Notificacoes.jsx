@@ -79,7 +79,7 @@ export default function Notificacoes() {
               {alertas.map((a, i) => (
                 <button
                   key={i}
-                  onClick={() => navigate(destinoAlerta(a.tipo))}
+                  onClick={() => navigate(a.link || destinoAlerta(a.tipo))}
                   className={`w-full text-left bg-white rounded-xl shadow p-3 border-l-4 ${URG_CLS[a.urgencia] || URG_CLS.baixa} active:bg-slate-50`}
                 >
                   <div className="flex items-start gap-2">

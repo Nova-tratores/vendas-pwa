@@ -3,12 +3,12 @@ import { Map as MapIcon, Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin,
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   getVisitas, getVendedores, getComentariosCount,
-  setSinalizada, juntarVisitas, desfazerJuntar,
+  setSinalizada, juntarVisitas, desfazerJuntar, enviarMensagem, getEdicoesVisitas,
 } from '../lib/supabaseQueries'
 import VendedorAvatar from '../components/VendedorAvatar'
 import ComentariosModal from './ComentariosModal'
 import MiniMapaModal from './MiniMapaModal'
-import { notaVisita, passaFiltroNota } from '../lib/completudeVisita'
+import { notaVisita, passaFiltroNota, completadaDepois } from '../lib/completudeVisita'
 
 const TIPOS = [
   { key: '', label: 'Todos' },
@@ -50,6 +50,7 @@ export default function SupervisorVisitas() {
   const [selecao, setSelecao] = useState([])                 // ids selecionados (juntar)
   const [confirmJuntar, setConfirmJuntar] = useState(null)   // { a, b, principal }
   const [filtroNota, setFiltroNota] = useState('')
+  const [edicoes, setEdicoes] = useState({}) // visita_id -> edições (audit_logs_vendas)
 
   const [filtros, setFiltros] = useState({
     vendedor_id: searchParams.get('vendedor_id') || '',
@@ -80,6 +81,7 @@ export default function SupervisorVisitas() {
       if (filtros.primeira) vis = vis.filter((v) => v.primeira_visita)
       setVisitas(vis)
       setComentCount(await getComentariosCount('visita', vis.map((v) => v.id)))
+      setEdicoes(await getEdicoesVisitas(vis.map((v) => v.id)).catch(() => ({})))
     } catch (err) {
       console.error('[Visitas]', err)
     }
@@ -95,9 +97,22 @@ export default function SupervisorVisitas() {
       if (v.sinalizada) {
         await setSinalizada(v.id, false)
       } else {
-        const motivo = window.prompt('Motivo da sinalização (opcional):', '')
+        const motivo = window.prompt('Motivo da sinalização (o vendedor recebe como pedido para completar):', '')
         if (motivo === null) return // cancelou
         await setSinalizada(v.id, true, motivo.trim() || null)
+        // vira tarefa do vendedor: notificação com botão que abre o que falta
+        let sup = {}
+        try { sup = JSON.parse(localStorage.getItem('supervisor') || '{}') } catch { /* sem nome */ }
+        const falta = notaVisita(v).faltam
+        await enviarMensagem({
+          vendedorId: v.vendedor_id,
+          titulo: 'Complete a visita',
+          corpo: `${v.cliente_nome || v.propriedade_nome || 'Visita'} (${new Date(v.data_visita).toLocaleDateString('pt-BR')})`
+            + (motivo.trim() ? `: ${motivo.trim()}` : '')
+            + (falta.length ? ` · falta: ${falta.join(', ')}` : ''),
+          autorNome: sup.nome || 'Supervisor',
+          link: `/completar-visita/${v.id}`,
+        }).catch((e) => alert('Sinalizada, mas o pedido ao vendedor falhou: ' + (e.message || e)))
       }
       await carregar()
     } catch (e) {
@@ -271,6 +286,10 @@ export default function SupervisorVisitas() {
                     <span className={`text-xs px-2 py-0.5 rounded-full ${TIPO_COLORS[v.tipo] || 'bg-slate-100 text-slate-700'}`}>{v.tipo}</span>
                     {v.primeira_visita && <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700" title="Primeira visita nesta propriedade">1ª</span>}
                     {v.retroativa && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Retro</span>}
+                    {completadaDepois(v, edicoes[v.id]) && (
+                      <span title={`Completada em ${new Date(completadaDepois(v, edicoes[v.id])).toLocaleString('pt-BR')}, mais de 48 h depois da visita`}
+                        className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">completada depois</span>
+                    )}
                     {v.acionar_pos_vendas && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">PV</span>}
                   </div>
                 </div>

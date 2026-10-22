@@ -4,32 +4,57 @@
 import { getAllRecords } from './db'
 import { contatoVigentePorPropriedade } from './agenda'
 import { isPerdido, isGanho, statusLabel } from './funil'
+import { incompletasDoDia, horaDoAvisoDoDia, faltouNaUltima } from './completudeVisita'
 
 const LAST_SEEN_KEY = 'notif_last_seen'
 const DIAS_NEGOCIO_PARADO = 7
 
 /** Alertas automáticos calculados localmente (offline-safe). */
 export async function construirAlertas() {
-  const [visitas, negocios, propriedades] = await Promise.all([
+  const [visitas, negocios, propriedades, pessoas] = await Promise.all([
     getAllRecords('visitas').then((vs) => vs.filter((v) => !v.deleted_at)),
     getAllRecords('negocios'),
     getAllRecords('propriedades'),
+    getAllRecords('pessoas'),
   ])
   const hojeStr = new Date().toISOString().slice(0, 10)
   const propById = Object.fromEntries(propriedades.map((p) => [p.id, p]))
+  const ctxNota = { propById, pessoasById: Object.fromEntries(pessoas.map((p) => [p.id, p])) }
   const alertas = []
+
+  // 0) Fim do dia: visitas de hoje incompletas (nota de completude < 80).
+  //    Um toque abre direto o que falta na mais antiga.
+  if (horaDoAvisoDoDia()) {
+    const inc = incompletasDoDia(visitas, ctxNota)
+    if (inc.length) {
+      alertas.push({
+        tipo: 'completude',
+        urgencia: 'alta',
+        icon: 'ClipboardList',
+        titulo: `${inc.length} visita${inc.length > 1 ? 's' : ''} de hoje ${inc.length > 1 ? 'estão incompletas' : 'está incompleta'}`,
+        detalhe: `Completar agora leva 1 minuto · ${propById[inc[0].v.propriedade_id]?.nome || 'visita'}: falta ${inc[0].n.faltam.join(', ')}`,
+        data: hojeStr,
+        link: `/completar-visita/${inc[0].v.id}`,
+      })
+    }
+  }
 
   // 1) Próximo contato planejado atrasado/hoje (último por propriedade)
   for (const v of contatoVigentePorPropriedade(visitas).values()) {
     if (v.data_proximo_contato <= hojeStr) {
       const atrasado = v.data_proximo_contato < hojeStr
+      // no dia do retorno: o que ainda falta saber deste cliente (da última visita)
+      const falta = faltouNaUltima(visitas.filter((x) => x.propriedade_id === v.propriedade_id), ctxNota)
       alertas.push({
         tipo: 'contato',
         urgencia: atrasado ? 'alta' : 'media',
         icon: 'Calendar',
         titulo: atrasado ? 'Contato atrasado' : 'Contato hoje',
-        detalhe: `${propById[v.propriedade_id]?.nome || 'Propriedade'} — ${new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}`,
+        detalhe: `${propById[v.propriedade_id]?.nome || 'Propriedade'} — ${new Date(v.data_proximo_contato + 'T00:00:00').toLocaleDateString('pt-BR')}`
+          + (v.resumo ? ` · última visita: ${String(v.resumo).slice(0, 80)}${String(v.resumo).length > 80 ? '…' : ''}` : '')
+          + (falta ? ` · falta saber: ${falta.faltam.join(', ')}` : ''),
         data: v.data_proximo_contato,
+        link: v.propriedade_id ? `/historico-visitas/${v.propriedade_id}` : undefined,
       })
     }
   }

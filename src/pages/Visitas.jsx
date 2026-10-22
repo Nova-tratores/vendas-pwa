@@ -6,7 +6,7 @@ import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
 import { TIPOS_MAQUINA, MARCAS, CULTURAS } from '../lib/constants'
-import { notaVisita, dataMaisDias, semRetornoJustificado, PREFIXO_SEM_RETORNO } from '../lib/completudeVisita'
+import { notaVisita, dataMaisDias, semRetornoJustificado, PREFIXO_SEM_RETORNO, faltouNaUltima } from '../lib/completudeVisita'
 import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPERATURAS } from '../lib/funil'
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
@@ -310,6 +310,13 @@ export default function Visitas() {
     maquina_ids: form.maquina_ids,
     culturas: propSelecionada?.culturas,
   })
+  // "Da última vez faltou: …" — o que dá para coletar hoje neste cliente
+  const faltouAntes = propSelecionada
+    ? faltouNaUltima(
+      visitas.filter((v) => String(v.propriedade_id) === String(propSelecionada.id) && v.id !== editTarget?.id),
+      { pessoasById: Object.fromEntries(pessoasDisp.map((p) => [p.id, p])), propById: { [propSelecionada.id]: propSelecionada } },
+    )
+    : null
   // visita presencial sempre sai com retorno: data ou "sem retorno" com motivo
   const faltaRetorno = tipoPresencial && !form.data_proximo_contato && !semRetornoJustificado(form.proximos_passos)
   function semRetorno() {
@@ -626,6 +633,11 @@ export default function Visitas() {
           {form.tipo && (<>
           {propSelecionada ? (
             <div className="space-y-2">
+              {faltouAntes && (
+                <p className="text-xs bg-amber-50 text-amber-800 border border-amber-200 rounded-lg px-3 py-2">
+                  Da última vez ({new Date(faltouAntes.visita.data_visita).toLocaleDateString('pt-BR')}) faltou: <b>{faltouAntes.faltam.join(', ')}</b>. Repare nisso hoje.
+                </p>
+              )}
               <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-blue-900 truncate">
