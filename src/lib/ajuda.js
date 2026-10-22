@@ -38,32 +38,38 @@ export const TOUR_VENDEDOR = [
   {
     icone: 'House',
     titulo: 'Início',
-    texto: 'Seu resumo do dia: visitas da semana, contatos atrasados e negócios que precisam de atualização.',
+    texto: 'Seu feed do dia: a rota de hoje no mapa, os clientes sugeridos, contatos atrasados, negócios parados e as notícias do agro.',
     destaque: '/dashboard',
+  },
+  {
+    icone: 'LayoutGrid',
+    titulo: 'Menu',
+    texto: 'Tudo o mais fica no Menu, por assunto. O primeiro bloco é "O que você gostaria de fazer?": nova visita e os clientes da Carteira, para Recuperar e Novos, cada um explicando por que foi escolhido.',
+    destaque: '/menu',
   },
   {
     icone: 'User',
     titulo: 'Clientes',
     texto: 'Todas as suas propriedades. Os ícones cinza ({Sprout} {Users} {Tractor}) mostram o que falta cadastrar — use "Incompletas primeiro" para completar.',
-    destaque: '/clientes',
+    destaque: '/menu', // fica no Menu → Clientes
   },
   {
     icone: 'MapPin',
     titulo: 'Visitas',
     texto: 'Toque em "+ Check-in" a cada contato com cliente: escolha o tipo, o cliente, com quem falou e escreva (ou dite no {Mic}) o resumo. Sem GPS também dá para registrar.',
-    destaque: '/visitas',
+    destaque: '/menu', // fica no Menu → Visitas
   },
   {
     icone: 'Wallet',
     titulo: 'Negócios',
     texto: 'Seu funil de vendas. Negócios novos nascem dentro de uma visita ("+ Vincular Negócio"). Aqui você muda a etapa e marca a temperatura: Frio, Morno ou Quente.',
-    destaque: '/negocios',
+    destaque: '/menu', // fica no Menu → Negócios
   },
   {
     icone: 'Package',
     titulo: 'Catálogo',
     texto: 'Fotos, ficha técnica, estoque e preço das máquinas. O botão "{MessageCircle} Enviar no WhatsApp" manda foto e folheto direto para o cliente.',
-    destaque: '/catalogo',
+    destaque: '/menu', // fica no Menu → Catálogo
   },
   {
     icone: 'CircleHelp',

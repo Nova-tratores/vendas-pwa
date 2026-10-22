@@ -14,15 +14,17 @@ export default function useRegiao() {
     ])
       .then(([[mun, opo], estoque]) => {
         if (!vivo) return
-        const culturas = new Map((opo?.clientes || []).map((c) => [c.id, c.culturas || []]))
-        setBase({ municipios: mun?.municipios || [], estoque: estoque || [], culturas })
+        const clientes = new Map((opo?.clientes || []).map((c) => [c.id, { culturas: c.culturas || [], contato: c.contato || '', nome: c.nome || '' }]))
+        setBase({ municipios: mun?.municipios || [], estoque: estoque || [], clientes })
       })
       .catch(() => { if (vivo) setBase(false) })
     return () => { vivo = false }
   }, [])
 
   /** Culturas da região e máquinas em estoque para um contato da rota (null enquanto carrega). */
-  return (it) => (base
-    ? regiaoDoContato({ cidade: it.cidade, culturasCliente: base.culturas.get(it.clienteId) || [], municipios: base.municipios, estoque: base.estoque })
-    : null)
+  return (it) => {
+    if (!base) return null
+    const cliente = base.clientes.get(it.clienteId) || null
+    return { ...regiaoDoContato({ cidade: it.cidade, culturasCliente: cliente?.culturas || [], municipios: base.municipios, estoque: base.estoque }), cliente }
+  }
 }

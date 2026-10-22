@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Bell, Calendar, CircleHelp, Car, Compass, DoorOpen, House, Lightbulb, MapPin, Menu, Package, RefreshCw, Settings, User, UserCircle, Wallet } from 'lucide-react'
+import { Bell, CircleHelp, House, LayoutGrid, RefreshCw, UserCircle } from 'lucide-react'
+import ChecklistObrigatorio from './ChecklistObrigatorio'
 import { setSyncCallback, setAuthRequiredCallback, syncAll, countPending, supabase } from '../lib/sync'
 import { clearAll } from '../lib/db'
 import ConfigModal from './ConfigModal'
@@ -9,16 +10,14 @@ import AjudaModal from './AjudaModal'
 import TourBoasVindas from './TourBoasVindas'
 import { AJUDA_VENDEDOR, AJUDA_GERAL_VENDEDOR, TOUR_VENDEDOR, ajudaDaRota, tourJaVisto, marcarTourVisto } from '../lib/ajuda'
 
+// Barra de baixo enxuta (José, 21/10/2026): o Início (feed) e o Menu de módulos.
+// Todo o resto mora no Menu (/menu), agrupado por assunto.
 const navItems = [
   { to: '/dashboard', label: 'Início', icon: House },
-  { to: '/rota', label: 'Rota', icon: Compass },
-  { to: '/agenda', label: 'Agenda', icon: Calendar },
-  { to: '/inteligencia', label: 'Inteligência', icon: Lightbulb },
-  { to: '/clientes', label: 'Clientes', icon: User },
-  { to: '/catalogo', label: 'Catálogo', icon: Package },
-  { to: '/visitas', label: 'Visitas', icon: MapPin },
-  { to: '/negocios', label: 'Negócios', icon: Wallet },
+  { to: '/menu', label: 'Menu', icon: LayoutGrid },
 ]
+// O Menu fica aceso em qualquer tela que não seja o Início
+const ehInicio = (p) => p === '/' || p.startsWith('/dashboard')
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -33,7 +32,6 @@ export default function Layout() {
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', detail: '' })
   const [pending, setPending] = useState(0)
   const [precisaReentrar, setPrecisaReentrar] = useState(false)
-  const [menuAberto, setMenuAberto] = useState(false)
   const [configAberto, setConfigAberto] = useState(false)
   const [notifCount, setNotifCount] = useState(0)
   const { pathname } = useLocation()
@@ -95,6 +93,24 @@ export default function Layout() {
     }
   }, [updatePending])
 
+  // O Menu (/menu) pede config, ajuda e sair por evento — as janelas moram aqui no Layout
+  useEffect(() => {
+    const config = () => setConfigAberto(true)
+    const ajuda = () => setAjudaAberta(true)
+    const sair = () => handleLogout()
+    const tour = () => setTourAberto(true)
+    window.addEventListener('abrir-config', config)
+    window.addEventListener('abrir-ajuda', ajuda)
+    window.addEventListener('sair-app', sair)
+    window.addEventListener('abrir-tour', tour)
+    return () => {
+      window.removeEventListener('abrir-config', config)
+      window.removeEventListener('abrir-ajuda', ajuda)
+      window.removeEventListener('sair-app', sair)
+      window.removeEventListener('abrir-tour', tour)
+    }
+  })
+
   async function handleLogout() {
     // O clearAll abaixo apaga também o que ainda não subiu — avisa antes.
     const naoEnviados = await countPending()
@@ -119,153 +135,66 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="bg-blue-800 text-white px-4 py-3 flex items-center justify-between safe-top">
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Logo da Nova Tratores (em branco sobre o vermelho); toque volta ao Início */}
-          <button onClick={() => navigate('/dashboard')} className="flex items-center active:opacity-70" aria-label="NT Vendas — voltar ao início">
-            <img src="/logo-nova.png" alt="Nova Tratores" className="h-7 w-auto" style={{ filter: 'brightness(0) invert(1)' }} />
-          </button>
-          <span className={`w-2 h-2 rounded-full ${online ? 'bg-green-400' : 'bg-red-400'}`} />
-        </div>
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Botão de sync manual */}
+      <header className="bg-blue-800 text-white px-4 py-2.5 flex items-center justify-between gap-3 safe-top">
+        {/* Logo da Nova Tratores (em branco sobre o vermelho) + conexão; toque volta ao Início */}
+        <button onClick={() => navigate('/dashboard')} className="relative flex items-center shrink-0 active:opacity-70" aria-label="NT Vendas — voltar ao início">
+          <img src="/logo-nova.png" alt="Nova Tratores" className="h-7 w-auto" style={{ filter: 'brightness(0) invert(1)' }} />
+          <span
+            className={`absolute -right-2.5 top-0 w-2.5 h-2.5 rounded-full ring-2 ring-blue-800 ${online ? 'bg-green-400' : 'bg-red-400'}`}
+            title={online ? 'Conectado' : 'Sem internet'}
+          />
+        </button>
+
+        {/* Ações: todas no mesmo formato (botão redondo); o resto do app fica no Menu da barra de baixo */}
+        <div className="flex items-center gap-1.5">
           <button
             onClick={handleSync}
             disabled={!online || isSyncing}
-            className="relative text-xs bg-blue-900 px-2 py-1 rounded active:bg-blue-950 disabled:opacity-50"
+            className="relative w-9 h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25 disabled:opacity-50"
+            aria-label={pending > 0 ? `Sincronizar (${pending} para enviar)` : 'Sincronizar'}
+            title="Sincronizar"
           >
-            <span className={`flex ${isSyncing ? 'animate-spin' : ''}`}>
-              <RefreshCw size={16} aria-hidden="true" />
-            </span>
+            <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} aria-hidden="true" />
             {pending > 0 && !isSyncing && (
-              <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 grid place-items-center ring-2 ring-blue-800">
                 {pending > 9 ? '9+' : pending}
               </span>
             )}
           </button>
-          <button onClick={() => navigate('/perfil')} className="flex items-center gap-1.5 min-w-0 active:opacity-70" aria-label="Meu perfil">
-            {vendedor.foto
-              ? <img src={vendedor.foto} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-white/40 shrink-0" />
-              : <UserCircle size={22} className="shrink-0 opacity-90" aria-hidden="true" />}
-            <span className="text-sm opacity-80 truncate">{vendedor.nome}</span>
+
+          <button
+            onClick={() => navigate('/notificacoes')}
+            className="relative w-9 h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25"
+            aria-label={notifCount > 0 ? `Notificações (${notifCount})` : 'Notificações'}
+            title="Notificações"
+          >
+            <Bell size={18} aria-hidden="true" />
+            {notifCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 grid place-items-center ring-2 ring-blue-800">
+                {notifCount > 9 ? '9+' : notifCount}
+              </span>
+            )}
           </button>
 
           <button
             onClick={() => setAjudaAberta(true)}
-            className="shrink-0 w-7 h-7 rounded-full text-sm font-bold leading-none flex items-center justify-center active:bg-blue-950"
+            className="w-9 h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25"
             aria-label="Ajuda desta tela"
             title="Ajuda"
           >
-            <CircleHelp size={20} aria-hidden="true" />
+            <CircleHelp size={18} aria-hidden="true" />
           </button>
 
-          {/* Menu hamburguer */}
-          <div className="relative">
-            <button
-              onClick={() => { setMenuAberto((v) => !v); updateNotif() }}
-              className="relative text-lg leading-none bg-blue-900 px-2.5 py-1.5 rounded active:bg-blue-950"
-              aria-label="Menu"
-              aria-expanded={menuAberto}
-            >
-              <Menu size={20} aria-hidden="true" />
-              {notifCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
-                  {notifCount > 9 ? '9+' : notifCount}
-                </span>
-              )}
-            </button>
-
-            {menuAberto && (
-              <>
-                {/* Backdrop pra fechar ao tocar fora */}
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setMenuAberto(false)}
-                />
-                <div className="absolute right-0 mt-2 w-52 bg-white text-slate-700 rounded-xl shadow-xl py-1 z-50 animate-scale-in origin-top-right">
-                  <button
-                    onClick={() => {
-                      setMenuAberto(false)
-                      navigate('/notificacoes')
-                    }}
-                    className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
-                  >
-                    <span className="flex items-center gap-2"><Bell size={16} aria-hidden="true" /> Notificações</span>
-                    {notifCount > 0 && (
-                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center">
-                        {notifCount > 9 ? '9+' : notifCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuAberto(false)
-                      navigate('/inteligencia')
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left font-semibold text-blue-700 active:bg-slate-100"
-                  >
-                    <Lightbulb size={16} aria-hidden="true" /> Inteligência de Vendas
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuAberto(false)
-                      navigate('/chamado-veicular')
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
-                  >
-                    <Car size={16} aria-hidden="true" /> Chamado Veicular
-                  </button>
-                  <div className="border-t border-slate-100 my-1" />
-                  <button
-                    onClick={() => {
-                      setMenuAberto(false)
-                      setAjudaAberta(true)
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
-                  >
-                    <CircleHelp size={16} aria-hidden="true" /> Ajuda
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuAberto(false)
-                      setTourAberto(true)
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
-                  >
-                    <Compass size={16} aria-hidden="true" /> Tour do app
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuAberto(false)
-                      navigate('/perfil')
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
-                  >
-                    <UserCircle size={16} aria-hidden="true" /> Meu perfil
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuAberto(false)
-                      setConfigAberto(true)
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left active:bg-slate-100"
-                  >
-                    <Settings size={16} aria-hidden="true" /> Config
-                  </button>
-                  <div className="border-t border-slate-100 my-1" />
-                  <button
-                    onClick={() => {
-                      setMenuAberto(false)
-                      handleLogout()
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-red-600 active:bg-red-50"
-                  >
-                    <DoorOpen size={16} aria-hidden="true" /> Sair
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <button
+            onClick={() => navigate('/perfil')}
+            className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-white/50 bg-white/15 grid place-items-center text-xs font-bold active:opacity-80"
+            aria-label={`Meu perfil${vendedor.nome ? ` (${vendedor.nome})` : ''}`}
+            title={vendedor.nome || 'Meu perfil'}
+          >
+            {vendedor.foto
+              ? <img src={vendedor.foto} alt="" className="w-full h-full object-cover" />
+              : (String(vendedor.nome || '?').trim().split(/\s+/).map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || <UserCircle size={18} />)}
+          </button>
         </div>
       </header>
 
@@ -327,19 +256,23 @@ export default function Layout() {
 
       {/* z-30: acima de qualquer conteúdo da página (células sticky z-10, mapas
           Leaflet isolados no index.css) e abaixo de menus/modais (z-40+). */}
+      {/* checklist do carro do mês: bloqueia o app até ser feito (só quem tem carro) */}
+      <ChecklistObrigatorio />
+
       <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex safe-bottom ${navDestaque ? 'z-[60]' : 'z-30'}`}>
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
-            className={({ isActive }) =>
-              `flex-1 min-w-0 flex flex-col items-center py-2.5 text-[10px] transition-colors ${
-                isActive ? 'text-blue-700 font-bold' : 'text-slate-400'
+            className={() => {
+              const ativo = item.to === '/dashboard' ? ehInicio(pathname) : !ehInicio(pathname)
+              return `flex-1 min-w-0 flex flex-col items-center py-2 text-[11px] transition-colors ${
+                ativo ? 'text-blue-700 font-bold' : 'text-slate-400 font-semibold'
               } ${navDestaque === item.to ? 'bg-blue-50 text-blue-700 font-bold animate-pulse-glow rounded-lg' : ''}`
-            }
+            }}
           >
-            <item.icon size={20} className="mb-0.5" aria-hidden="true" />
-            <span className="max-w-full whitespace-nowrap tracking-tight">{item.label}</span>
+            <item.icon size={22} className="mb-0.5" aria-hidden="true" />
+            <span className="max-w-full whitespace-nowrap">{item.label}</span>
           </NavLink>
         ))}
       </nav>

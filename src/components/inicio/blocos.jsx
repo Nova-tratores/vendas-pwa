@@ -1,6 +1,7 @@
 // Blocos da tela inicial (Início): feed do dia, notícias, clima, Plano Safra e atalhos.
 // Dados da Inteligência de Vendas via lib/iv/fonte.js (hoje: exemplo; depois: Portal).
 import { useEffect, useState } from 'react'
+import { DetalheIndicador } from './Folha'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight, Calculator, ChevronRight, CloudRain, CloudSun, Compass, Handshake, Landmark, Map, MapPin,
@@ -108,6 +109,7 @@ const TENDENCIA = {
 export function NoticiasHoje() {
   const navigate = useNavigate()
   const n = useFonte(carregarNoticias)
+  const [indAberto, setIndAberto] = useState(null)
   if (n === false) return null
   if (!n) return <div className="mb-5 h-56 rounded-2xl bg-slate-100 animate-pulse" />
   const materias = n.noticias || []
@@ -124,7 +126,7 @@ export function NoticiasHoje() {
           const t = TENDENCIA[ind.tendencia] || TENDENCIA.neutra
           const I = t.icone
           return (
-            <div key={ind.id} className="shrink-0 bg-white border border-slate-200 rounded-xl px-3 py-2">
+            <button key={ind.id} onClick={() => setIndAberto(ind)} className="shrink-0 text-left bg-white border border-slate-200 rounded-xl px-3 py-2 active:bg-slate-50">
               <p className="text-[10px] font-semibold text-slate-500 uppercase">{ind.nome}</p>
               <p className="flex items-center gap-1 text-sm font-bold text-slate-900 whitespace-nowrap">
                 {ind.texto}
@@ -135,10 +137,11 @@ export function NoticiasHoje() {
                   {ind.variacaoPct > 0 ? '+' : ''}{ind.variacaoPct.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%
                 </p>
               )}
-            </div>
+            </button>
           )
         })}
       </div>
+      <DetalheIndicador ind={indAberto} onFechar={() => setIndAberto(null)} />
 
       {/* Manchete */}
       {destaque && (

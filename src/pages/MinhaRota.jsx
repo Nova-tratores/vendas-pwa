@@ -11,6 +11,7 @@ import SemanaEditavel from '../components/rota/SemanaEditavel'
 import RotaNoMapa from '../components/rota/RotaNoMapa'
 import RegiaoBloco from '../components/rota/RegiaoBloco'
 import useRegiao from '../components/rota/useRegiao'
+import { estadoVisita } from '../lib/visitaPrefill'
 
 // Minha rota — feed do vendedor (José, 20/10/2026). A reserva de contatos vem do portal
 // (iv_feed_pool); a mistura vem do teste de perfil (iv_perfil_vendedor). Três formas:
@@ -75,7 +76,10 @@ function Cartao({ it, n, feito, onFeito, regiao }) {
       {/* ações: sempre na mesma posição */}
       <div className="grid grid-cols-4 gap-1.5 p-3 mt-1">
         <button
-          onClick={() => it.propriedadeId ? navigate('/visitas', { state: { propriedadeId: it.propriedadeId } }) : abrirFicha()}
+          onClick={() => navigate('/visitas', { state: estadoVisita({
+            propriedadeId: it.propriedadeId, contato: regiao?.cliente?.contato, propriedade: it.titulo,
+            cidade: it.cidade, telefone: it.telefone, culturas: regiao?.cliente?.culturas || regiao?.culturas?.filter((c) => c.doCliente).map((c) => c.nome),
+          }) })}
           className={`${acaoBase} bg-blue-700 text-white`}
         >
           <ClipboardList size={18} /> Visita

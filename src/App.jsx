@@ -19,13 +19,14 @@ import Agenda from './pages/Agenda'
 import MapaClientes from './pages/MapaClientes'
 import MinhaRota from './pages/MinhaRota'
 import PerfilTeste from './pages/PerfilTeste'
-import TesteModulos from './pages/TesteModulos' // página de teste (organização do app)
 import VisitasMapa from './pages/VisitasMapa'
 import VisitasCliente from './pages/VisitasCliente'
 import ChamadoVeicular from './pages/ChamadoVeicular'
 import ChecklistVeiculo from './pages/ChecklistVeiculo'
 import Notificacoes from './pages/Notificacoes'
 import Perfil from './pages/Perfil'
+import Menu from './pages/Menu'
+import ContatosTipo from './pages/ContatosTipo'
 const IVLayout = lazy(() => import('./pages/iv/IVLayout'))
 const IVNoticias = lazy(() => import('./pages/iv/Noticias'))
 const IVOportunidades = lazy(() => import('./pages/iv/Oportunidades'))
@@ -109,7 +110,6 @@ export default function App() {
     <Routes>
       {/* Vendedor */}
       <Route path="/login" element={<Login />} />
-      <Route path="/teste-modulos" element={<TesteModulos />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Showroom / TV (tela cheia, sem o chrome do Layout) */}
@@ -150,6 +150,8 @@ export default function App() {
         <Route path="rota" element={<MinhaRota />} />
         <Route path="perfil-teste" element={<PerfilTeste />} />
         <Route path="perfil" element={<Perfil />} />
+        <Route path="menu" element={<Menu />} />
+        <Route path="menu/:tipo" element={<ContatosTipo />} />
         {/* Inteligência de Vendas (mesmas telas do Portal) — abas em lib/iv/telas.js */}
         <Route path="inteligencia" element={<Suspense fallback={<div className="py-16 text-center text-sm text-slate-400">Carregando…</div>}><IVLayout /></Suspense>}>
           <Route index element={<Navigate to="noticias" replace />} />

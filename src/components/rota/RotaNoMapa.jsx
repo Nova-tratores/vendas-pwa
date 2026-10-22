@@ -8,6 +8,7 @@ import { MapContainer, TileLayer, Marker, Polyline, Popup, CircleMarker, Tooltip
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Clock, ExternalLink, House, LocateFixed, Navigation, Radio, Route } from 'lucide-react'
+import { MAX_PARADAS_GOOGLE, partesGoogle } from '../../lib/rotaGoogle'
 
 const OSRM = 'https://router.project-osrm.org'
 const cacheRotas = new Map() // mesma sequência de pontos = mesma resposta
@@ -201,12 +202,7 @@ export default function RotaNoMapa({ origem, itens, cores, onOrdem, onAbrir, onO
   useEffect(() => { if (r) onOrdem?.([...r.ordem, ...semPos]) }, [r, semPos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ordem = r?.ordem || []
-  const linkGoogle = useMemo(() => {
-    if (!ordem.length) return null
-    const o = `${origem.pos[0]},${origem.pos[1]}`
-    const paradas = ordem.slice(0, 9).map((i) => `${i.lat},${i.lng}`) // o Google aceita até 9 paradas no link
-    return `https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${o}&waypoints=${encodeURIComponent(paradas.join('|'))}&travelmode=driving`
-  }, [ordem, origem])
+  const partes = useMemo(() => partesGoogle(origem.pos, ordem), [ordem, origem])
 
   return (
     <div className="mb-3">
@@ -301,18 +297,49 @@ export default function RotaNoMapa({ origem, itens, cores, onOrdem, onAbrir, onO
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 mt-2">
-        <p className="text-[11px] text-slate-400 leading-snug">
-          {r?.real
-            ? 'Caminho de carro pelas estradas, na ordem mais rápida (OpenStreetMap). Toque num número para ver o cliente.'
-            : 'Sem o cálculo pelas estradas agora: ordem pelo mais perto e distância estimada (linha reta + 30%).'}
-        </p>
-        {linkGoogle && (
-          <a href={linkGoogle} target="_blank" rel="noreferrer" className="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-white bg-blue-700 rounded-xl px-3 py-2">
-            <ExternalLink size={13} /> Google Maps
-          </a>
-        )}
-      </div>
+      <p className="text-[11px] text-slate-400 leading-snug mt-2">
+        {r?.real
+          ? 'Caminho de carro pelas estradas, na ordem mais rápida (OpenStreetMap). Toque num número para ver o cliente.'
+          : 'Sem o cálculo pelas estradas agora: ordem pelo mais perto e distância estimada (linha reta + 30%).'}
+      </p>
+
+      {/* Colocar a rota no Google Maps: até 9 paradas por rota; acima disso, partes encadeadas */}
+      {partes.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <p className="text-[11px] font-extrabold uppercase tracking-wide text-slate-600 inline-flex items-center gap-1.5">
+            <Navigation size={13} /> Colocar a rota no Google Maps
+          </p>
+          <p className="text-[11px] text-slate-500 mt-0.5 mb-2">
+            {partes.length === 1
+              ? `Abre o Google Maps com todas as paradas, na mesma ordem, saindo e voltando à ${origem.ehLoja ? 'loja' : 'sua posição'}.`
+              : `O Google aceita até ${MAX_PARADAS_GOOGLE} paradas por rota. A sua foi dividida em ${partes.length} partes: termine uma e abra a seguinte.`}
+          </p>
+          <div className="space-y-2">
+            {partes.map((p, i) => (
+              <a
+                key={p.de}
+                href={p.link}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 rounded-xl bg-blue-700 text-white px-3 py-2.5 active:bg-blue-800"
+              >
+                <span className="w-8 h-8 rounded-lg bg-white/20 grid place-items-center shrink-0"><Navigation size={17} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold leading-tight">
+                    {partes.length === 1 ? 'Abrir a rota no Google Maps' : `Parte ${i + 1} · paradas ${p.de} a ${p.ate}`}
+                  </span>
+                  <span className="block text-[11px] opacity-85">
+                    {p.paradas} parada{p.paradas > 1 ? 's' : ''}
+                    {manterOrdem && p.horaIni ? ` · ${p.horaIni}${p.horaFim ? ` às ${p.horaFim}` : ''}` : ''}
+                    {i === partes.length - 1 ? ' · volta no fim' : ''}
+                  </span>
+                </span>
+                <ExternalLink size={15} className="shrink-0 opacity-80" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

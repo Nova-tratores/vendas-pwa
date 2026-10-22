@@ -8,7 +8,8 @@ import { completudePropriedade, FALTA_INFO } from '../lib/completude'
 import Icone from '../components/Icone'
 import { Calendar, ClipboardList, Clock, Hourglass, MapPin, Plus, TriangleAlert, Users, Wallet } from 'lucide-react'
 import RotaHoje from '../components/inicio/RotaHoje'
-import { Atalhos, ClimaMini, FeedHoje, NoticiasHoje, PlanoSafraFaixa, TituloBloco } from '../components/inicio/blocos'
+import { Atalhos, ClimaMini, FeedHoje, NoticiasHoje, TituloBloco } from '../components/inicio/blocos'
+import TaxasPlanoSafra from '../components/inicio/TaxasPlanoSafra'
 import { contatoVigentePorPropriedade } from '../lib/agenda'
 
 // Lê o X dias de lembrete: online busca da config e cacheia; offline usa o cache.
@@ -231,7 +232,7 @@ export default function Dashboard() {
 
       {/* Notícias do agro + Plano Safra */}
       <NoticiasHoje />
-      <PlanoSafraFaixa />
+      <TaxasPlanoSafra />
 
       {/* Propriedades para completar (nudge de cadastro) */}
       {dados.propriedadesIncompletas?.length > 0 && (

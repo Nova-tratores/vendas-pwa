@@ -11,6 +11,7 @@ import { carregarFicha, MODO_EXEMPLO } from '../../lib/iv/fonte'
 import { ComoLer, Conta, EstilosIV, foneBonito, linkTel, linkWhats, mil, tipoDe, Vazio } from '../../components/iv/oport/comum'
 import { AbaHistorico, AbaMaquinas, AbaMercado, AbaPropostas, AbaResumo } from '../../components/iv/oport/FichaAbas'
 import MaquinasParaCultura from '../../components/iv/MaquinasParaCultura'
+import { estadoVisita } from '../../lib/visitaPrefill'
 
 const ABAS = [
   { id: 'resumo', rotulo: 'Resumo', icone: LayoutDashboard },
@@ -29,11 +30,11 @@ const AJUDA = [
   'Mercado da cidade: dados do IBGE, Censo Agro, crédito rural e concorrência no município dele.',
 ]
 
-function Acao({ href, to, icone: I, rotulo, cor, claro, externo }) {
+function Acao({ href, to, state, icone: I, rotulo, cor, claro, externo }) {
   const cls = 'iv-toque flex flex-col items-center justify-center gap-1 rounded-2xl h-[62px] text-[12px] font-bold'
   const st = claro ? { background: '#fefefe', color: claro } : cor ? { background: cor, color: '#fefefe' } : { background: 'rgba(255,255,255,.18)', color: '#fefefe' }
   const corpo = <><I size={19} aria-hidden="true" /> {rotulo}</>
-  if (to) return <Link to={to} className={cls} style={st}>{corpo}</Link>
+  if (to) return <Link to={to} state={state} className={cls} style={st}>{corpo}</Link>
   if (!href) return <span className={`${cls} opacity-40`} style={st}>{corpo}</span>
   return <a href={href} className={cls} style={st} {...(externo ? { target: '_blank', rel: 'noreferrer' } : {})}>{corpo}</a>
 }
@@ -99,7 +100,12 @@ export default function Cliente() {
           <Acao href={linkTel(c.telefone)} icone={Phone} rotulo="Ligar" claro={cor} />
           <Acao href={linkWhats(c.telefone, texto)} icone={MessageCircle} rotulo="WhatsApp" cor="#16a34a" externo />
           <Acao to={`/inteligencia/calculadora?cliente=${encodeURIComponent(c.id || c.chave)}`} icone={Calculator} rotulo="Calculadora" />
-          <Acao to="/visitas?nova=1" icone={CalendarPlus} rotulo="Nova visita" />
+          <Acao
+            to="/visitas"
+            state={estadoVisita({ propriedadeId: c.propriedadeId, contato: c.contato, nome: c.nome, propriedade: c.nome, cidade: c.cidade, telefone: c.telefone, culturas: c.culturas })}
+            icone={CalendarPlus}
+            rotulo="Nova visita"
+          />
         </div>
       </header>
 

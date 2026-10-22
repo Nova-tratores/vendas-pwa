@@ -68,6 +68,7 @@ export default function Visitas() {
   const [veiculosDisp, setVeiculosDisp] = useState([])
 
   const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [dadosProntos, setDadosProntos] = useState(false) // carregar() terminou (para saber se a propriedade não existe)
 
   useEffect(() => { carregar() }, [])
   // Marcas do cadastro rápido de máquina, filtradas pelo tipo (cache offline).
@@ -112,6 +113,41 @@ export default function Visitas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, propriedadesAll])
 
+  // "Nova visita" do Menu: abre o check-in em branco
+  useEffect(() => {
+    if (!location.state?.novaVisita) return
+    resetFormVisita()
+    setForm((f) => ({ ...f, data_visita: getLocalDatetime() }))
+    setShowForm(true)
+    iniciarCheckin()
+    scrollParaTopo()
+    navigate('.', { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state])
+
+  // Vindo da rota ou da ficha 360 de um cliente SEM cadastro: abre o check-in com o
+  // "cliente novo" já preenchido (nome, propriedade, cidade, telefone, culturas).
+  // O vendedor confere, muda o que quiser e escolhe o tipo; as sugestões de propriedade
+  // parecida continuam aparecendo para não duplicar quem já existe.
+  useEffect(() => {
+    const st = location.state
+    if (!st?.novoCliente || st.negocioId) return
+    if (st.propriedadeId != null) {
+      // propriedade conhecida: o efeito acima abre com ela; só segue aqui se ela não existe
+      if (!dadosProntos) return
+      if (propriedadesAll.some((x) => String(x.id) === String(st.propriedadeId))) return
+    }
+    resetFormVisita()
+    setForm((f) => ({ ...f, data_visita: getLocalDatetime() }))
+    setShowForm(true)
+    iniciarCheckin()
+    setNovoCliente((atual) => ({ ...atual, ...st.novoCliente }))
+    setShowNovoCliente(true)
+    scrollParaTopo()
+    navigate('.', { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, dadosProntos, propriedadesAll])
+
   async function carregar() {
     // Visitas com deleted_at são tombstones aguardando push — não exibe.
     setVisitas((await getAllRecords('visitas')).filter((v) => !v.deleted_at))
@@ -119,6 +155,7 @@ export default function Visitas() {
     setPropriedadesAll(await getAllRecords('propriedades'))
     setPessoasAll(await getAllRecords('pessoas'))
     setNegocios(await getAllRecords('negocios'))
+    setDadosProntos(true)
     // Veículos (placas) para o campo "veículo utilizado"
     try {
       const { supabase } = await import('../lib/sync')

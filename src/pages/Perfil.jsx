@@ -234,9 +234,29 @@ export default function Perfil() {
       <section className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
         <p className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide mb-3"><Car size={14} aria-hidden="true" /> Carro da empresa</p>
         {carros === null && <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />}
-        {carros === false && <p className="text-sm text-slate-500">Não foi possível consultar o carro agora. {erroCarros}</p>}
-        {Array.isArray(carros) && carros.length === 0 && (
-          <p className="text-sm text-slate-500">Nenhum carro vinculado a você na Frota. Se você usa um carro da empresa, peça ao responsável pela Frota para colocar você como responsável.</p>
+        {carros === false && <p className="text-xs text-slate-500 mb-1">Não deu para consultar a Frota agora (sem conexão com o Portal).</p>}
+        {/* Sem carro na Frota (ex.: vendedor de teste): um Voyage de EXEMPLO, só para mostrar como fica.
+            Nada é gravado; checklist e chamado ficam desligados porque o Portal não conhece esse carro. */}
+        {(carros === false || (Array.isArray(carros) && carros.length === 0)) && (
+          <>
+            <div className="flex items-center gap-3 py-2">
+              <span className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0"><Car size={24} aria-hidden="true" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-slate-900 tracking-wide flex items-center gap-2">
+                  EXE-1A23
+                  <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 rounded-full px-1.5 py-0.5 tracking-normal">exemplo</span>
+                </p>
+                <p className="text-xs text-slate-500 truncate">VW Voyage MPI 1.6 · 2023 · prata</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2 opacity-50 pointer-events-none" aria-hidden="true">
+              <span className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold border border-slate-200 rounded-xl py-2.5"><ClipboardCheck size={15} /> Checklist do mês</span>
+              <span className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold border border-slate-200 rounded-xl py-2.5"><Wrench size={15} /> Chamado veicular</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2">
+              Carro de exemplo: você ainda não está como responsável de nenhum carro na Frota do Portal. Quando a Frota colocar você como responsável, o carro de verdade aparece aqui sozinho.
+            </p>
+          </>
         )}
         {Array.isArray(carros) && carros.map((c) => (
           <div key={c.placa} className="flex items-center gap-3 py-2">
