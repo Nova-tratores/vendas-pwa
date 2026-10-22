@@ -26,6 +26,8 @@ import ChecklistVeiculo from './pages/ChecklistVeiculo'
 import Notificacoes from './pages/Notificacoes'
 import CompletarVisita from './pages/CompletarVisita'
 import Garagem from './pages/Garagem'
+import MeuTerritorio from './pages/MeuTerritorio'
+import SupervisorTerritorio from './supervisor/SupervisorTerritorio'
 import ResumoSemana from './pages/ResumoSemana'
 import Perfil from './pages/Perfil'
 import Menu from './pages/Menu'
@@ -143,6 +145,7 @@ export default function App() {
         <Route path="visitas/mapa" element={<VisitasMapa />} />
         <Route path="completar-visita/:id" element={<CompletarVisita />} />
         <Route path="garagem" element={<Garagem />} />
+        <Route path="territorio" element={<MeuTerritorio />} />
         <Route path="resumo-semana" element={<ResumoSemana />} />
         <Route path="historico-visitas/:propriedadeId" element={<VisitasCliente />} />
         <Route path="chamado-veicular" element={<ChamadoVeicular />} />
@@ -195,6 +198,7 @@ export default function App() {
         <Route path="historico" element={<SupervisorHistorico />} />
         <Route path="visitas" element={<SupervisorVisitas />} />
         <Route path="completude" element={<SupervisorCompletude />} />
+        <Route path="territorio" element={<SupervisorTerritorio />} />
         <Route path="semana" element={<SupervisorSemana />} />
         <Route path="propostas" element={<SupervisorPropostas />} />
         <Route path="pos-vendas" element={<SupervisorPosVendas />} />

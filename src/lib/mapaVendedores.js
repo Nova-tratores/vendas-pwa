@@ -19,3 +19,19 @@ export const carrosDosVendedores = () => chamar()
 export const rotaDoDia = (placa, data) => chamar(`?placa=${encodeURIComponent(placa)}&data=${data}`)
 
 export * from './mapaVendedoresRegras'
+
+// Território gamificado (imóveis do CAR com o nível de conquista)
+async function chamarTerritorio(query = '') {
+  const { data } = await supabase.auth.getSession()
+  const t = data?.session?.access_token
+  if (!t) throw new Error('Sessão expirada. Entre de novo.')
+  const res = await fetch(`${PORTAL}/api/crm-vendas/territorio${query}`, { headers: { Authorization: `Bearer ${t}` } })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error || `Falha (${res.status})`)
+  return json
+}
+export const municipiosTerritorio = () => chamarTerritorio()
+export const territorioDoMunicipio = (ibge, vendedorId) =>
+  chamarTerritorio(`?municipio=${ibge}${vendedorId ? `&vendedor=${vendedorId}` : ''}`)
+
+export * from './mapaVendedoresRegras'
