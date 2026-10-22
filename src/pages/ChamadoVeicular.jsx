@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/sync'
 import { CHECKLISTS, getChecklist } from '../lib/checklists'
 import { acharPlaca } from '../lib/placas'
+import { listarMeusCarros } from '../lib/checklistVeiculo'
 import { Camera } from 'lucide-react'
 import Icone from '../components/Icone'
 
@@ -32,6 +33,7 @@ export default function ChamadoVeicular() {
 
   const [placas, setPlacas] = useState([])
   const [placaId, setPlacaId] = useState('')
+  const [meusIds, setMeusIds] = useState([]) // IdPlaca dos carros em que o vendedor é responsável na Frota
   const [tipo, setTipo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [checklistChave, setChecklistChave] = useState('')
@@ -53,6 +55,14 @@ export default function ChamadoVeicular() {
         setPlacas(data)
         const pedida = acharPlaca(data, params.get('placa'))
         if (pedida) setPlacaId(String(pedida.IdPlaca))
+        // Carro vinculado ao vendedor na Frota do Portal: vem primeiro e já selecionado
+        listarMeusCarros()
+          .then((r) => {
+            const meus = (r?.carros || []).map((c) => acharPlaca(data, c.placa)).filter(Boolean)
+            setMeusIds(meus.map((p) => String(p.IdPlaca)))
+            if (!pedida && meus[0]) setPlacaId((atual) => atual || String(meus[0].IdPlaca))
+          })
+          .catch(() => { /* sem Portal: escolhe na lista */ })
         if (params.get('tipo') === 'checklist') {
           setTipo('checklist')
           if (getChecklist(params.get('checklist'))) setChecklistChave(params.get('checklist'))
@@ -151,10 +161,22 @@ export default function ChamadoVeicular() {
             className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white"
           >
             <option value="">Selecione a placa</option>
-            {placas.map((p) => (
-              <option key={p.IdPlaca} value={p.IdPlaca}>{p.NumPlaca}</option>
-            ))}
+            {meusIds.length > 0 && (
+              <optgroup label="Meus carros">
+                {placas.filter((p) => meusIds.includes(String(p.IdPlaca))).map((p) => (
+                  <option key={p.IdPlaca} value={p.IdPlaca}>{p.NumPlaca}</option>
+                ))}
+              </optgroup>
+            )}
+            <optgroup label={meusIds.length ? 'Outros carros' : 'Carros da empresa'}>
+              {placas.filter((p) => !meusIds.includes(String(p.IdPlaca))).map((p) => (
+                <option key={p.IdPlaca} value={p.IdPlaca}>{p.NumPlaca}</option>
+              ))}
+            </optgroup>
           </select>
+          {meusIds.includes(String(placaId)) && (
+            <p className="text-[11px] text-emerald-700 mt-1">Este é o carro vinculado a você na Frota.</p>
+          )}
         </div>
 
         {/* Tipo */}

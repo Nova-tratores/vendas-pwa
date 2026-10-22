@@ -138,7 +138,7 @@ export default function Layout() {
       <header className="bg-blue-800 text-white px-4 py-2.5 flex items-center justify-between gap-3 safe-top">
         {/* Logo da Nova Tratores (em branco sobre o vermelho) + conexão; toque volta ao Início */}
         <button onClick={() => navigate('/dashboard')} className="relative flex items-center shrink-0 active:opacity-70" aria-label="NT Vendas — voltar ao início">
-          <img src="/logo-nova.png" alt="Nova Tratores" className="h-7 w-auto" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src="/logo-nova.png" alt="Nova Tratores" className="h-6 min-[400px]:h-7 w-auto max-w-[38vw] object-contain object-left" style={{ filter: 'brightness(0) invert(1)' }} />
           <span
             className={`absolute -right-2.5 top-0 w-2.5 h-2.5 rounded-full ring-2 ring-blue-800 ${online ? 'bg-green-400' : 'bg-red-400'}`}
             title={online ? 'Conectado' : 'Sem internet'}
@@ -146,11 +146,11 @@ export default function Layout() {
         </button>
 
         {/* Ações: todas no mesmo formato (botão redondo); o resto do app fica no Menu da barra de baixo */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 min-[400px]:gap-1.5 shrink-0">
           <button
             onClick={handleSync}
             disabled={!online || isSyncing}
-            className="relative w-9 h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25 disabled:opacity-50"
+            className="relative w-8 h-8 min-[400px]:w-9 min-[400px]:h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25 disabled:opacity-50"
             aria-label={pending > 0 ? `Sincronizar (${pending} para enviar)` : 'Sincronizar'}
             title="Sincronizar"
           >
@@ -164,7 +164,7 @@ export default function Layout() {
 
           <button
             onClick={() => navigate('/notificacoes')}
-            className="relative w-9 h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25"
+            className="relative w-8 h-8 min-[400px]:w-9 min-[400px]:h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25"
             aria-label={notifCount > 0 ? `Notificações (${notifCount})` : 'Notificações'}
             title="Notificações"
           >
@@ -178,7 +178,7 @@ export default function Layout() {
 
           <button
             onClick={() => setAjudaAberta(true)}
-            className="w-9 h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25"
+            className="w-8 h-8 min-[400px]:w-9 min-[400px]:h-9 rounded-full bg-white/15 grid place-items-center active:bg-white/25"
             aria-label="Ajuda desta tela"
             title="Ajuda"
           >
@@ -187,7 +187,7 @@ export default function Layout() {
 
           <button
             onClick={() => navigate('/perfil')}
-            className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-white/50 bg-white/15 grid place-items-center text-xs font-bold active:opacity-80"
+            className="shrink-0 w-8 h-8 min-[400px]:w-9 min-[400px]:h-9 rounded-full overflow-hidden ring-2 ring-white/50 bg-white/15 grid place-items-center text-xs font-bold active:opacity-80"
             aria-label={`Meu perfil${vendedor.nome ? ` (${vendedor.nome})` : ''}`}
             title={vendedor.nome || 'Meu perfil'}
           >
