@@ -27,6 +27,7 @@ import Notificacoes from './pages/Notificacoes'
 import CompletarVisita from './pages/CompletarVisita'
 import Garagem from './pages/Garagem'
 import MeuTerritorio from './pages/MeuTerritorio'
+import ParadasCarro from './pages/ParadasCarro'
 import SupervisorTerritorio from './supervisor/SupervisorTerritorio'
 import ResumoSemana from './pages/ResumoSemana'
 import Perfil from './pages/Perfil'
@@ -146,6 +147,7 @@ export default function App() {
         <Route path="completar-visita/:id" element={<CompletarVisita />} />
         <Route path="garagem" element={<Garagem />} />
         <Route path="territorio" element={<MeuTerritorio />} />
+        <Route path="paradas" element={<ParadasCarro />} />
         <Route path="resumo-semana" element={<ResumoSemana />} />
         <Route path="historico-visitas/:propriedadeId" element={<VisitasCliente />} />
         <Route path="chamado-veicular" element={<ChamadoVeicular />} />

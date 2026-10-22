@@ -95,3 +95,24 @@ export function combinarRotas(rotas) {
     fim: comTrajeto[comTrajeto.length - 1]?.fim || null,
   }
 }
+
+// Motivos de parada longa (iguais aos do portal: lib/vendas-app/paradas)
+export const MOTIVOS_PARADA = [
+  { key: 'visita', label: 'Visita', icone: '🤝' },
+  { key: 'almoco', label: 'Almoço', icone: '🍽️' },
+  { key: 'oficina', label: 'Oficina', icone: '🔧' },
+  { key: 'abastecimento', label: 'Abastecimento', icone: '⛽' },
+  { key: 'pessoal', label: 'Pessoal', icone: '🏠' },
+  { key: 'outro', label: 'Outro', icone: '📝' },
+]
+
+/** Rótulo curto da situação de uma parada longa (timeline do supervisor). */
+export function rotuloSituacaoParada(p) {
+  if (!p || !p.situacao || p.situacao === 'curta') return null
+  if (p.situacao === 'visita') return { texto: '🤝 visita registrada', cor: '#15803d' }
+  if (p.situacao === 'explicada') {
+    const m = MOTIVOS_PARADA.find((x) => x.key === p.motivo)
+    return { texto: `${m?.icone || '📝'} ${m?.label || 'explicada'}${p.observacao ? ` — ${p.observacao}` : ''}`, cor: '#334155' }
+  }
+  return { texto: '⚠ sem explicação', cor: '#b45309' }
+}

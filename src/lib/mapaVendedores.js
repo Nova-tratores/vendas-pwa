@@ -34,4 +34,21 @@ export const municipiosTerritorio = () => chamarTerritorio()
 export const territorioDoMunicipio = (ibge, vendedorId) =>
   chamarTerritorio(`?municipio=${ibge}${vendedorId ? `&vendedor=${vendedorId}` : ''}`)
 
+// Paradas longas do carro do vendedor (para ele explicar)
+async function chamarParadas(init = {}, query = '') {
+  const { data } = await supabase.auth.getSession()
+  const t = data?.session?.access_token
+  if (!t) throw new Error('Sessão expirada. Entre de novo.')
+  const res = await fetch(`${PORTAL}/api/crm-vendas/paradas${query}`, {
+    ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${t}` },
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error || `Falha (${res.status})`)
+  return json
+}
+export const paradasDoDia = (data) => chamarParadas({}, `?data=${data}`)
+export const explicarParada = (parada) => chamarParadas({
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parada),
+})
+
 export * from './mapaVendedoresRegras'

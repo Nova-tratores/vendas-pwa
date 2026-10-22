@@ -7,7 +7,7 @@ import { getVisitas, getVendedores } from '../lib/supabaseQueries'
 import VendedorAvatar, { primeiroNome, corVendedor } from '../components/VendedorAvatar'
 import {
   carrosDosVendedores, rotaDoDia, STATUS, hojeBR, fmtHora, fmtDuracao, fmtDia, fmtKm, haQuanto, corParada, juntarVisitas,
-  diasDoPeriodo, combinarRotas,
+  diasDoPeriodo, combinarRotas, rotuloSituacaoParada,
 } from '../lib/mapaVendedores'
 
 // Fix do icone padrao do leaflet (URLs viram broken por Vite bundling)
@@ -318,6 +318,7 @@ export default function SupervisorMapa() {
                 <b>Parada {fmtDuracao(p.duracao_min)}</b><br />
                 {!rota.unico && p.data && <>{fmtDia(p.data)} · </>}{fmtHora(p.inicio)} – {p.fim ? fmtHora(p.fim) : 'agora'}
                 {p.local && <><br />{p.local}</>}
+                {rotuloSituacaoParada(p) && <><br /><b style={{ color: rotuloSituacaoParada(p).cor }}>{rotuloSituacaoParada(p).texto}</b></>}
               </Popup>
             </Marker>
           ))}
@@ -446,6 +447,9 @@ export default function SupervisorMapa() {
                             <b>{fmtHora(e.hora)}</b> · parou {fmtDuracao(e.dur)}{e.local && <> · {e.local}</>}
                           </button>{' '}
                           <a href={linkMapa(e.lat, e.lng)} target="_blank" rel="noreferrer" className="text-emerald-700 font-semibold whitespace-nowrap">ver local ↗</a>
+                          {rotuloSituacaoParada(e) && (
+                            <span className="block text-[11px] font-semibold" style={{ color: rotuloSituacaoParada(e).cor }}>{rotuloSituacaoParada(e).texto}</span>
+                          )}
                         </>
                       )}
                       {e.tipo === 'visita' && (

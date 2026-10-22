@@ -51,6 +51,7 @@ const MODULOS = [
       { to: '/garagem', rotulo: 'Minha garagem', icone: Tractor },
       { to: '/territorio', rotulo: 'Meu território', icone: IconeMapa },
       { to: '/checklist-veiculo', rotulo: 'Checklist do carro', icone: ClipboardCheck },
+      { to: '/paradas', rotulo: 'Paradas do carro', icone: Car },
       { to: '/chamado-veicular', rotulo: 'Chamado veicular', icone: Car },
       { to: '/perfil-teste', rotulo: 'Teste de perfil', icone: Users },
     ],

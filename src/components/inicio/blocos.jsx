@@ -284,3 +284,24 @@ export function ResumoSemanaChamada() {
     </button>
   )
 }
+
+/** Paradas longas do carro ainda sem explicação (hoje), com atalho. */
+export function ParadasAExplicar() {
+  const navigate = useNavigate()
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    if (!navigator.onLine) return
+    import('../../lib/mapaVendedores')
+      .then((m) => m.paradasDoDia(m.hojeBR()))
+      .then((d) => setN((d.paradas || []).filter((p) => p.situacao === 'a_explicar').length))
+      .catch(() => {})
+  }, [])
+  if (!n) return null
+  return (
+    <button type="button" onClick={() => navigate('/paradas')}
+      className="w-full bg-amber-50 border border-amber-200 rounded-xl p-3 text-left">
+      <span className="block text-sm font-bold text-amber-900">⏸️ {n} parada{n > 1 ? 's' : ''} longa{n > 1 ? 's' : ''} do carro para explicar</span>
+      <span className="block text-xs text-amber-800">Toque para dizer o que foi (visita, almoço, oficina…).</span>
+    </button>
+  )
+}
