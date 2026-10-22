@@ -40,23 +40,30 @@ async function enriquecerVisitas(visitas) {
   if (!visitas.length) return visitas
   const pessoaIds = [...new Set(visitas.flatMap((v) => v.pessoa_ids || []))]
   const maquinaIds = [...new Set(visitas.flatMap((v) => v.maquina_ids || []))]
+  const propIds = [...new Set(visitas.map((v) => v.propriedade_id).filter(Boolean))]
 
-  const [pessoasRes, maquinasRes] = await Promise.all([
+  const [pessoasRes, maquinasRes, propsRes] = await Promise.all([
     pessoaIds.length
       ? supabase.from('pessoas').select('id, nome, cargo').in('id', pessoaIds)
       : Promise.resolve({ data: [] }),
     maquinaIds.length
       ? supabase.from('maquinas').select('id, marca, modelo, tipo').in('id', maquinaIds)
       : Promise.resolve({ data: [] }),
+    // cultura fica na propriedade (entra na nota de completude da visita)
+    propIds.length
+      ? supabase.from('propriedades').select('id, culturas').in('id', propIds)
+      : Promise.resolve({ data: [] }),
   ])
 
   const pessoasMap = new Map((pessoasRes.data || []).map((p) => [p.id, p]))
   const maquinasMap = new Map((maquinasRes.data || []).map((m) => [m.id, m]))
+  const culturasMap = new Map((propsRes.data || []).map((p) => [p.id, p.culturas || []]))
 
   return visitas.map((v) => ({
     ...v,
     pessoas: (v.pessoa_ids || []).map((id) => pessoasMap.get(id)).filter(Boolean),
     maquinas: (v.maquina_ids || []).map((id) => maquinasMap.get(id)).filter(Boolean),
+    culturas: culturasMap.get(v.propriedade_id) || [],
   }))
 }
 

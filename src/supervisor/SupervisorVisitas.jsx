@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Map as MapIcon, Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin, MessageCircle } from 'lucide-react'
+import { Map as MapIcon, Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin, MessageCircle, Sprout, FileText, ListChecks, Briefcase } from 'lucide-react'
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   getVisitas, getVendedores, getComentariosCount,
@@ -8,6 +8,7 @@ import {
 import VendedorAvatar from '../components/VendedorAvatar'
 import ComentariosModal from './ComentariosModal'
 import MiniMapaModal from './MiniMapaModal'
+import { notaVisita, passaFiltroNota } from '../lib/completudeVisita'
 
 const TIPOS = [
   { key: '', label: 'Todos' },
@@ -16,6 +17,17 @@ const TIPOS = [
   { key: 'telefonema', label: 'Telefonema' },
   { key: 'email', label: 'E-mail' },
 ]
+
+// Filtros pela nota de completude (lib/completudeVisita)
+const FILTROS_NOTA = [
+  { key: '', label: 'Todas' },
+  { key: 'incompletas', label: 'Incompletas' },
+  { key: 'sem_retorno', label: 'Sem retorno' },
+  { key: 'oportunidade', label: 'Oportunidade sem negócio' },
+]
+
+// ícone de cada item da régua, na ordem da linha "tem / falta" do card
+const ICONE_ITEM = { resumo: FileText, pessoa: User, cultura: Sprout, maquina: Tractor, passos: ListChecks, retorno: Calendar, negocio: Briefcase }
 
 const TIPO_COLORS = {
   presencial: 'bg-blue-100 text-blue-800',
@@ -37,6 +49,7 @@ export default function SupervisorVisitas() {
   const [modoJuntar, setModoJuntar] = useState(false)
   const [selecao, setSelecao] = useState([])                 // ids selecionados (juntar)
   const [confirmJuntar, setConfirmJuntar] = useState(null)   // { a, b, principal }
+  const [filtroNota, setFiltroNota] = useState('')
 
   const [filtros, setFiltros] = useState({
     vendedor_id: searchParams.get('vendedor_id') || '',
@@ -201,7 +214,20 @@ export default function SupervisorVisitas() {
         </div>
       )}
 
-      <p className="text-xs text-slate-500 mb-2">{visitas.length} visitas encontradas</p>
+      {/* Completude: todas · incompletas · sem retorno · oportunidade sem negócio */}
+      <div className="flex gap-1.5 overflow-x-auto mb-2 pb-1">
+        {FILTROS_NOTA.map((f) => {
+          const n = f.key ? visitas.filter((v) => passaFiltroNota(v, f.key)).length : visitas.length
+          return (
+            <button key={f.key} type="button" onClick={() => setFiltroNota(f.key)}
+              className={`text-xs px-3 py-1 rounded-full whitespace-nowrap border ${filtroNota === f.key ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-300'}`}>
+              {f.label} <b>{n}</b>
+            </button>
+          )
+        })}
+      </div>
+
+      <p className="text-xs text-slate-500 mb-2">{visitas.filter((v) => passaFiltroNota(v, filtroNota)).length} visitas encontradas</p>
 
       {loading ? (
         <div className="flex items-center justify-center py-10">
@@ -211,7 +237,8 @@ export default function SupervisorVisitas() {
         <p className="text-slate-400 text-center py-10">Nenhuma visita encontrada</p>
       ) : (
         <div className="space-y-2">
-          {visitas.map((v) => {
+          {visitas.filter((v) => passaFiltroNota(v, filtroNota)).map((v) => {
+            const nota = notaVisita(v)
             const data = new Date(v.data_visita)
             const dataStr = data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             const selecionada = selecao.includes(v.id)
@@ -237,13 +264,31 @@ export default function SupervisorVisitas() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <span title={`Completude ${nota.nota}/100 — ${nota.faixa.label}${nota.faltam.length ? ` · falta: ${nota.faltam.join(', ')}` : ''}`}
+                      className="inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-200" style={{ color: nota.faixa.cor }}>
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: nota.faixa.cor }} />{nota.nota}
+                    </span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${TIPO_COLORS[v.tipo] || 'bg-slate-100 text-slate-700'}`}>{v.tipo}</span>
                     {v.primeira_visita && <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700" title="Primeira visita nesta propriedade">1ª</span>}
                     {v.retroativa && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Retro</span>}
                     {v.acionar_pos_vendas && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">PV</span>}
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">{dataStr}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-xs text-slate-500">{dataStr}</p>
+                  {/* o que tem (verde) e o que falta (vermelho) — mesma régua da nota */}
+                  <span className="inline-flex items-center gap-1.5">
+                    {nota.itens.filter((i) => !i.naoSeAplica).map((i) => {
+                      const Icone = ICONE_ITEM[i.key]
+                      return (
+                        <span key={i.key} title={`${i.label}: ${i.ok ? 'preenchido' : 'falta'}`} className="inline-flex items-center">
+                          <Icone size={13} className={i.ok ? 'text-green-600' : 'text-red-500'} />
+                          <span className={`text-[10px] font-bold ${i.ok ? 'text-green-600' : 'text-red-500'}`}>{i.ok ? '✓' : '✗'}</span>
+                        </span>
+                      )
+                    })}
+                  </span>
+                </div>
                 {v.sinalizada && v.sinalizada_motivo && (
                   <p className="text-xs text-red-600 mt-1"><Flag size={14} className="inline-block align-[-2px] mr-1" />{v.sinalizada_motivo}</p>
                 )}

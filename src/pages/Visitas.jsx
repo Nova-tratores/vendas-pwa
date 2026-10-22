@@ -6,6 +6,7 @@ import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
 import { TIPOS_MAQUINA, MARCAS, CULTURAS } from '../lib/constants'
+import { notaVisita, dataMaisDias, semRetornoJustificado, PREFIXO_SEM_RETORNO } from '../lib/completudeVisita'
 import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPERATURAS } from '../lib/funil'
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
@@ -298,6 +299,28 @@ export default function Visitas() {
   const donoNome = clienteSelecionado
     ? (clientes.find((c) => String(c.id) === String(clienteSelecionado))?.nome || '')
     : ''
+
+  // Nota de completude ao vivo (a mesma régua que o supervisor vê no card)
+  const notaForm = notaVisita({
+    resumo: form.resumo,
+    proximos_passos: form.proximos_passos,
+    data_proximo_contato: form.data_proximo_contato,
+    negocio_id: form.negocio_id,
+    pessoas: pessoasDisp.filter((p) => form.pessoa_ids.map(String).includes(String(p.id))),
+    maquina_ids: form.maquina_ids,
+    culturas: propSelecionada?.culturas,
+  })
+  // visita presencial sempre sai com retorno: data ou "sem retorno" com motivo
+  const faltaRetorno = tipoPresencial && !form.data_proximo_contato && !semRetornoJustificado(form.proximos_passos)
+  function semRetorno() {
+    const motivo = window.prompt('Por que não haverá retorno com este cliente?', '')
+    if (!motivo || !motivo.trim()) return
+    setForm((f) => ({
+      ...f,
+      data_proximo_contato: '',
+      proximos_passos: [`${PREFIXO_SEM_RETORNO} ${motivo.trim()}`, f.proximos_passos?.trim()].filter(Boolean).join('\n'),
+    }))
+  }
 
   // Negócios EM ANDAMENTO da propriedade selecionada (pra destacar no check-in)
   const negociosAbertosProp = form.propriedade_id
@@ -1322,16 +1345,45 @@ export default function Visitas() {
 
           {/* Data do próximo contato */}
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Próximo contato planejado</label>
+            <label className="block text-xs text-slate-500 mb-1">
+              Próximo contato planejado {tipoPresencial && <span className="text-red-500">*</span>}
+            </label>
+            <div className="flex gap-1.5 mb-1.5 flex-wrap">
+              {[7, 15, 30].map((d) => (
+                <button key={d} type="button"
+                  onClick={() => setForm((f) => ({ ...f, data_proximo_contato: dataMaisDias(d) }))}
+                  className={`text-xs px-3 py-1 rounded-full border ${form.data_proximo_contato === dataMaisDias(d) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300'}`}>
+                  +{d} dias
+                </button>
+              ))}
+              <button type="button" onClick={semRetorno}
+                className={`text-xs px-3 py-1 rounded-full border ${semRetornoJustificado(form.proximos_passos) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-600 border-slate-300'}`}>
+                Sem retorno
+              </button>
+            </div>
             <input
               type="date"
               value={form.data_proximo_contato || ''}
               onChange={(e) => setForm((f) => ({ ...f, data_proximo_contato: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
             />
+            {faltaRetorno && <p className="text-xs text-red-600 mt-1">Visita presencial precisa de retorno: escolha a data ou "Sem retorno".</p>}
           </div>
 
           </div>
+          )}
+
+          {/* Completude da visita: o mesmo critério que o supervisor vê */}
+          {form.propriedade_id && (
+            <div className="rounded-lg border border-slate-200 p-2">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="font-bold" style={{ color: notaForm.faixa.cor }}>Visita {notaForm.nota}%</span>
+                <span className="text-slate-500 truncate ml-2">{notaForm.faltam.length ? `falta: ${notaForm.faltam.join(', ')}` : 'completa'}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${notaForm.nota}%`, background: notaForm.faixa.cor }} />
+              </div>
+            </div>
           )}
 
           <div className="flex gap-2">
@@ -1344,7 +1396,7 @@ export default function Visitas() {
             </button>
             <button
               type="submit"
-              disabled={salvando || !form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || (negocioAbertoVinculado && !negUpdate.temperatura)}
+              disabled={salvando || !form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || faltaRetorno || (negocioAbertoVinculado && !negUpdate.temperatura)}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
               {salvando ? 'Salvando...' : tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}
