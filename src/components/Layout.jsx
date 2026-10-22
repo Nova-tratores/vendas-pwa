@@ -136,6 +136,8 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* topo fixo: logo + 4 botões e, logo abaixo, a barra de XP */}
+      <div className="sticky top-0 z-30">
       <header className="bg-blue-800 text-white px-4 py-2.5 flex items-center justify-between gap-3 safe-top">
         {/* Logo da Nova Tratores (em branco sobre o vermelho) + conexão; toque volta ao Início */}
         <button onClick={() => navigate('/dashboard')} className="relative flex items-center shrink-0 active:opacity-70" aria-label="NT Vendas — voltar ao início">
@@ -199,6 +201,7 @@ export default function Layout() {
         </div>
       </header>
       <BarraXP />
+      </div>
 
       <ConfigModal show={configAberto} onClose={() => setConfigAberto(false)} />
       <AjudaModal
