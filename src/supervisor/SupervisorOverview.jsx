@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Printer } from 'lucide-react'
+import { Printer, Map as MapIcon } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { getKPIs } from '../lib/supabaseQueries'
 import DetalheModal from './DetalheModal'
 import RelatorioImpressao, { RelSecao, RelTabela } from './RelatorioImpressao'
@@ -72,6 +73,10 @@ export default function SupervisorOverview() {
       <div className="flex items-center justify-between mb-4 gap-2">
         <h2 className="text-xl font-bold">Visão Geral</h2>
         <div className="flex items-center gap-3">
+          {/* atalho: mapa das visitas e dos carros, já no dia de hoje */}
+          <Link to="/supervisor/mapa" className="inline-flex items-center gap-1.5 bg-blue-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg">
+            <MapIcon size={16} /> Mapa de hoje
+          </Link>
           <button onClick={carregar} className="text-sm text-slate-500 active:text-slate-700">
             Atualizar
           </button>

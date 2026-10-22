@@ -7,6 +7,7 @@ import { getVisitas, getVendedores } from '../lib/supabaseQueries'
 import VendedorAvatar, { primeiroNome, corVendedor } from '../components/VendedorAvatar'
 import {
   carrosDosVendedores, rotaDoDia, STATUS, hojeBR, fmtHora, fmtDuracao, fmtDia, fmtKm, haQuanto, corParada, juntarVisitas,
+  diasDoPeriodo, combinarRotas,
 } from '../lib/mapaVendedores'
 
 // Fix do icone padrao do leaflet (URLs viram broken por Vite bundling)
@@ -143,20 +144,35 @@ export default function SupervisorMapa() {
   const vendSel = filtros.vendedor_id
   const vendedorSel = vendedores.find((v) => String(v.id) === vendSel)
   const carroSel = carros.find((c) => String(c.vendedor_id) === vendSel) || null
-  const diaUnico = filtros.dateFrom && filtros.dateFrom === filtros.dateTo ? filtros.dateFrom : null
+  // Período do trajeto: o rastreador responde dia a dia (até 31 dias)
+  const MAX_DIAS = 31
+  const diasPeriodo = useMemo(() => diasDoPeriodo(filtros.dateFrom, filtros.dateTo, MAX_DIAS), [filtros.dateFrom, filtros.dateTo])
+  const chaveDias = diasPeriodo.join(',')
 
-  // Trajeto do dia do carro do vendedor escolhido
+  // Trajeto do carro do vendedor escolhido em cada dia do período
   useEffect(() => {
     setRota(null); setRotaErro('')
-    if (!carroSel?.placa || !diaUnico) return
+    if (!carroSel?.placa || !chaveDias) return
     let vivo = true
     setRotaCarregando(true)
-    rotaDoDia(carroSel.placa, diaUnico)
-      .then((r) => { if (vivo) { setRota(r); setTimelineAberta(true) } })
-      .catch((e) => { if (vivo) setRotaErro(e.message) })
-      .finally(() => { if (vivo) setRotaCarregando(false) })
+    ;(async () => {
+      const rotas = []
+      try {
+        // 3 dias por vez: não sobrecarrega o rastreador
+        const dias = chaveDias.split(',')
+        for (let i = 0; i < dias.length; i += 3) {
+          const lote = await Promise.all(dias.slice(i, i + 3).map((d) => rotaDoDia(carroSel.placa, d).catch(() => null)))
+          if (!vivo) return
+          rotas.push(...lote)
+        }
+        if (vivo) { setRota(combinarRotas(rotas)); setTimelineAberta(true) }
+        if (vivo && !rotas.some(Boolean)) setRotaErro('Não foi possível carregar o trajeto agora.')
+      } finally {
+        if (vivo) setRotaCarregando(false)
+      }
+    })()
     return () => { vivo = false }
-  }, [carroSel?.placa, diaUnico])
+  }, [carroSel?.placa, chaveDias])
 
   // Só visitas com GPS válido
   const pontos = useMemo(() =>
@@ -192,10 +208,16 @@ export default function SupervisorMapa() {
     return vendedores.filter((v) => ids.has(v.id))
   }, [pontos, vendedores])
 
-  const eventos = useMemo(
-    () => (rota ? juntarVisitas(rota.timeline, visitas.filter((v) => String(v.vendedor_id) === vendSel)) : []),
-    [rota, visitas, vendSel],
-  )
+  // Timeline: um bloco por dia (com cabeçalho quando o período tem mais de um)
+  const eventos = useMemo(() => {
+    if (!rota) return []
+    const doVendedor = visitas.filter((v) => String(v.vendedor_id) === vendSel)
+    return rota.dias.flatMap((r) => {
+      const doDia = juntarVisitas(r.timeline, doVendedor.filter((v) => hojeBR(new Date(v.data_visita)) === r.data))
+      if (rota.unico) return doDia
+      return doDia.length ? [{ tipo: 'dia', data: r.data }, ...doDia] : []
+    })
+  }, [rota, visitas, vendSel])
 
   const escolherVendedor = (id) => setFiltros((f) => ({ ...f, vendedor_id: f.vendedor_id === String(id) ? '' : String(id) }))
   const irPara = (lat, lng) => mapa?.flyTo([lat, lng], 15, { duration: 0.8 })
@@ -203,7 +225,7 @@ export default function SupervisorMapa() {
   let avisoVendedor = ''
   if (vendSel && vendedorSel) {
     if (!carroSel) avisoVendedor = `${primeiroNome(vendedorSel.nome)} não tem carro com rastreador em seu nome na Frota — só as visitas aparecem.`
-    else if (!diaUnico) avisoVendedor = 'Para ver o trajeto do carro, escolha um dia só (mesma data em "de" e "até").'
+    else if (filtros.dateFrom && filtros.dateTo && diasDoPeriodo(filtros.dateFrom, filtros.dateTo, MAX_DIAS + 1).length > MAX_DIAS) avisoVendedor = `O trajeto mostra até ${MAX_DIAS} dias: os primeiros ${MAX_DIAS} do período.`
   }
 
   return (
@@ -294,7 +316,7 @@ export default function SupervisorMapa() {
             <Marker key={`p${i}`} position={[p.lat, p.lng]} icon={iconeParada(p.duracao_min)}>
               <Popup>
                 <b>Parada {fmtDuracao(p.duracao_min)}</b><br />
-                {fmtHora(p.inicio)} – {p.fim ? fmtHora(p.fim) : 'agora'}
+                {!rota.unico && p.data && <>{fmtDia(p.data)} · </>}{fmtHora(p.inicio)} – {p.fim ? fmtHora(p.fim) : 'agora'}
                 {p.local && <><br />{p.local}</>}
               </Popup>
             </Marker>
@@ -370,7 +392,7 @@ export default function SupervisorMapa() {
               <span>Buscando o trajeto de {primeiroNome(carroSel?.vendedor_nome)}…</span>
             ) : (
               <>
-                <span>{fmtDia(rota.data)}</span>
+                <span>{rota.rotulo}</span>
                 <span className="text-blue-400">{fmtKm(rota.resumo.km)}</span>
                 <span className="text-amber-400">{rota.resumo.paradas} parada{rota.resumo.paradas !== 1 ? 's' : ''}</span>
                 <span className="text-violet-300">{eventos.filter((e) => e.tipo === 'visita').length} visita{eventos.filter((e) => e.tipo === 'visita').length !== 1 ? 's' : ''}</span>
@@ -389,7 +411,7 @@ export default function SupervisorMapa() {
           <div className="absolute top-3 right-3 bottom-16 z-[1000] w-[min(320px,calc(100%-24px))] flex flex-col rounded-xl bg-white shadow-xl border border-slate-200">
             <div className="px-3 py-2 border-b border-slate-100">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-extrabold text-slate-800 inline-flex items-center gap-1.5"><Clock size={14} /> TIMELINE — {fmtDia(rota.data)}</p>
+                <p className="text-sm font-extrabold text-slate-800 inline-flex items-center gap-1.5"><Clock size={14} /> TIMELINE — {rota.rotulo}</p>
                 <button type="button" onClick={() => setTimelineAberta(false)} className="text-slate-400 hover:text-slate-700 px-1" title="Fechar"><X size={16} /></button>
               </div>
               <p className="text-xs text-slate-500">
@@ -400,15 +422,16 @@ export default function SupervisorMapa() {
             <div className="flex-1 overflow-y-auto px-3 py-2">
               {eventos.length === 0 && (
                 <p className="text-xs text-slate-500 py-4 text-center">
-                  {rota.resumo.km ? 'O trajeto detalhado deste dia já não está guardado — só o resumo.' : `Sem trajeto registrado em ${fmtDia(rota.data)}.`}
+                  {rota.resumo.km ? 'O trajeto detalhado deste período já não está guardado — só o resumo.' : `Sem trajeto registrado em ${rota.rotulo}.`}
                 </p>
               )}
               <ol className="relative border-l-2 border-slate-200 ml-1.5">
                 {eventos.map((e, i) => {
-                  const cor = e.tipo === 'inicio' ? '#22c55e' : e.tipo === 'fim' ? '#dc2626' : e.tipo === 'parada' ? '#f59e0b' : e.tipo === 'visita' ? '#7c3aed' : '#3b82f6'
+                  const cor = e.tipo === 'dia' ? '#0f172a' : e.tipo === 'inicio' ? '#22c55e' : e.tipo === 'fim' ? '#dc2626' : e.tipo === 'parada' ? '#f59e0b' : e.tipo === 'visita' ? '#7c3aed' : '#3b82f6'
                   return (
                     <li key={i} className="ml-3 pb-3 text-[13px] leading-snug text-slate-700">
                       <span className="absolute -left-[7px] mt-1 w-3 h-3 rounded-full border-2 border-white" style={{ background: cor }} />
+                      {e.tipo === 'dia' && <b className="text-slate-900 uppercase text-xs">{new Date(e.data + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}</b>}
                       {e.tipo === 'inicio' && <><b>{fmtHora(e.hora)}</b> · saiu{e.local && <> de {e.local}</>}</>}
                       {e.tipo === 'fim' && <><b>{fmtHora(e.hora)}</b> · último ponto{e.local && <> em {e.local}</>}</>}
                       {e.tipo === 'trecho' && (
