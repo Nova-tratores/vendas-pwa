@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Bell, CircleHelp, House, LayoutGrid, RefreshCw, UserCircle } from 'lucide-react'
 import ChecklistObrigatorio from './ChecklistObrigatorio'
+import BarraXP from './gamificacao/BarraXP'
 import { setSyncCallback, setAuthRequiredCallback, syncAll, countPending, supabase } from '../lib/sync'
 import { clearAll } from '../lib/db'
 import ConfigModal from './ConfigModal'
@@ -197,6 +198,7 @@ export default function Layout() {
           </button>
         </div>
       </header>
+      <BarraXP />
 
       <ConfigModal show={configAberto} onClose={() => setConfigAberto(false)} />
       <AjudaModal

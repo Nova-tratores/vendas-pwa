@@ -73,7 +73,7 @@ function Simulador({ base }) {
   // ?modelo= aplica preço e consumo do modelo
   useEffect(() => {
     const m = base.modelos.find((x) => x.id === q.modelo)
-    if (m) setE((x) => ({ ...x, preco: m.preco, rendimentoHaH: m.rendimentoHaH, consumoLH: m.consumoLH }))
+    if (m) setE((x) => ({ ...x, preco: m.preco ?? x.preco, rendimentoHaH: m.rendimentoHaH, consumoLH: m.consumoLH }))
   }, [q.modelo, base.modelos])
 
   useEffect(() => {
@@ -88,7 +88,7 @@ function Simulador({ base }) {
 
   function escolherModelo(m) {
     setModeloId(m.id)
-    setE((x) => ({ ...x, preco: m.preco, rendimentoHaH: m.rendimentoHaH, consumoLH: m.consumoLH }))
+    setE((x) => ({ ...x, preco: m.preco ?? x.preco, rendimentoHaH: m.rendimentoHaH, consumoLH: m.consumoLH }))
   }
   function escolherLinha(t) {
     setLinha(t.nome)
@@ -105,7 +105,7 @@ function Simulador({ base }) {
   return (
     <div className="grid grid-cols-1 gap-3">
       <ComoLer itens={[
-        <><b>Escolha o modelo</b> e a <b>linha de crédito</b>: preço, consumo, taxa, prazo e carência já vêm preenchidos. Ajuste o que o produtor falar.</>,
+        <><b>Escolha o modelo</b> e a <b>linha de crédito</b>: consumo, taxa, prazo e carência já vêm preenchidos; o <b>preço</b> você digita pela tabela do dia. Ajuste o que o produtor falar.</>,
         <><b>Parcela e total pago</b> saem pelo sistema Price. Na carência ninguém paga; os juros do período entram no saldo e a 1ª parcela vence no fim dela.</>,
         <><b>Economia por ano</b> = quanto ele gasta hoje por hectare (terceirizando ou com a máquina velha) menos o custo da máquina nova (diesel, operador e manutenção), mais o serviço para vizinhos.</>,
         <><b>Se paga em</b>: anos para a economia devolver o investimento. O gráfico mostra o caixa de cada ano (barra) e o acumulado (linha): onde a linha passa do zero, a máquina se pagou.</>,
@@ -135,7 +135,7 @@ function Simulador({ base }) {
                       <span className="text-[11px] font-bold text-slate-500">{m.cv} cv</span>
                     </div>
                     <div className="mt-1 text-[13.5px] font-extrabold text-slate-900 leading-tight">{m.modelo.replace('Mahindra ', '')}</div>
-                    <div className="text-[13px] font-bold text-red-700 mt-0.5">{compactoR(m.preco)}</div>
+                    <div className="text-[13px] font-bold text-red-700 mt-0.5">{m.preco ? compactoR(m.preco) : 'preço da tabela'}</div>
                     <div className="text-[11px] text-slate-500 leading-snug mt-0.5 line-clamp-2">{m.uso}</div>
                   </button>
                 )

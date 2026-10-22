@@ -18,6 +18,17 @@ async function chamar(query = '') {
 export const carrosDosVendedores = () => chamar()
 export const rotaDoDia = (placa, data) => chamar(`?placa=${encodeURIComponent(placa)}&data=${data}`)
 
+/** Notícias reais das cidades do vendedor (Google Notícias, filtradas no portal). */
+export async function noticiasDasCidades() {
+  const { data } = await supabase.auth.getSession()
+  const t = data?.session?.access_token
+  if (!t) throw new Error('Sessão expirada. Entre de novo.')
+  const res = await fetch(`${PORTAL}/api/crm-vendas/noticias`, { headers: { Authorization: `Bearer ${t}` } })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error || `Falha (${res.status})`)
+  return json
+}
+
 export * from './mapaVendedoresRegras'
 
 // Território gamificado (imóveis do CAR com o nível de conquista)

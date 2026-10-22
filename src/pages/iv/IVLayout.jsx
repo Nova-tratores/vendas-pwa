@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { TELAS_IV } from '../../lib/iv/telas'
+import { TELAS_IV_VISIVEIS } from '../../lib/iv/telas'
 
 // Faixa vermelha com guias estilo Chrome — mesmo molde do IVNav do Portal, adaptado ao celular
 // (rola de lado). Cada aba é uma rota filha de /inteligencia.
@@ -11,7 +11,7 @@ export default function IVLayout() {
         style={{ background: 'linear-gradient(135deg, #F87171, #991B1B)', scrollbarWidth: 'none' }}
         aria-label="Inteligência de Vendas"
       >
-        {TELAS_IV.map((t) => (
+        {TELAS_IV_VISIVEIS.map((t) => (
           <NavLink
             key={t.slug}
             to={`/inteligencia/${t.slug}`}

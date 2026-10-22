@@ -9,8 +9,7 @@ import Icone from '../components/Icone'
 import { Calendar, ClipboardList, Clock, Hourglass, MapPin, Plus, TriangleAlert, Users, Wallet } from 'lucide-react'
 import RotaHoje from '../components/inicio/RotaHoje'
 import SurpresasInicio from '../components/gamificacao/SurpresasInicio'
-import { Atalhos, ClimaMini, FeedHoje, GaragemMini, NoticiasHoje, ParadasAExplicar, ResumoSemanaChamada, TituloBloco } from '../components/inicio/blocos'
-import TaxasPlanoSafra from '../components/inicio/TaxasPlanoSafra'
+import { Atalhos, FeedHoje, NoticiasHoje, ParadasAExplicar, ResumoSemanaChamada, TituloBloco } from '../components/inicio/blocos'
 import { contatoVigentePorPropriedade } from '../lib/agenda'
 
 // Lê o X dias de lembrete: online busca da config e cacheia; offline usa o cache.
@@ -142,7 +141,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Topo: saudação, clima e os números de visitas */}
+      {/* Topo: saudação e os números de visitas */}
       <section
         className="ini-entra -mx-4 -mt-4 mb-4 px-4 pt-4 pb-5 text-white rounded-b-3xl"
         style={{ background: 'linear-gradient(135deg, #DC2626, #7F1D1D)' }}
@@ -153,7 +152,6 @@ export default function Dashboard() {
             <h2 className="text-xl font-bold truncate">{vendedor.nome || 'Vendedor'}</h2>
           </div>
         </div>
-        <div className="mt-3"><ClimaMini /></div>
         <div className="grid grid-cols-3 gap-2 mt-4">
           {[['Hoje', dados.visitasHoje], ['Semana', dados.visitasSemana], ['Mês', dados.visitasMes]].map(([rot, v]) => (
             <button key={rot} onClick={() => navigate('/visitas')} className="bg-white/15 backdrop-blur rounded-xl py-2.5 text-center active:bg-white/25">
@@ -194,7 +192,6 @@ export default function Dashboard() {
       <div className="mt-3"><SurpresasInicio /></div>
       <div className="mt-3"><ParadasAExplicar /></div>
       <div className="mt-3"><ResumoSemanaChamada /></div>
-      <div className="mt-3"><GaragemMini /></div>
 
       {/* Rota de hoje: mapa + paradas, mexe direto aqui */}
       <RotaHoje />
@@ -235,9 +232,9 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Notícias do agro + Plano Safra */}
+      {/* Notícias reais das cidades do vendedor. Clima e taxas do Plano Safra saíram
+          enquanto a fonte for o exemplo (eram números inventados). */}
       <NoticiasHoje />
-      <TaxasPlanoSafra />
 
       {/* Propriedades para completar (nudge de cadastro) */}
       {dados.propriedadesIncompletas?.length > 0 && (

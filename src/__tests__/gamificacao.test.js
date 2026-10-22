@@ -4,14 +4,14 @@ import { nivelDe, subiuDeNivel, sequencia, chama, perfilVendedor, camposParaVerd
 import { notaVisita } from '../lib/completudeVisita'
 
 describe('nível em cv', () => {
-  it('começa em 50 cv e sobe pelas faixas de XP', () => {
-    expect(nivelDe(0).cv).toBe(50)
-    expect(nivelDe(499)).toMatchObject({ cv: 50, faltaXp: 1 })
-    expect(nivelDe(1500).cv).toBe(100)
+  it('começa em 25 cv e sobe pelas faixas de XP', () => {
+    expect(nivelDe(0).cv).toBe(25)
+    expect(nivelDe(299)).toMatchObject({ cv: 25, faltaXp: 1 })
+    expect(nivelDe(2000).cv).toBe(100)
     expect(nivelDe(99999)).toMatchObject({ cv: 250, proximo: null, pct: 100 })
   })
   it('detecta a subida', () => {
-    expect(subiuDeNivel(480, 560).cv).toBe(75)
+    expect(subiuDeNivel(280, 360).cv).toBe(50)
     expect(subiuDeNivel(560, 600)).toBeNull()
   })
 })
@@ -39,7 +39,7 @@ describe('perfil e "quase lá"', () => {
   it('XP soma a nota de cada visita', () => {
     const p = perfilVendedor([{ resumo: 'oi', data_visita: '2026-10-22T12:00:00Z' }], {}, new Date(2026, 9, 22))
     expect(p.xp).toBe(10) // só o "negócio não se aplica"
-    expect(p.nivel.cv).toBe(50)
+    expect(p.nivel.cv).toBe(25)
   })
   it('quantos campos faltam para verde', () => {
     const n = notaVisita({ resumo: 'x', pessoas: [{ cargo: 'GERENTE' }], culturas: ['Café'], maquina_ids: [1], proximos_passos: 'y' })

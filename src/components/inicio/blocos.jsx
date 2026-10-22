@@ -1,18 +1,19 @@
 // Blocos da tela inicial (Início): feed do dia, notícias, clima, Plano Safra e atalhos.
 // Dados da Inteligência de Vendas via lib/iv/fonte.js (hoje: exemplo; depois: Portal).
 import { useEffect, useState } from 'react'
-import { DetalheIndicador } from './Folha'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight, Calculator, ChevronRight, CloudRain, CloudSun, Compass, Handshake, Landmark, Map, MapPin,
-  Minus, Newspaper, Phone, Repeat, Sprout, Sun, Target, TrendingDown, TrendingUp,
+  Newspaper, Phone, Repeat, Sprout, Sun, Target,
 } from 'lucide-react'
 // fonte.js (com os dados de exemplo) é pesado: só carrega quando o Início pede.
 const fonte = () => import('../../lib/iv/fonte')
-const carregarFeed = () => fonte().then((m) => m.carregarFeed())
 const carregarNoticias = () => fonte().then((m) => m.carregarNoticias())
+const carregarNoticiasCidades = () => import('../../lib/mapaVendedores').then((m) => m.noticiasDasCidades())
+// carteira de verdade (iv_feed_pool); sem pool o app usaria clientes fictícios — aí o bloco some
+const carregarFeed = () => import('../../lib/contatosVendedor').then((m) => m.carregarContatos()).then((r) => (r.exemplo ? false : r))
 const carregarPlanoSafra = () => fonte().then((m) => m.carregarPlanoSafra())
-const MODO_EXEMPLO = true // espelha lib/iv/fonte.js enquanto a fonte for o exemplo
+const MODO_EXEMPLO = false // os blocos do Início agora são dados reais (feed do portal, notícias das cidades)
 
 function useFonte(fn) {
   const [dados, setDados] = useState(null)
@@ -54,7 +55,7 @@ export function FeedHoje() {
   const itens = feed?.itens?.slice(0, 6) || []
   return (
     <section className="mb-5">
-      <TituloBloco icone={Target} titulo="Para você hoje" acao="Oportunidades" onAcao={() => navigate('/inteligencia/oportunidades')} />
+      <TituloBloco icone={Target} titulo="Para você hoje" acao="Carteira" onAcao={() => navigate('/menu/carteira')} />
       <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {!feed && [0, 1].map((i) => <div key={i} className="snap-start shrink-0 w-[78%] h-44 rounded-2xl bg-slate-100 animate-pulse" />)}
         {itens.map((it, i) => {
@@ -99,86 +100,36 @@ export function FeedHoje() {
   )
 }
 
-const TENDENCIA = {
-  boa: { icone: TrendingUp, cor: 'text-emerald-600' },
-  ruim: { icone: TrendingDown, cor: 'text-red-600' },
-  neutra: { icone: Minus, cor: 'text-slate-400' },
-}
-
-/** Notícias do dia: indicadores rolando, manchete com foto e as próximas matérias. */
+/** Notícias de verdade das cidades do vendedor (Google Notícias, pelo portal). */
 export function NoticiasHoje() {
-  const navigate = useNavigate()
-  const n = useFonte(carregarNoticias)
-  const [indAberto, setIndAberto] = useState(null)
-  if (n === false) return null
-  if (!n) return <div className="mb-5 h-56 rounded-2xl bg-slate-100 animate-pulse" />
-  const materias = n.noticias || []
-  const destaque = materias.find((m) => m.destaque && m.imagem_url) || materias.find((m) => m.imagem_url) || materias[0]
-  const outras = materias.filter((m) => m !== destaque).slice(0, 3)
-  const abrir = () => navigate('/inteligencia/noticias')
+  const n = useFonte(carregarNoticiasCidades)
+  const [todas, setTodas] = useState(false)
+  if (n === false || (n && !n.noticias?.length)) return null
+  if (!n) return <div className="mb-5 h-40 rounded-2xl bg-slate-100 animate-pulse" />
+  const lista = todas ? n.noticias : n.noticias.slice(0, 5)
+  const quando = (d) => {
+    if (!d) return ''
+    const dias = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
+    return dias <= 0 ? 'hoje' : dias === 1 ? 'ontem' : `há ${dias} dias`
+  }
   return (
     <section className="mb-5">
-      <TituloBloco icone={Newspaper} titulo="Notícias do agro" acao="Boletim" onAcao={abrir} />
-
-      {/* Indicadores rolando */}
-      <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-2" style={{ scrollbarWidth: 'none' }}>
-        {(n.indicadores || []).map((ind) => {
-          const t = TENDENCIA[ind.tendencia] || TENDENCIA.neutra
-          const I = t.icone
-          return (
-            <button key={ind.id} onClick={() => setIndAberto(ind)} className="shrink-0 text-left bg-white border border-slate-200 rounded-xl px-3 py-2 active:bg-slate-50">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase">{ind.nome}</p>
-              <p className="flex items-center gap-1 text-sm font-bold text-slate-900 whitespace-nowrap">
-                {ind.texto}
-                <I size={14} className={t.cor} aria-hidden="true" />
-              </p>
-              {ind.variacaoPct != null && (
-                <p className={`text-[10px] font-semibold ${t.cor}`}>
-                  {ind.variacaoPct > 0 ? '+' : ''}{ind.variacaoPct.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%
-                </p>
-              )}
-            </button>
-          )
-        })}
+      <TituloBloco icone={Newspaper} titulo="Notícias das suas cidades" />
+      <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100">
+        {lista.map((m) => (
+          <a key={m.link} href={m.link} target="_blank" rel="noreferrer" className="flex items-start gap-3 p-3 active:bg-slate-50">
+            <span className="shrink-0 mt-0.5 text-[10px] font-bold uppercase text-red-700 bg-red-50 rounded-md px-1.5 py-0.5">{m.cidade}</span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-slate-900 leading-snug line-clamp-3">{m.titulo}</span>
+              <span className="block text-[11px] text-slate-400 mt-0.5">{[m.fonte, quando(m.publicadoEm)].filter(Boolean).join(' · ')}</span>
+            </span>
+          </a>
+        ))}
       </div>
-      <DetalheIndicador ind={indAberto} onFechar={() => setIndAberto(null)} />
-
-      {/* Manchete */}
-      {destaque && (
-        <article onClick={abrir} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm cursor-pointer active:opacity-90">
-          {destaque.imagem_url && (
-            <div className="relative h-40 bg-slate-200">
-              <img src={destaque.imagem_url} alt="" loading="lazy" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              <p className="absolute left-3 right-3 bottom-3 text-white font-bold leading-snug">{destaque.titulo}</p>
-            </div>
-          )}
-          <div className="p-3">
-            {!destaque.imagem_url && <p className="font-bold text-slate-900 mb-1">{destaque.titulo}</p>}
-            <p className="text-xs text-slate-600 line-clamp-2">{destaque.resumo}</p>
-            {destaque.impacto && (
-              <p className="mt-2 text-xs text-blue-800 bg-blue-50 rounded-lg px-2.5 py-1.5 line-clamp-2">
-                <b>Para você:</b> {destaque.impacto}
-              </p>
-            )}
-          </div>
-        </article>
-      )}
-
-      {outras.length > 0 && (
-        <div className="mt-2 bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100">
-          {outras.map((m) => (
-            <button key={m.id} onClick={abrir} className="w-full text-left flex items-center gap-3 p-3 active:bg-slate-50">
-              {m.imagem_url
-                ? <img src={m.imagem_url} alt="" loading="lazy" className="w-14 h-14 rounded-lg object-cover bg-slate-200 shrink-0" />
-                : <span className="w-14 h-14 rounded-lg bg-slate-100 shrink-0 flex items-center justify-center text-slate-400"><Newspaper size={20} aria-hidden="true" /></span>}
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-slate-900 leading-snug line-clamp-2">{m.titulo}</span>
-                <span className="block text-[11px] text-slate-400 mt-0.5">{m.fonte_nome}</span>
-              </span>
-            </button>
-          ))}
-        </div>
+      {n.noticias.length > 5 && (
+        <button onClick={() => setTodas((v) => !v)} className="mt-2 w-full text-center text-xs font-semibold text-blue-700 py-1.5">
+          {todas ? 'Mostrar menos' : `Ver as ${n.noticias.length} notícias`}
+        </button>
       )}
     </section>
   )
@@ -225,8 +176,8 @@ export function PlanoSafraFaixa() {
 
 const ATALHOS = [
   { to: '/rota', rotulo: 'Minha rota', icone: Compass },
-  { to: '/inteligencia/oportunidades', rotulo: 'Oportunidades', icone: Target },
-  { to: '/inteligencia/prospeccao', rotulo: 'Prospecção', icone: Map },
+  { to: '/menu/carteira', rotulo: 'Carteira', icone: Handshake },
+  { to: '/territorio', rotulo: 'Território', icone: Map },
   { to: '/inteligencia/calculadora', rotulo: 'Calculadora', icone: Calculator },
 ]
 

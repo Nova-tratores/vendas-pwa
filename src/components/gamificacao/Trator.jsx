@@ -1,6 +1,7 @@
 // Trator ilustrado da garagem: cada nível (cv) tem cor e porte próprios.
 // SVG simples desenhado aqui (offline, sem arquivo); bloqueado = silhueta cinza.
 const ESTILO = {
+  25: { corpo: '#94a3b8', roda: 0.8 },
   50: { corpo: '#64748b', roda: 0.85 },
   75: { corpo: '#2563eb', roda: 0.9 },
   100: { corpo: '#dc2626', roda: 0.95 },
@@ -11,7 +12,7 @@ const ESTILO = {
 }
 
 export default function Trator({ cv, bloqueado = false, size = 72 }) {
-  const e = ESTILO[cv] || ESTILO[50]
+  const e = ESTILO[cv] || ESTILO[25]
   const corpo = bloqueado ? '#cbd5e1' : e.corpo
   const pneu = bloqueado ? '#e2e8f0' : '#1f2937'
   const r = 15 * e.roda

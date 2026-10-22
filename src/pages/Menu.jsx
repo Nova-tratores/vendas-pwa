@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bell, Calculator, Calendar, Car, ChevronRight, CircleHelp, ClipboardCheck, Compass, DoorOpen, Handshake,
-  Lightbulb, MapPin, Map as IconeMapa, Newspaper, Package, Plus, Repeat, Settings, Sprout, Target, Tractor, User, UserCircle, Users, Wallet,
+  Lightbulb, MapPin, Map as IconeMapa, Package, Plus, Repeat, Settings, Sprout, Tractor, User, UserCircle, Users, Wallet,
 } from 'lucide-react'
 import { carregarContatos } from '../lib/contatosVendedor'
 
@@ -38,9 +38,6 @@ const MODULOS = [
   {
     titulo: 'Inteligência de Vendas',
     itens: [
-      { to: '/inteligencia/oportunidades', rotulo: 'Oportunidades', icone: Target },
-      { to: '/inteligencia/noticias', rotulo: 'Notícias', icone: Newspaper },
-      { to: '/inteligencia/prospeccao', rotulo: 'Prospecção', icone: IconeMapa },
       { to: '/inteligencia', rotulo: 'Ver tudo', icone: Lightbulb },
     ],
   },

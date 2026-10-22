@@ -7,13 +7,14 @@
 import { notaVisita, visitaParaNota } from './completudeVisita'
 
 export const NIVEIS = [
-  { cv: 50, xp: 0 },
-  { cv: 75, xp: 500 },
-  { cv: 100, xp: 1500 },
-  { cv: 125, xp: 3000 },
-  { cv: 150, xp: 5000 },
-  { cv: 200, xp: 8000 },
-  { cv: 250, xp: 12000 },
+  { cv: 25, xp: 0 }, // começa no Jivo (José, 22/10/2026)
+  { cv: 50, xp: 300 },
+  { cv: 75, xp: 1000 },
+  { cv: 100, xp: 2000 },
+  { cv: 125, xp: 3500 },
+  { cv: 150, xp: 5500 },
+  { cv: 200, xp: 8500 },
+  { cv: 250, xp: 12500 },
 ]
 
 export function nivelDe(xp) {

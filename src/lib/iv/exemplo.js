@@ -1177,15 +1177,20 @@ export const PADRAO_ROI = {
   vidaUtilAnos: 10, residualPct: 35, haTerceiros: 0, precoServicoHa: 180, financiar: true, entradaPct: 20, taxaAnualPct: 8.5, prazoAnos: 7, parcelasPorAno: 1,
 }
 /** Modelos para pré-preencher a calculadora (preços imaginários). */
+// Linha que a Mahindra Brasil vende (catálogo do portal + tratores entregues desde 2024).
+// Preço fica em branco: o vendedor digita o da tabela do dia (nada de preço inventado).
+// cv, rendimento e consumo são estimativas por potência — o vendedor ajusta.
 export const MODELOS_CALCULADORA = [
-  { id: '2025-jivo', modelo: 'Mahindra 2025 Jivo 4x4', cv: 25, preco: 115000, rendimentoHaH: 0.6, consumoLH: 3.5, uso: 'Hortaliças, chácara, pomar' },
-  { id: '4025', modelo: 'Mahindra 4025 4x4', cv: 41, preco: 165000, rendimentoHaH: 1, consumoLH: 5.5, uso: 'Pecuária leiteira, sítio' },
-  { id: 'yuvo-575', modelo: 'Mahindra Yuvo 575 4x4', cv: 47, preco: 205000, rendimentoHaH: 1.2, consumoLH: 6.5, uso: 'Café, fruticultura' },
-  { id: 'yuvo-585', modelo: 'Mahindra Yuvo 585 4x4', cv: 50, preco: 238000, rendimentoHaH: 1.4, consumoLH: 7, uso: 'Uso geral, café, grãos pequenos' },
-  { id: '6075', modelo: 'Mahindra 6075 4x4', cv: 75, preco: 289000, rendimentoHaH: 2, consumoLH: 9.5, uso: 'Grãos, pastagem, uso geral' },
-  { id: '6110', modelo: 'Mahindra 6110 4x4', cv: 110, preco: 372000, rendimentoHaH: 2.8, consumoLH: 13, uso: 'Grãos, plantio, cana' },
-  { id: '7590', modelo: 'Mahindra 7590 4x4', cv: 90, preco: 465000, rendimentoHaH: 2.5, consumoLH: 12, uso: 'Grãos, cana, prestador de serviço' },
-  { id: '9500', modelo: 'Mahindra 9500 4x4', cv: 125, preco: 598000, rendimentoHaH: 3.4, consumoLH: 16, uso: 'Grande área, cana, prestador' },
+  { id: 'jivo-2025', modelo: 'Mahindra Jivo 2025 4x4', cv: 24, preco: null, rendimentoHaH: 0.6, consumoLH: 3.5, uso: 'Hortaliças, chácara, pomar' },
+  { id: '5050', modelo: 'Mahindra 5050 4x4', cv: 50, preco: null, rendimentoHaH: 1.3, consumoLH: 6.5, uso: 'Sítio, café, pecuária' },
+  { id: '6060', modelo: 'Mahindra 6060 4x4', cv: 60, preco: null, rendimentoHaH: 1.6, consumoLH: 7.5, uso: 'Uso geral, pecuária, café' },
+  { id: '6065', modelo: 'Mahindra 6065 4x4', cv: 65, preco: null, rendimentoHaH: 1.8, consumoLH: 8.5, uso: 'Uso geral, grãos pequenos' },
+  { id: '6075', modelo: 'Mahindra 6075 4x4', cv: 75, preco: null, rendimentoHaH: 2, consumoLH: 9.5, uso: 'Grãos, pastagem, uso geral' },
+  { id: '6075l', modelo: 'Mahindra 6075L 4x4', cv: 75, preco: null, rendimentoHaH: 2, consumoLH: 9.5, uso: 'Grãos, pastagem, uso geral' },
+  { id: '8000s', modelo: 'Mahindra 8000S 4x4', cv: 80, preco: null, rendimentoHaH: 2.2, consumoLH: 10.5, uso: 'Grãos, cana, preparo de solo' },
+  { id: '7095', modelo: 'Mahindra 7095 4x4', cv: 95, preco: null, rendimentoHaH: 2.6, consumoLH: 12, uso: 'Grãos, cana, prestador de serviço' },
+  { id: '9500s', modelo: 'Mahindra 9500S 4x4', cv: 95, preco: null, rendimentoHaH: 2.6, consumoLH: 12, uso: 'Grãos, cana, prestador de serviço' },
+  { id: '86-110', modelo: 'Mahindra 86-110 4x4', cv: 110, preco: null, rendimentoHaH: 2.8, consumoLH: 13, uso: 'Grande área, plantio, cana' },
 ]
 /** Cenário pronto: 6075 com Moderfrota para o Sítio Boa Vista (entrada = usado). */
 export const CENARIO_EXEMPLO_ROI = { ...PADRAO_ROI, areaHa: 170, custoAtualHa: 210, preco: 289000, valorUsado: 95000, rendimentoHaH: 2, consumoLH: 9.5, entradaPct: 33, taxaAnualPct: 11.5, prazoAnos: 7, haTerceiros: 60, precoServicoHa: 190 }

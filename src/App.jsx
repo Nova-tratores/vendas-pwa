@@ -167,7 +167,7 @@ export default function App() {
         <Route path="menu/:tipo" element={<ContatosTipo />} />
         {/* Inteligência de Vendas (mesmas telas do Portal) — abas em lib/iv/telas.js */}
         <Route path="inteligencia" element={<Suspense fallback={<div className="py-16 text-center text-sm text-slate-400">Carregando…</div>}><IVLayout /></Suspense>}>
-          <Route index element={<Navigate to="noticias" replace />} />
+          <Route index element={<Navigate to="retorno" replace />} />
           <Route path="noticias" element={<IVNoticias />} />
           <Route path="oportunidades" element={<IVOportunidades />} />
           <Route path="prospeccao" element={<IVProspeccao />} />
