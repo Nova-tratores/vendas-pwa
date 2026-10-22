@@ -29,6 +29,7 @@ import Garagem from './pages/Garagem'
 import MeuTerritorio from './pages/MeuTerritorio'
 import ParadasCarro from './pages/ParadasCarro'
 import SupervisorTerritorio from './supervisor/SupervisorTerritorio'
+import SupervisorMissoes from './supervisor/SupervisorMissoes'
 import ResumoSemana from './pages/ResumoSemana'
 import Perfil from './pages/Perfil'
 import Menu from './pages/Menu'
@@ -201,6 +202,7 @@ export default function App() {
         <Route path="visitas" element={<SupervisorVisitas />} />
         <Route path="completude" element={<SupervisorCompletude />} />
         <Route path="territorio" element={<SupervisorTerritorio />} />
+        <Route path="missoes" element={<SupervisorMissoes />} />
         <Route path="semana" element={<SupervisorSemana />} />
         <Route path="propostas" element={<SupervisorPropostas />} />
         <Route path="pos-vendas" element={<SupervisorPosVendas />} />

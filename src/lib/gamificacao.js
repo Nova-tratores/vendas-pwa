@@ -64,14 +64,43 @@ export function sequencia(diasCompletos, hoje = new Date()) {
 /** Tamanho da chama: cresce aos 5, 10 e 20 dias. */
 export const chama = (dias) => (dias >= 20 ? 4 : dias >= 10 ? 3 : dias >= 5 ? 2 : dias >= 1 ? 1 : 0)
 
+// ── Fase 3: Bônus de Safra e missões relâmpago ──────────────────────────────
+
+/** Missão que vale para esta visita (no período e com o campo pedido). */
+export function missaoDaVisita(v, nota, missoes = []) {
+  const t = new Date(v.data_visita).getTime()
+  return missoes
+    .filter((m) => m.ativo !== false && t >= new Date(m.inicio).getTime() && t <= new Date(m.fim).getTime())
+    .filter((m) => m.campo === 'qualquer' || nota.itens.find((i) => i.key === m.campo)?.ok)
+    .sort((a, b) => Number(b.multiplicador) - Number(a.multiplicador))[0] || null
+}
+
+/**
+ * Multiplicador de XP da visita: o maior entre o Bônus de Safra (2x, sorteado
+ * no servidor e só para visita completa) e a missão relâmpago da hora (2x/3x).
+ * Não somam: o acaso fica preso ao comportamento certo e o XP não dispara.
+ */
+export function multiplicadorVisita(v, nota, missoes = []) {
+  const bonus = !!v.bonus_safra && nota.nota >= 80
+  const missao = missaoDaVisita(v, nota, missoes)
+  return { mult: Math.max(bonus ? 2 : 1, missao ? Number(missao.multiplicador) : 1), bonus, missao }
+}
+
+/** Visitas com Bônus de Safra ainda não celebradas (para a animação de surpresa). */
+export function bonusNaoVistos(visitas, ctx, vistos = new Set()) {
+  return visitas.filter((v) => !v.deleted_at && v.bonus_safra && !vistos.has(String(v.id))
+    && notaVisita(visitaParaNota(v, ctx)).nota >= 80)
+}
+
 /** Perfil do vendedor a partir das visitas dele (IndexedDB). */
-export function perfilVendedor(visitas, ctx, hoje = new Date()) {
+export function perfilVendedor(visitas, ctx, hoje = new Date(), missoes = []) {
   let xp = 0
   const diasCompletos = new Set()
   for (const v of visitas) {
     if (v.deleted_at || v.duplicada_de) continue
-    const n = notaVisita(visitaParaNota(v, ctx)).nota
-    xp += n
+    const nota = notaVisita(visitaParaNota(v, ctx))
+    const n = nota.nota
+    xp += n * multiplicadorVisita(v, nota, missoes).mult
     if (n >= 80 && v.data_visita) diasCompletos.add(dia(new Date(v.data_visita)))
   }
   const seq = sequencia([...diasCompletos], hoje)
@@ -130,7 +159,7 @@ const MISSOES_POR_CAMPO = {
  * Resumo da semana do vendedor (segunda até hoje) comparado à anterior.
  * @param visitas do vendedor (IndexedDB) · ctx = { pessoasById, propById }
  */
-export function resumoSemana(visitas, ctx, hoje = new Date()) {
+export function resumoSemana(visitas, ctx, hoje = new Date(), missoes = []) {
   const ini = segundaDa(hoje)
   const iniAnt = new Date(ini); iniAnt.setDate(iniAnt.getDate() - 7)
   const fimProx = new Date(ini); fimProx.setDate(fimProx.getDate() + 14)
@@ -140,8 +169,8 @@ export function resumoSemana(visitas, ctx, hoje = new Date()) {
   const anterior = comNota(validas.filter((v) => new Date(v.data_visita) >= iniAnt && new Date(v.data_visita) < ini))
   const media = (l) => (l.length ? Math.round(l.reduce((s, x) => s + x.n.nota, 0) / l.length) : 0)
 
-  const perfil = perfilVendedor(visitas, ctx, hoje)
-  const xpSemana = daSemana.reduce((s, x) => s + x.n.nota, 0)
+  const perfil = perfilVendedor(visitas, ctx, hoje, missoes)
+  const xpSemana = daSemana.reduce((s, x) => s + x.n.nota * multiplicadorVisita(x.v, x.n, missoes).mult, 0)
   const stats = {
     feitas: daSemana.length,
     completas: daSemana.filter((x) => x.n.nota >= 80).length,
@@ -155,13 +184,13 @@ export function resumoSemana(visitas, ctx, hoje = new Date()) {
   // missões: os 2 campos que mais faltaram na semana + os retornos já marcados
   const faltas = {}
   for (const x of daSemana) for (const i of x.n.itens) if (!i.ok) faltas[i.key] = (faltas[i.key] || 0) + 1
-  const missoes = Object.entries(faltas).sort((a, b) => b[1] - a[1]).slice(0, 2)
+  const proximas = Object.entries(faltas).sort((a, b) => b[1] - a[1]).slice(0, 2)
     .map(([k, n]) => ({ key: k, texto: MISSOES_POR_CAMPO[k], faltou: n }))
   const proxSeg = new Date(ini); proxSeg.setDate(proxSeg.getDate() + 7)
   const dia = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const retornosProxima = validas.filter((v) => v.data_proximo_contato >= dia(proxSeg) && v.data_proximo_contato < dia(fimProx)).length
-  if (retornosProxima) missoes.push({ key: 'retornos', texto: `Cumprir os ${retornosProxima} retorno${retornosProxima > 1 ? 's' : ''} marcado${retornosProxima > 1 ? 's' : ''} para a semana que vem.` })
-  if (!missoes.length) missoes.push({ key: 'manter', texto: 'Manter todas as visitas verdes e a chama acesa.' })
+  if (retornosProxima) proximas.push({ key: 'retornos', texto: `Cumprir os ${retornosProxima} retorno${retornosProxima > 1 ? 's' : ''} marcado${retornosProxima > 1 ? 's' : ''} para a semana que vem.` })
+  if (!proximas.length) proximas.push({ key: 'manter', texto: 'Manter todas as visitas verdes e a chama acesa.' })
 
   return {
     semana: { ini: dia(ini), ...stats, media: media(daSemana), xp: xpSemana },
@@ -169,6 +198,6 @@ export function resumoSemana(visitas, ctx, hoje = new Date()) {
     melhor,
     selos: SELOS.filter((s) => s.teste(stats)).map(({ teste: _t, ...s }) => s),
     nivel: perfil.nivel,
-    missoes,
+    missoes: proximas,
   }
 }

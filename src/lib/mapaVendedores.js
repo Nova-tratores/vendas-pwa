@@ -51,4 +51,15 @@ export const explicarParada = (parada) => chamarParadas({
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parada),
 })
 
+/** Impacto real: serviços do Pós-Vendas de clientes visitados, depois da visita. */
+export async function impactoDoVendedor() {
+  const { data } = await supabase.auth.getSession()
+  const t = data?.session?.access_token
+  if (!t) throw new Error('Sessão expirada. Entre de novo.')
+  const res = await fetch(`${PORTAL}/api/crm-vendas/impacto`, { headers: { Authorization: `Bearer ${t}` } })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error || `Falha (${res.status})`)
+  return json
+}
+
 export * from './mapaVendedoresRegras'

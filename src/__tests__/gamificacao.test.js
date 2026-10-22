@@ -1,6 +1,6 @@
 // Gamificação: XP = nota da visita, nível em cv, sequência com proteção mensal.
 import { describe, it, expect } from 'vitest'
-import { nivelDe, subiuDeNivel, sequencia, chama, perfilVendedor, camposParaVerde, resumoDisponivel, resumoSemana } from '../lib/gamificacao'
+import { nivelDe, subiuDeNivel, sequencia, chama, perfilVendedor, camposParaVerde, resumoDisponivel, resumoSemana, bonusNaoVistos } from '../lib/gamificacao'
 import { notaVisita } from '../lib/completudeVisita'
 
 describe('nível em cv', () => {
@@ -73,5 +73,33 @@ describe('resumo de sexta', () => {
     expect(r.melhor.n.nota).toBe(100)
     expect(r.selos.map((s) => s.key)).toEqual(expect.arrayContaining(['semana_verde', 'olho_na_maquina', 'agenda_cheia']))
     expect(r.missoes.length).toBeGreaterThan(0)
+  })
+})
+
+describe('fase 3: Bônus de Safra e missões', () => {
+  const verde = {
+    resumo: 'Conversei com o Fernando sobre a plantadeira; a dele está com 12 anos e falha na distribuição do adubo, quer ver proposta.',
+    pessoa_ids: [1], propriedade_id: 9, maquina_ids: [3], proximos_passos: 'Levar proposta', data_proximo_contato: '2026-10-28', negocio_id: 1,
+    data_visita: '2026-10-22T13:00:00Z',
+  }
+  const ctx = { pessoasById: { 1: { cargo: 'FAMILIAR' } }, propById: { 9: { culturas: ['Grãos'] } } }
+  const hoje = new Date(2026, 9, 22, 18)
+
+  it('bônus dobra só a visita completa', () => {
+    expect(perfilVendedor([{ ...verde, bonus_safra: true }], ctx, hoje).xp).toBe(200)
+    expect(perfilVendedor([{ resumo: 'oi', data_visita: verde.data_visita, bonus_safra: true }], ctx, hoje).xp).toBe(10)
+  })
+
+  it('missão relâmpago multiplica no período e com o campo pedido; não soma com o bônus', () => {
+    const missao = { campo: 'maquina', multiplicador: 3, inicio: '2026-10-22T10:00:00Z', fim: '2026-10-23T10:00:00Z' }
+    expect(perfilVendedor([verde], ctx, hoje, [missao]).xp).toBe(300)
+    expect(perfilVendedor([{ ...verde, bonus_safra: true }], ctx, hoje, [missao]).xp).toBe(300)
+    expect(perfilVendedor([{ ...verde, maquina_ids: [] }], ctx, hoje, [missao]).xp).toBe(80) // sem máquina: fora da missão
+    expect(perfilVendedor([verde], ctx, hoje, [{ ...missao, fim: '2026-10-22T12:00:00Z' }]).xp).toBe(100) // fora do período
+  })
+
+  it('bônus ainda não celebrado', () => {
+    const vs = [{ ...verde, id: 1, bonus_safra: true }, { ...verde, id: 2, bonus_safra: false }, { ...verde, id: 3, bonus_safra: true }]
+    expect(bonusNaoVistos(vs, ctx, new Set(['3'])).map((v) => v.id)).toEqual([1])
   })
 })

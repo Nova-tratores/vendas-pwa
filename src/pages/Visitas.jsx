@@ -7,8 +7,8 @@ import ConfirmModal from '../components/ConfirmModal'
 import AudioTextInput from '../components/AudioTextInput'
 import { TIPOS_MAQUINA, MARCAS, CULTURAS } from '../lib/constants'
 import { notaVisita, dataMaisDias, semRetornoJustificado, PREFIXO_SEM_RETORNO, faltouNaUltima } from '../lib/completudeVisita'
-import { camposParaVerde, subiuDeNivel } from '../lib/gamificacao'
-import { carregarPerfil } from '../lib/gamificacaoLocal'
+import { camposParaVerde, subiuDeNivel, missaoDaVisita } from '../lib/gamificacao'
+import { carregarPerfil, carregarMissoes, missoesAtivas } from '../lib/gamificacaoLocal'
 import { tic, celebrarVisitaCompleta } from '../lib/recompensas'
 import ContadorXP from '../components/gamificacao/ContadorXP'
 import SubiuNivel from '../components/gamificacao/SubiuNivel'
@@ -71,6 +71,8 @@ export default function Visitas() {
   const [negUpdate, setNegUpdate] = useState({ temperatura: '', novo_prazo: '', novo_valor: '' })
   const [editTarget, setEditTarget] = useState(null)
   const [nivelNovo, setNivelNovo] = useState(null) // tela cheia de subida de nível
+  const [missoes, setMissoes] = useState([]) // missões relâmpago (supervisor)
+  useEffect(() => { carregarMissoes().then(setMissoes).catch(() => {}) }, [])
   const [editForm, setEditForm] = useState(null)
   const [veiculosDisp, setVeiculosDisp] = useState([])
 
@@ -268,6 +270,7 @@ export default function Visitas() {
     try {
       // recompensa: XP antes de salvar, para detectar a subida de nível
       const notaSalva = notaForm.nota
+      const xpSalvo = xpForm
       const xpAntes = await carregarPerfil().then((p) => p.xp).catch(() => null)
       await salvarVisita(form)
       // Se a visita está ligada a um negócio em andamento, atualiza o estado
@@ -293,7 +296,7 @@ export default function Visitas() {
       carregar()
       if (notaSalva >= 80) celebrarVisitaCompleta()
       if (xpAntes != null) {
-        const n = subiuDeNivel(xpAntes, xpAntes + notaSalva)
+        const n = subiuDeNivel(xpAntes, xpAntes + xpSalvo)
         if (n) setTimeout(() => setNivelNovo(n), notaSalva >= 80 ? 1100 : 0)
       }
       setTimeout(() => setSucesso(false), 3000)
@@ -338,6 +341,9 @@ export default function Visitas() {
     notaAnterior.current = notaForm.nota
   }, [notaForm.nota, form.propriedade_id])
   const paraVerde = camposParaVerde(notaForm)
+  // missão relâmpago valendo agora que esta visita cumpre (2x/3x XP)
+  const missaoForm = missaoDaVisita({ data_visita: new Date().toISOString() }, notaForm, missoesAtivas(missoes))
+  const xpForm = notaForm.nota * (missaoForm ? Number(missaoForm.multiplicador) : 1)
   // visita presencial sempre sai com retorno: data ou "sem retorno" com motivo
   const faltaRetorno = tipoPresencial && !form.data_proximo_contato && !semRetornoJustificado(form.proximos_passos)
   function semRetorno() {
@@ -1412,7 +1418,8 @@ export default function Visitas() {
             <div className="rounded-lg border border-slate-200 p-2">
               <div className="flex items-center justify-between text-xs mb-1">
                 <span className="font-bold" style={{ color: notaForm.faixa.cor }}>
-                  Visita {notaForm.nota}% · <ContadorXP valor={notaForm.nota} className="text-green-700" />
+                  Visita {notaForm.nota}% · <ContadorXP valor={xpForm} className="text-green-700" />
+                  {missaoForm && <span className="ml-1 text-violet-700" title={missaoForm.titulo}>⚡ {Number(missaoForm.multiplicador)}x</span>}
                 </span>
                 <span className="text-slate-500 truncate ml-2">
                   {paraVerde === 1 ? <b className="text-amber-700">Falta 1 campo para verde!</b>

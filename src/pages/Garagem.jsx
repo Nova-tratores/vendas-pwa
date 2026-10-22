@@ -7,6 +7,7 @@ import { NIVEIS } from '../lib/gamificacao'
 import { carregarPerfil } from '../lib/gamificacaoLocal'
 import { somLigado, ligarSom, somPartida } from '../lib/recompensas'
 import { getMensagens } from '../lib/notificacoes'
+import { impactoDoVendedor } from '../lib/mapaVendedores'
 
 const CHAMAS = ['', '🔥', '🔥', '🔥🔥', '🔥🔥🔥']
 const TAM_CHAMA = ['text-3xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl']
@@ -15,8 +16,11 @@ export default function Garagem() {
   const [perfil, setPerfil] = useState(null)
   const [som, setSom] = useState(somLigado())
   const [curtidas, setCurtidas] = useState(0)
+  const [impacto, setImpacto] = useState(null)
 
   useEffect(() => { carregarPerfil().then(setPerfil).catch(() => setPerfil(null)) }, [])
+  // impacto real: serviço do Pós-Vendas de cliente visitado, depois da visita
+  useEffect(() => { if (navigator.onLine) impactoDoVendedor().then(setImpacto).catch(() => {}) }, [])
   // visitas curtidas pelo supervisor (mensagens com o link de curtida)
   useEffect(() => {
     let vend = {}
@@ -61,6 +65,23 @@ export default function Garagem() {
           </p>
         </div>
       </section>
+
+      {impacto?.itens?.length > 0 && (
+        <section className="bg-white rounded-xl shadow p-4">
+          <h3 className="text-sm font-bold">💰 Impacto do seu trabalho</h3>
+          <p className="text-xs text-slate-500 mb-2">Serviços do Pós-Vendas feitos para clientes que você visitou, depois da sua visita (últimos 6 meses).</p>
+          <p className="text-2xl font-extrabold text-green-700">{impacto.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <p className="text-xs text-slate-500 mb-2">{impacto.clientes} cliente{impacto.clientes > 1 ? 's' : ''} · {impacto.itens.length} serviço{impacto.itens.length > 1 ? 's' : ''}</p>
+          <ul className="space-y-1">
+            {impacto.itens.slice(0, 5).map((x) => (
+              <li key={x.os} className="text-xs text-slate-700">
+                <b>{x.cliente}</b> · {x.servico} · {x.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                <span className="text-slate-400"> · {new Date(x.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {curtidas > 0 && (
         <section className="bg-white rounded-xl shadow p-4 flex items-center gap-3">
