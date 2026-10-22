@@ -28,6 +28,17 @@ const ICONE_TRATOR = L.divIcon({
   iconSize: [22, 22], iconAnchor: [11, 11],
 })
 
+// município já carregado nesta sessão volta na hora (10 min)
+const CACHE_SESSAO = new Map()
+async function territorioComCache(ibge, vendedorId) {
+  const chave = `${ibge}|${vendedorId || ''}`
+  const c = CACHE_SESSAO.get(chave)
+  if (c && Date.now() - c.at < 10 * 60000) return c.dados
+  const dados = await territorioDoMunicipio(ibge, vendedorId)
+  CACHE_SESSAO.set(chave, { at: Date.now(), dados })
+  return dados
+}
+
 const fmtHa = (n) => `${Math.round(Number(n) || 0).toLocaleString('pt-BR')} ha`
 
 export default function Territorio({ supervisor = false, vendedores = [] }) {
@@ -57,7 +68,7 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
     let vivo = true
     setCarregando(true); setErro('')
     try { localStorage.setItem(CHAVE_MUN, String(ibge)) } catch { /* sem storage */ }
-    territorioDoMunicipio(ibge, supervisor ? vendedorId : null)
+    territorioComCache(ibge, supervisor ? vendedorId : null)
       .then((d) => { if (vivo) setDados(d) })
       .catch((e) => { if (vivo) setErro(e.message) })
       .finally(() => { if (vivo) setCarregando(false) })
@@ -67,14 +78,32 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
   const niveis = dados?.niveis || NIVEIS_PADRAO
   const corDe = useMemo(() => Object.fromEntries(niveis.map((n) => [n.key, n.cor])), [niveis])
 
-  // enquadra o município quando os polígonos chegam
+  // enquadra o município pelo contorno que vem pronto do portal (montar uma
+  // segunda camada com todos os polígonos só para isso pesava no celular)
   useEffect(() => {
-    if (!mapa || !dados?.features?.length) return
-    try {
-      const b = L.geoJSON({ type: 'FeatureCollection', features: dados.features }).getBounds()
-      if (b.isValid()) mapa.fitBounds(b, { padding: [10, 10] })
-    } catch { /* geometria inesperada */ }
+    const b = dados?.bbox
+    if (!mapa || !b) return
+    mapa.fitBounds([[b[1], b[0]], [b[3], b[2]]], { padding: [10, 10] })
   }, [mapa, dados])
+
+  // o mesmo objeto enquanto os dados não mudam (o mapa não redesenha à toa)
+  const colecao = useMemo(() => (dados?.features?.length ? { type: 'FeatureCollection', features: dados.features } : null), [dados])
+
+  // uma janela de detalhe só, montada no clique (antes: uma pronta por imóvel)
+  const abrirImovel = (e) => {
+    const p = (e.propagatedFrom || e.layer)?.feature?.properties
+    if (!p || !mapa) return
+    const nivel = niveis.find((n) => n.key === p.nivel)
+    L.popup()
+      .setLatLng(e.latlng)
+      .setContent(
+        `<b>${nivel?.label || p.nivel}</b><br/>${fmtHa(p.area_ha)}${p.cultura ? ` · ${p.cultura}` : ''}`
+        + (p.visitas ? `<br/>${p.visitas} visita${p.visitas > 1 ? 's' : ''} · última ${new Date(p.ultima_visita + 'T12:00:00').toLocaleDateString('pt-BR')}` : '<br/>Ainda não visitado')
+        + (p.trator ? '<br/><b style="color:#15803d">🚜 trator nosso localizado aqui</b>' : '')
+        + `<br/><span style="color:#94a3b8;font-size:10px">${p.cod_car}</span>`,
+      )
+      .openOn(mapa)
+  }
 
   const r = dados?.resumo
   const munAtual = municipios.find((m) => Number(m.ibge) === Number(ibge))
@@ -147,26 +176,18 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
         )}
         <MapContainer ref={setMapa} center={[-23.2, -49.37]} zoom={11} preferCanvas style={{ height: '100%', width: '100%' }}>
           <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          {dados?.features?.length > 0 && (
+          {colecao && (
             <GeoJSON
               key={`${dados.ibge}-${vendedorId}-${dados.features.length}`}
-              data={{ type: 'FeatureCollection', features: dados.features }}
+              data={colecao}
+              smoothFactor={1.5}
+              eventHandlers={{ click: abrirImovel }}
               style={(f) => ({
                 color: f.properties.nivel === 'bloqueado' ? '#94a3b8' : '#166534',
                 weight: f.properties.nivel === 'bloqueado' ? 0.5 : 1,
                 fillColor: corDe[f.properties.nivel] || '#cbd5e1',
                 fillOpacity: f.properties.nivel === 'bloqueado' ? 0.35 : 0.75,
               })}
-              onEachFeature={(f, layer) => {
-                const p = f.properties
-                const nivel = niveis.find((n) => n.key === p.nivel)
-                layer.bindPopup(
-                  `<b>${nivel?.label || p.nivel}</b><br/>${fmtHa(p.area_ha)}${p.cultura ? ` · ${p.cultura}` : ''}`
-                  + (p.visitas ? `<br/>${p.visitas} visita${p.visitas > 1 ? 's' : ''} · última ${new Date(p.ultima_visita + 'T12:00:00').toLocaleDateString('pt-BR')}` : '<br/>Ainda não visitado')
-                  + (p.trator ? '<br/><b style="color:#15803d">🚜 trator nosso localizado aqui</b>' : '')
-                  + `<br/><span style="color:#94a3b8;font-size:10px">${p.cod_car}</span>`,
-                )
-              }}
             />
           )}
           {(dados?.tratores?.pinos || []).map((t, i) => (
