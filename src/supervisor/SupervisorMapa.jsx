@@ -7,6 +7,7 @@ import { getVisitas, getVendedores } from '../lib/supabaseQueries'
 import VendedorAvatar, { primeiroNome, corVendedor } from '../components/VendedorAvatar'
 import IconesCompletude, { SeloNota } from './IconesCompletude'
 import FichaPropriedadeModal from './FichaPropriedadeModal'
+import CamadaCar from './CamadaCar'
 import {
   carrosDosVendedores, rotaDoDia, STATUS, hojeBR, fmtHora, fmtDuracao, fmtDia, fmtKm, haQuanto, corParada, juntarVisitas,
   diasDoPeriodo, combinarRotas, rotuloSituacaoParada,
@@ -97,6 +98,10 @@ export default function SupervisorMapa() {
   const [rotaErro, setRotaErro] = useState('')
   const [timelineAberta, setTimelineAberta] = useState(true)
   const [mapa, setMapa] = useState(null)
+  // camada Propriedades (CAR): imóveis rurais na cor da conquista (começa desligada)
+  const [mostrarCar, setMostrarCar] = useState(false)
+  const [carAviso, setCarAviso] = useState(null)
+  const [carCarregando, setCarCarregando] = useState(false)
   const [agora, setAgora] = useState(() => Date.now())
 
   useEffect(() => {
@@ -305,6 +310,7 @@ export default function SupervisorMapa() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          <CamadaCar ativo={mostrarCar} vendedorId={vendSel} onAviso={setCarAviso} onCarregando={setCarCarregando} />
 
           {/* Trajeto do dia: buraco de sinal vira pontilhado, não linha reta */}
           {rota?.buracos?.map((b, i) => (
@@ -398,6 +404,30 @@ export default function SupervisorMapa() {
             </Marker>
           ))}
         </MapContainer>
+
+        {/* Liga/desliga a camada do CAR (ao lado do zoom) */}
+        <div className="absolute top-3 left-14 z-[1000] flex flex-col items-start gap-1">
+          <button
+            type="button"
+            onClick={() => setMostrarCar((v) => !v)}
+            title={mostrarCar ? 'Ocultar as propriedades rurais' : 'Mostrar as propriedades rurais (CAR) na cor da conquista'}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold shadow ${mostrarCar ? 'bg-green-700 text-white' : 'bg-white text-slate-600'}`}
+          >
+            <span className={`w-2.5 h-2.5 rounded-sm ${mostrarCar ? 'bg-green-200' : 'bg-slate-400'}`} />
+            {carCarregando ? 'Propriedades…' : 'Propriedades (CAR)'}
+          </button>
+          {mostrarCar && carAviso && (
+            <span className="rounded-md bg-slate-800/90 text-white text-[11px] font-semibold px-2 py-1 max-w-[220px]">{carAviso}</span>
+          )}
+          {mostrarCar && !carAviso && (
+            <span className="rounded-md bg-white/95 text-slate-700 text-[11px] px-2 py-1 shadow flex flex-wrap gap-x-2">
+              {[['#cbd5e1', 'bloqueado'], ['#bbf7d0', 'visitado'], ['#4ade80', 'conversa'], ['#15803d', 'quente'], ['#ca8a04', 'comprou']].map(([c, r]) => (
+                <span key={r} className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: c }} />{r}</span>
+              ))}
+              <span className="text-slate-500">· {vendSel ? 'do vendedor' : 'da equipe'}</span>
+            </span>
+          )}
+        </div>
 
         {/* Resumo do dia do vendedor escolhido */}
         {(rota || rotaCarregando) && (
