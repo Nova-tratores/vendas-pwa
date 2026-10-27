@@ -122,7 +122,7 @@ function CartaoContato({ it, n, motivo, regras, cor, fundo }) {
 
       <div className="grid grid-cols-3 gap-1.5 p-3 pt-1.5">
         <button
-          onClick={() => navigate('/visitas', { state: estadoVisita({ propriedadeId: it.propriedadeId, contato: cliente?.contato, propriedade: it.titulo, cidade: it.cidade, telefone: it.telefone, culturas: cliente?.culturas }) })}
+          data-atalho="contatos:nova-visita" onClick={() => navigate('/visitas', { state: estadoVisita({ propriedadeId: it.propriedadeId, contato: cliente?.contato, propriedade: it.titulo, cidade: it.cidade, telefone: it.telefone, culturas: cliente?.culturas }) })}
           className="flex flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-bold bg-blue-700 text-white active:bg-blue-800"
         >
           <ClipboardList size={18} /> Visita

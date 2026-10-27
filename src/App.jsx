@@ -1,5 +1,6 @@
 import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { telaMudou } from './lib/usoColetor'
 import Layout from './components/Layout'
 import { estaEmbutido } from './lib/embed'
 import Login from './pages/Login'
@@ -107,6 +108,7 @@ function ScrollToTop() {
   useEffect(() => {
     window.scrollTo(0, 0)
     document.querySelector('main')?.scrollTo(0, 0)
+    telaMudou(pathname)
   }, [pathname])
   return null
 }

@@ -154,7 +154,7 @@ export default function Dashboard() {
         </div>
         <div className="grid grid-cols-3 gap-2 mt-4">
           {[['Hoje', dados.visitasHoje], ['Semana', dados.visitasSemana], ['Mês', dados.visitasMes]].map(([rot, v]) => (
-            <button key={rot} onClick={() => navigate('/visitas')} className="bg-white/15 backdrop-blur rounded-xl py-2.5 text-center active:bg-white/25">
+            <button key={rot} data-atalho={`inicio:contador-${rot.toLowerCase()}`} onClick={() => navigate('/visitas')} className="bg-white/15 backdrop-blur rounded-xl py-2.5 text-center active:bg-white/25">
               <p className="text-2xl font-bold leading-none">{v}</p>
               <p className="text-[11px] opacity-85 mt-1">visitas · {rot.toLowerCase()}</p>
             </button>
@@ -169,12 +169,12 @@ export default function Dashboard() {
 
       {/* Carteira: pipeline e clientes */}
       <div className="grid grid-cols-2 gap-2 mb-4">
-        <button onClick={() => navigate('/negocios')} className="text-left bg-white border border-slate-200 rounded-2xl p-3 active:bg-slate-50">
+        <button data-atalho="inicio:pipeline" onClick={() => navigate('/negocios')} className="text-left bg-white border border-slate-200 rounded-2xl p-3 active:bg-slate-50">
           <p className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 uppercase"><Wallet size={13} aria-hidden="true" /> Pipeline</p>
           <p className="text-lg font-bold text-emerald-700 mt-1">R$ {dados.pipeline.toLocaleString('pt-BR')}</p>
           <p className="text-[11px] text-slate-500">{dados.negociosAbertos} negócio{dados.negociosAbertos === 1 ? '' : 's'} aberto{dados.negociosAbertos === 1 ? '' : 's'}</p>
         </button>
-        <button onClick={() => navigate('/clientes')} className="text-left bg-white border border-slate-200 rounded-2xl p-3 active:bg-slate-50">
+        <button data-atalho="inicio:clientes" onClick={() => navigate('/clientes')} className="text-left bg-white border border-slate-200 rounded-2xl p-3 active:bg-slate-50">
           <p className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 uppercase"><Users size={13} aria-hidden="true" /> Clientes</p>
           <p className="text-lg font-bold text-slate-900 mt-1">{dados.totalClientes}</p>
           <p className="text-[11px] text-slate-500">{dados.totalPropriedades} propriedade{dados.totalPropriedades === 1 ? '' : 's'}</p>
@@ -182,6 +182,7 @@ export default function Dashboard() {
       </div>
 
       <button
+        data-atalho="inicio:nova-visita"
         onClick={() => navigate('/visitas')}
         className="w-full inline-flex items-center justify-center gap-2 bg-blue-700 text-white py-3 rounded-2xl font-semibold text-sm mb-4 shadow-sm active:bg-blue-800"
       >
@@ -189,19 +190,19 @@ export default function Dashboard() {
       </button>
 
       <Atalhos />
-      <div className="mt-3"><SurpresasInicio /></div>
-      <div className="mt-3"><ParadasAExplicar /></div>
-      <div className="mt-3"><ResumoSemanaChamada /></div>
+      <div className="mt-3" data-atalho="inicio:surpresas"><SurpresasInicio /></div>
+      <div className="mt-3" data-atalho="inicio:paradas"><ParadasAExplicar /></div>
+      <div className="mt-3" data-atalho="inicio:resumo-semana"><ResumoSemanaChamada /></div>
 
       {/* Rota de hoje: mapa + paradas, mexe direto aqui */}
-      <RotaHoje />
+      <div data-atalho="inicio:rota-hoje"><RotaHoje /></div>
 
       {/* Feed do dia (Inteligência de Vendas) */}
-      <FeedHoje />
+      <div data-atalho="inicio:feed-hoje"><FeedHoje /></div>
 
       {/* Contatos atrasados */}
       {dados.contatosAtrasados.length > 0 && (
-        <section className="mb-5">
+        <section className="mb-5" data-atalho="inicio:contatos-atrasados">
           <TituloBloco icone={Clock} titulo={`Contatos atrasados (${dados.contatosAtrasados.length})`} />
           <div className="space-y-2">
             {dados.contatosAtrasados.slice(0, 3).map((v) => (
@@ -213,7 +214,7 @@ export default function Dashboard() {
 
       {/* Negócios para atualizar (lembrete) */}
       {dados.negociosParaAtualizar?.length > 0 && (
-        <section className="mb-5">
+        <section className="mb-5" data-atalho="inicio:negocios-parados">
           <TituloBloco icone={Hourglass} titulo={`Negócios para atualizar (${dados.negociosParaAtualizar.length})`} acao="Negócios" onAcao={() => navigate('/negocios')} />
           <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100">
             {dados.negociosParaAtualizar.slice(0, 5).map((n) => {
@@ -234,11 +235,11 @@ export default function Dashboard() {
 
       {/* Notícias reais das cidades do vendedor. Clima e taxas do Plano Safra saíram
           enquanto a fonte for o exemplo (eram números inventados). */}
-      <NoticiasHoje />
+      <div data-atalho="inicio:noticias"><NoticiasHoje /></div>
 
       {/* Propriedades para completar (nudge de cadastro) */}
       {dados.propriedadesIncompletas?.length > 0 && (
-        <section className="mb-5">
+        <section className="mb-5" data-atalho="inicio:cadastros-completar">
           <TituloBloco icone={ClipboardList} titulo={`Cadastros para completar (${dados.propriedadesIncompletas.length})`} />
           <p className="text-[11px] text-slate-500 -mt-1 mb-2">
             {dados.totalCompletas} de {dados.totalPropriedades} propriedades completas
@@ -266,7 +267,7 @@ export default function Dashboard() {
 
       {/* Próximos contatos */}
       {dados.proximosContatos.length > 0 && (
-        <section className="mb-5">
+        <section className="mb-5" data-atalho="inicio:proximos-contatos">
           <TituloBloco icone={Calendar} titulo="Próximos contatos" acao="Agenda" onAcao={() => navigate('/agenda')} />
           <div className="space-y-2">
             {dados.proximosContatos.map((v) => (
@@ -278,7 +279,7 @@ export default function Dashboard() {
 
       {/* Últimas visitas */}
       {dados.ultimasVisitas.length > 0 && (
-        <section>
+        <section data-atalho="inicio:ultimas-visitas">
           <TituloBloco icone={MapPin} titulo="Últimas visitas" acao="Ver todas" onAcao={() => navigate('/visitas')} />
           <div className="space-y-2">
             {dados.ultimasVisitas.map((v) => (

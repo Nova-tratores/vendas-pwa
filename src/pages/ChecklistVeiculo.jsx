@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { capturarFoto } from '../lib/camera'
 import { capturarGPS } from '../lib/gps'
+import { fluxoInicio, fluxoFim } from '../lib/usoColetor'
 import {
   listarMeusCarros, estadoDoCarro, iniciarChecklist, salvarItem, concluirChecklist,
   STATUS_MES, concluido, mapaSalvos, primeiroPendente, erroDoItem, kmValido, resumoItens,
@@ -94,6 +95,7 @@ export default function ChecklistVeiculo() {
     setOcupado(true); setErro('')
     try {
       const r = await iniciarChecklist(placa, n, await posicao())
+      fluxoInicio('checklist_veiculo')
       const mapa = mapaSalvos(r.itens)
       setChecklistId(r.id)
       setItems(r.items || items)
@@ -145,6 +147,7 @@ export default function ChecklistVeiculo() {
     setOcupado(true); setErro('')
     try {
       setResultado(await concluirChecklist(checklistId, await posicao()))
+      fluxoFim('checklist_veiculo', 'concluido')
       setFase('resultado')
     } catch (e) {
       setErro(e.message)

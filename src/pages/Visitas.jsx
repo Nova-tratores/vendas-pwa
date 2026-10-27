@@ -10,6 +10,7 @@ import { notaVisita, dataMaisDias, semRetornoJustificado, PREFIXO_SEM_RETORNO, f
 import { camposParaVerde, subiuDeNivel, missaoDaVisita } from '../lib/gamificacao'
 import { carregarPerfil, carregarMissoes, missoesAtivas } from '../lib/gamificacaoLocal'
 import { tic, celebrarVisitaCompleta } from '../lib/recompensas'
+import { fluxoInicio, fluxoFim } from '../lib/usoColetor'
 import ContadorXP from '../components/gamificacao/ContadorXP'
 import SubiuNivel from '../components/gamificacao/SubiuNivel'
 import TratoresDaPropriedade from '../components/TratoresDaPropriedade'
@@ -43,6 +44,8 @@ export default function Visitas() {
   const location = useLocation()
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
+  // Monitor de uso: abrir o formulário (por qualquer caminho) inicia o fluxo 'visita'.
+  useEffect(() => { if (showForm) fluxoInicio('visita') }, [showForm])
   const [visitas, setVisitas] = useState([])
   const [clientes, setClientes] = useState([])
   const [propriedadesAll, setPropriedadesAll] = useState([])
@@ -291,6 +294,7 @@ export default function Visitas() {
           await registrarLog('alterar', 'negocios', neg.id, `Atualização via visita — temperatura: ${neg.temperatura || '—'} → ${negUpdate.temperatura}`)
         }
       }
+      fluxoFim('visita', 'concluido')
       setSucesso(true)
       setShowForm(false)
       resetFormVisita()
@@ -597,7 +601,7 @@ export default function Visitas() {
             >
               <MapIcon size={16} /> Mapa
             </Link>
-            <button onClick={handleNovaVisita} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <button data-atalho="visitas:check-in" onClick={handleNovaVisita} className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
               + Check-in
             </button>
           </div>
@@ -1438,7 +1442,7 @@ export default function Visitas() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => { setShowForm(false); resetFormVisita() }}
+              onClick={() => { fluxoFim('visita', 'cancelado'); setShowForm(false); resetFormVisita() }}
               className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-sm"
             >
               Cancelar
@@ -1460,7 +1464,7 @@ export default function Visitas() {
           <p className="mb-3 flex justify-center text-slate-300"><MapPin size={40} /></p>
           <p className="text-slate-400">Nenhuma visita registrada</p>
           {!showForm && (
-            <button onClick={handleNovaVisita} className="text-blue-700 text-sm mt-2 font-medium">
+            <button data-atalho="visitas:primeiro-check-in" onClick={handleNovaVisita} className="text-blue-700 text-sm mt-2 font-medium">
               Fazer primeiro check-in
             </button>
           )}
@@ -1518,7 +1522,7 @@ export default function Visitas() {
               {!showNovoNegocio ? (
                 <button
                   type="button"
-                  onClick={() => setShowNovoNegocio(true)}
+                  onClick={() => { fluxoInicio('negocio_novo'); setShowNovoNegocio(true) }}
                   className="w-full py-2.5 mb-3 rounded-lg text-sm font-medium border-2 border-dashed border-blue-300 text-blue-600 active:bg-blue-50"
                 >
                   + Criar Novo Negócio
@@ -1573,7 +1577,7 @@ export default function Visitas() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowNovoNegocio(false)}
+                      onClick={() => { fluxoFim('negocio_novo', 'cancelado'); setShowNovoNegocio(false) }}
                       className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-sm"
                     >Cancelar</button>
                     <button
@@ -1605,6 +1609,7 @@ export default function Visitas() {
                         await registrarLog('criar', 'negocios', negId, `Negócio: R$ ${novoNegocio.valor || '0'} (via visita)`)
                         const negCriado = { id: negId, ...novoNegocio, valor: novoNegocio.valor ? parseFloat(novoNegocio.valor) : null }
                         vincularNegocio(negCriado)
+                        fluxoFim('negocio_novo', 'concluido')
                         setNovoNegocio({ valor: '', status: 'prospeccao', notas: '', cidade: '', maquina_familia: '', maquina_marca: '', maquina_modelo: '', data_fechamento_prevista: '' })
                         setShowNovoNegocio(false)
                         setShowNegocio(false)

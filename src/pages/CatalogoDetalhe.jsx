@@ -6,6 +6,7 @@ import {
   registrarCompartilhamento,
 } from '../lib/catalogoSupabase'
 import PdfViewerModal from '../components/PdfViewerModal'
+import { fluxoInicio, fluxoFim } from '../lib/usoColetor'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Camera, CircleHelp, ExternalLink, FileText, MessageCircle } from 'lucide-react'
 
@@ -232,6 +233,7 @@ function CompartilharWhatsApp({ partes, meta }) {
               canal: 'whatsapp_share',
               itens: itensSelecionados,
             })
+            fluxoFim('whatsapp', 'concluido')
             setOpen(false)
             return
           } catch (err) {
@@ -262,6 +264,7 @@ function CompartilharWhatsApp({ partes, meta }) {
         itens: itensSelecionados,
       })
       window.open(`https://wa.me/${numero}?text=${texto}`, '_blank', 'noopener')
+      fluxoFim('whatsapp', 'concluido')
       setOpen(false)
     } finally {
       setEnviando(false)
@@ -275,7 +278,7 @@ function CompartilharWhatsApp({ partes, meta }) {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { fluxoInicio('whatsapp'); setOpen(true) }}
         className="block w-full bg-green-600 text-white text-center py-3 rounded-xl font-medium text-sm active:bg-green-700 animate-fade-in mb-2 flex items-center justify-center gap-2"
       >
         <MessageCircle size={16} /> Enviar no WhatsApp
@@ -284,7 +287,7 @@ function CompartilharWhatsApp({ partes, meta }) {
       {open && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
-          onClick={() => setOpen(false)}
+          onClick={() => { fluxoFim('whatsapp', 'cancelado'); setOpen(false) }}
         >
           <form
             onClick={(e) => e.stopPropagation()}
@@ -338,7 +341,7 @@ function CompartilharWhatsApp({ partes, meta }) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => { fluxoFim('whatsapp', 'cancelado'); setOpen(false) }}
                 disabled={enviando}
                 className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-medium text-sm active:bg-slate-200 disabled:opacity-50"
               >

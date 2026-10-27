@@ -478,7 +478,7 @@ function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas =
         </div>
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); navigate('/visitas', { state: { propriedadeId: prop.id } }) }}
+          data-atalho="clientes:nova-visita" onClick={(e) => { e.stopPropagation(); navigate('/visitas', { state: { propriedadeId: prop.id } }) }}
           className="text-xs font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-2.5 py-1 active:bg-blue-100"
         >
           + Visita

@@ -186,7 +186,7 @@ export function Atalhos() {
   return (
     <div className="grid grid-cols-4 gap-2 mb-5">
       {ATALHOS.map(({ to, rotulo, icone: I }) => (
-        <button key={to} onClick={() => navigate(to)} className="flex flex-col items-center gap-1.5 bg-white border border-slate-200 rounded-2xl py-3 px-1 active:bg-slate-50">
+        <button key={to} data-atalho={`inicio:atalho-${to.slice(1).replace(/\//g, '-')}`} onClick={() => navigate(to)} className="flex flex-col items-center gap-1.5 bg-white border border-slate-200 rounded-2xl py-3 px-1 active:bg-slate-50">
           <span className="w-10 h-10 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center"><I size={20} aria-hidden="true" /></span>
           <span className="text-[11px] font-semibold text-slate-700 text-center leading-tight">{rotulo}</span>
         </button>
@@ -205,7 +205,7 @@ export function GaragemMini() {
   if (!perfil) return null
   const { nivel, xp, sequencia } = perfil
   return (
-    <button type="button" onClick={() => navigate('/garagem')}
+    <button type="button" data-atalho="inicio:garagem" onClick={() => navigate('/garagem')}
       className="w-full bg-white rounded-xl shadow p-3 flex items-center gap-3 text-left">
       <span className="text-2xl" aria-hidden="true">{sequencia.dias > 0 ? '🔥' : '🚜'}</span>
       <span className="flex-1 min-w-0">

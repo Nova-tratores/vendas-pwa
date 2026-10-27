@@ -81,6 +81,7 @@ export default function Menu() {
         <p className="text-sm opacity-85 mb-4">Escolha um caminho. Nos grupos de clientes, mostramos por que cada um foi escolhido.</p>
 
         <button
+          data-atalho="menu:nova-visita"
           onClick={() => navigate('/visitas', { state: { novaVisita: true } })}
           className="w-full flex items-center gap-3 bg-white text-slate-900 rounded-2xl p-3.5 mb-2.5 shadow-sm active:scale-[0.99] transition"
         >
@@ -99,6 +100,7 @@ export default function Menu() {
             return (
               <button
                 key={g.tipo}
+                data-atalho={`menu:clientes-${g.tipo}`}
                 onClick={() => navigate(`/menu/${g.tipo}`)}
                 className="flex items-center gap-3 bg-white/95 text-slate-900 rounded-2xl p-3 active:scale-[0.99] transition"
               >
@@ -125,7 +127,7 @@ export default function Menu() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">{m.titulo}</p>
             <div className="grid grid-cols-4 gap-2">
               {m.itens.map(({ to, rotulo, icone: I }) => (
-                <button key={to} onClick={() => navigate(to)} className="flex flex-col items-center gap-1.5 bg-white border border-slate-200 rounded-2xl py-3 px-1 active:bg-slate-50">
+                <button key={to} data-atalho={`menu:${to.slice(1)}`} onClick={() => navigate(to)} className="flex flex-col items-center gap-1.5 bg-white border border-slate-200 rounded-2xl py-3 px-1 active:bg-slate-50">
                   <span className="w-10 h-10 rounded-full bg-blue-50 text-blue-700 grid place-items-center"><I size={20} /></span>
                   <span className="text-[11px] font-semibold text-slate-700 text-center leading-tight">{rotulo}</span>
                 </button>
@@ -135,13 +137,13 @@ export default function Menu() {
         ))}
 
         <section className="grid grid-cols-2 gap-2">
-          <button onClick={() => window.dispatchEvent(new Event('abrir-config'))} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold border border-slate-200 bg-white rounded-xl py-2.5 active:bg-slate-50">
+          <button data-atalho="menu:config" onClick={() => window.dispatchEvent(new Event('abrir-config'))} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold border border-slate-200 bg-white rounded-xl py-2.5 active:bg-slate-50">
             <Settings size={16} /> Config
           </button>
-          <button onClick={() => window.dispatchEvent(new Event('abrir-tour'))} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold border border-slate-200 bg-white rounded-xl py-2.5 active:bg-slate-50">
+          <button data-atalho="menu:tour" onClick={() => window.dispatchEvent(new Event('abrir-tour'))} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold border border-slate-200 bg-white rounded-xl py-2.5 active:bg-slate-50">
             <Compass size={16} /> Tour
           </button>
-          <button onClick={() => window.dispatchEvent(new Event('abrir-ajuda'))} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold border border-slate-200 bg-white rounded-xl py-2.5 active:bg-slate-50">
+          <button data-atalho="menu:ajuda" onClick={() => window.dispatchEvent(new Event('abrir-ajuda'))} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold border border-slate-200 bg-white rounded-xl py-2.5 active:bg-slate-50">
             <CircleHelp size={16} /> Ajuda
           </button>
           <button onClick={() => window.dispatchEvent(new Event('sair-app'))} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold border border-red-200 text-red-700 bg-white rounded-xl py-2.5 active:bg-red-50">

@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getRecord, getByIndex, saveRecord, registrarLog, getAllRecords } from '../lib/db'
+import { fluxoInicio, fluxoFim } from '../lib/usoColetor'
 import { CULTURAS } from '../lib/constants'
 import { notaVisita, resumoReal, dataMaisDias, semRetornoJustificado, PREFIXO_SEM_RETORNO } from '../lib/completudeVisita'
 
@@ -42,6 +43,8 @@ export default function CompletarVisita() {
   const [cultura, setCultura] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
+
+  useEffect(() => { fluxoInicio('completar_visita') }, [id])
 
   useEffect(() => {
     let vivo = true
@@ -128,6 +131,7 @@ export default function CompletarVisita() {
       if (String(form.maquina_ids) !== String(visita.maquina_ids || [])) mudou.push('máquinas')
       await saveRecord('visitas', { ...visita, ...form, status_sync: 'pending' })
       await registrarLog('alterar', 'visitas', visita.id, mudou.length ? `Completou: ${mudou.join(', ')}` : 'Edição: sem alterações')
+      fluxoFim('completar_visita', 'concluido')
       navigate('/visitas')
     } catch (e) {
       alert('Não foi possível salvar: ' + (e.message || e))
@@ -245,7 +249,7 @@ export default function CompletarVisita() {
       )}
 
       <div className="flex gap-2 pt-2">
-        <button type="button" onClick={() => navigate(-1)} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-lg text-sm">Depois</button>
+        <button type="button" onClick={() => { fluxoFim('completar_visita', 'cancelado'); navigate(-1) }} className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-lg text-sm">Depois</button>
         <button type="button" onClick={salvar} disabled={salvando} className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-semibold text-sm disabled:opacity-50">
           {salvando ? 'Salvando…' : 'Salvar'}
         </button>

@@ -76,7 +76,7 @@ function Cartao({ it, n, feito, onFeito, regiao }) {
       {/* ações: sempre na mesma posição */}
       <div className="grid grid-cols-4 gap-1.5 p-3 mt-1">
         <button
-          onClick={() => navigate('/visitas', { state: estadoVisita({
+          data-atalho="rota:nova-visita" onClick={() => navigate('/visitas', { state: estadoVisita({
             propriedadeId: it.propriedadeId, contato: regiao?.cliente?.contato, propriedade: it.titulo,
             cidade: it.cidade, telefone: it.telefone, culturas: regiao?.cliente?.culturas || regiao?.culturas?.filter((c) => c.doCliente).map((c) => c.nome),
           }) })}

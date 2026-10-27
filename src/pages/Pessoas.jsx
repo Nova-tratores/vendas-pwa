@@ -73,7 +73,7 @@ export default function Pessoas() {
 
       {/* Atalho: abre o check-in em /visitas já com esta propriedade selecionada */}
       <button
-        onClick={() => navigate('/visitas', { state: { propriedadeId: Number(propriedadeId) } })}
+        data-atalho="pessoas:registrar-visita" onClick={() => navigate('/visitas', { state: { propriedadeId: Number(propriedadeId) } })}
         className="w-full mb-4 text-sm font-medium text-blue-700 border border-blue-200 bg-blue-50 rounded-lg py-2 active:bg-blue-100 flex items-center justify-center gap-1.5"
       >
         <MapPin size={16} /> Registrar visita nesta propriedade

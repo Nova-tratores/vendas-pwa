@@ -297,7 +297,7 @@ export default function Negocios() {
                 {isAberto(n.status) && (
                   <button
                     type="button"
-                    onClick={() => navigate('/visitas', { state: { negocioId: n.id, propriedadeId: n.propriedade_id, clienteId: n.cliente_id } })}
+                    data-atalho="negocios:registrar-visita" onClick={() => navigate('/visitas', { state: { negocioId: n.id, propriedadeId: n.propriedade_id, clienteId: n.cliente_id } })}
                     className="mt-2 w-full py-2 rounded-lg text-sm font-medium border border-blue-200 bg-blue-50 text-blue-700 active:bg-blue-100 flex items-center justify-center gap-1.5"
                   >
                     <MapPin size={16} /> Registrar visita
