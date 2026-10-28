@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllRecords, saveRecord, deleteRecord, getByIndex, registrarLog } from '../lib/db'
+import { unirCopias, ondeCasou } from '../lib/propriedadesUnicas'
 import { maskCPFouCNPJ, maskTelefone } from '../lib/masks'
 import { CULTURAS } from '../lib/constants'
 import { completudePropriedade } from '../lib/completude'
@@ -39,10 +40,15 @@ export default function Clientes() {
     const maquinas = await getAllRecords('maquinas')
     const pc = {}; for (const x of pessoas) pc[x.propriedade_id] = (pc[x.propriedade_id] || 0) + 1
     const mc = {}; for (const x of maquinas) mc[x.propriedade_id] = (mc[x.propriedade_id] || 0) + 1
+    // mesmo cliente na Nova e na Castro = uma propriedade só (a já trabalhada)
+    const [visitasAll, negociosAll] = await Promise.all([getAllRecords('visitas'), getAllRecords('negocios')])
+    const usos = {}
+    for (const x of [...visitasAll, ...negociosAll]) if (x.propriedade_id != null) usos[x.propriedade_id] = (usos[x.propriedade_id] || 0) + 10
+    const unicas = unirCopias(props, (p) => (usos[p.id] || 0) + (pc[p.id] || 0) * 3 + (mc[p.id] || 0) * 3 + (p.cliente_dono_id ? 5 : 0))
     setPessoasAll(pessoas)
     setPessoasCount(pc)
     setMaquinasCount(mc)
-    setPropriedades(props)
+    setPropriedades(unicas)
     setClientes(cls)
     await carregarAgenda(props, cls)
   }
@@ -115,17 +121,17 @@ export default function Clientes() {
     }
   }
 
-  // Filtrar por busca
+  // Filtrar por busca — e guardar ONDE casou: quem só tem o termo no endereço
+  // ("Rua Fartura", "Rodovia Sarutaiá/Fartura") vai pro fim, marcado
+  const ondeMap = new Map()
   const filtradas = propriedades.filter((p) => {
     if (!termo) return true
-    const campos = [
-      p.nome, p.nome_fantasia, p.razao_social,
-      p.cidade, p.estado, p.endereco, p.cnpj_cpf,
-    ].filter(Boolean).map((c) => c.toLowerCase())
-    const dono = clienteMap[p.cliente_dono_id]
-    if (dono) campos.push(dono.nome.toLowerCase())
-    return campos.some((c) => c.includes(termo)) || contatoPorProp.has(p.id)
+    const onde = ondeCasou(p, termo, { dono: clienteMap[p.cliente_dono_id]?.nome, contato: contatoPorProp.get(p.id) })
+    if (onde) ondeMap.set(p.id, onde)
+    return !!onde
   })
+  const soEndereco = (p) => ondeMap.get(p.id) === 'endereco'
+  const nCidadeOuNome = filtradas.filter((p) => !soEndereco(p)).length
 
   // Separar: propriedades de donos com múltiplas props vs singles
   const donoCount = {}
@@ -158,7 +164,12 @@ export default function Clientes() {
   const faltamDoItem = (item) =>
     item.type === 'single' ? faltamDe(item.prop) : item.props.reduce((acc, p) => acc + faltamDe(p), 0)
 
+  const todoEndereco = (item) => (item.type === 'single' ? soEndereco(item.prop) : item.props.every(soEndereco)) ? 1 : 0
   listaFinal.sort((a, b) => {
+    if (termo) {
+      const e = todoEndereco(a) - todoEndereco(b)
+      if (e !== 0) return e
+    }
     if (incompletasPrimeiro) {
       const fb = faltamDoItem(b) - faltamDoItem(a)
       if (fb !== 0) return fb
@@ -268,6 +279,12 @@ export default function Clientes() {
         </button>
       )}
 
+      {termo && listaFinal.length > 0 && nCidadeOuNome === 0 && (
+        <p className="text-xs bg-amber-50 text-amber-800 border border-amber-200 rounded-lg p-2 mb-2">
+          Nenhum cliente com “{busca.trim()}” no nome ou na cidade entre os seus. Abaixo, quem tem “{busca.trim()}” só no endereço.
+        </p>
+      )}
+
       {listaFinal.length === 0 ? (
         <div className="text-center py-12">
           <p className="mb-3 flex justify-center text-slate-300"><House size={40} /></p>
@@ -289,6 +306,7 @@ export default function Clientes() {
                   nMaquinas={maquinasCount[item.prop.id] || 0}
                   onCultura={() => abrirCultura(item.prop)}
                   contato={contatoPorProp.get(item.prop.id)}
+                  soEndereco={soEndereco(item.prop)}
                 />
               )
             }
@@ -320,6 +338,7 @@ export default function Clientes() {
                         nMaquinas={maquinasCount[p.id] || 0}
                         onCultura={() => abrirCultura(p)}
                         contato={contatoPorProp.get(p.id)}
+                        soEndereco={soEndereco(p)}
                         compact
                       />
                     ))}
@@ -424,7 +443,7 @@ function IconHistorico({ className }) {
   )
 }
 
-function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas = 0, nMaquinas = 0, compact, contato }) {
+function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas = 0, nMaquinas = 0, compact, contato, soEndereco = false }) {
   const { temCultura, temPessoas, temMaquinas } = completudePropriedade(prop, nPessoas, nMaquinas)
   const aceso = 'text-black opacity-100'
   const apagado = 'text-slate-400 opacity-80'
@@ -444,6 +463,7 @@ function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas =
             {dono ? ` · ${dono.nome}` : ''}
           </p>
           {contato && <p className="text-xs text-emerald-700 truncate">contato: {contato}</p>}
+          {soEndereco && <p className="text-xs text-amber-700 truncate">no endereço: {[prop.endereco, prop.bairro].filter(Boolean).join(' · ')}</p>}
           {prop.telefone && <p className="text-xs text-blue-600 truncate">{prop.telefone}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">

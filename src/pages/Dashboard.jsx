@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllRecords, getRecord } from '../lib/db'
+import { unirCopias } from '../lib/propriedadesUnicas'
 import { getConfig } from '../lib/supabaseQueries'
 import { STATUS_EM_ANDAMENTO, isAberto } from '../lib/funil'
 import { diasDesde } from '../lib/tempo'
@@ -43,7 +44,8 @@ export default function Dashboard() {
         getAllRecords('visitas').then((vs) => vs.filter((v) => !v.deleted_at)),
         getAllRecords('negocios'),
         getAllRecords('clientes'),
-        getAllRecords('propriedades'),
+        // mesmo cliente na Nova e na Castro conta uma vez só
+        getAllRecords('propriedades').then((ps) => unirCopias(ps)),
         getAllRecords('pessoas'),
         getAllRecords('maquinas'),
       ])

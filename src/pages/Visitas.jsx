@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getAllRecords, getByIndex, getRecord, deleteRecord, saveRecord, registrarLog, getServerId } from '../lib/db'
+import { unirCopias } from '../lib/propriedadesUnicas'
 import { useCheckin } from '../hooks/useCheckin'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
@@ -49,6 +50,7 @@ export default function Visitas() {
   const [visitas, setVisitas] = useState([])
   const [clientes, setClientes] = useState([])
   const [propriedadesAll, setPropriedadesAll] = useState([])
+  const [propriedadesBusca, setPropriedadesBusca] = useState([]) // sem as cópias Nova × Castro
   const [pessoasAll, setPessoasAll] = useState([])
   const [buscaProp, setBuscaProp] = useState('')
   const [pessoasDisp, setPessoasDisp] = useState([])
@@ -165,7 +167,15 @@ export default function Visitas() {
     // Visitas com deleted_at são tombstones aguardando push — não exibe.
     setVisitas((await getAllRecords('visitas')).filter((v) => !v.deleted_at))
     setClientes(await getAllRecords('clientes'))
-    setPropriedadesAll(await getAllRecords('propriedades'))
+    // mesmo cliente na Nova e na Castro = uma só na busca (fica a já usada nas visitas/negócios)
+    {
+      const [vs, ns] = await Promise.all([getAllRecords('visitas'), getAllRecords('negocios')])
+      const usos = {}
+      for (const x of [...vs, ...ns]) if (x.propriedade_id != null) usos[x.propriedade_id] = (usos[x.propriedade_id] || 0) + 1
+      const todas = await getAllRecords('propriedades')
+      setPropriedadesAll(todas) // por id (pré-preenchimento, visita antiga) continua achando qualquer cópia
+      setPropriedadesBusca(unirCopias(todas, (p) => usos[p.id] || 0))
+    }
     setPessoasAll(await getAllRecords('pessoas'))
     setNegocios(await getAllRecords('negocios'))
     setDadosProntos(true)
@@ -398,12 +408,12 @@ export default function Visitas() {
   const sugestoesProximas = useMemo(() => {
     if (!gpsData?.latitude) return []
     const out = []
-    for (const p of propriedadesAll) {
+    for (const p of propriedadesBusca) {
       const d = distanciaKm(gpsData.latitude, gpsData.longitude, p.latitude, p.longitude)
       if (d <= 1) out.push({ p, d })
     }
     return out.sort((a, b) => a.d - b.d).slice(0, 5)
-  }, [gpsData, propriedadesAll])
+  }, [gpsData, propriedadesBusca])
 
   // Resultados da busca de propriedade (limita a 50 pra não pesar no mobile).
   // Casa por dados da propriedade E pelo nome do contato/pessoa cadastrada
@@ -422,7 +432,7 @@ export default function Visitas() {
       }
     }
     const out = []
-    for (const p of propriedadesAll) {
+    for (const p of propriedadesBusca) {
       const campos = [p.nome, p.nome_fantasia, p.razao_social, p.cidade, p.cnpj_cpf]
         .filter(Boolean).map((s) => String(s).toLowerCase())
       const matchProp = campos.some((s) => s.includes(t))
