@@ -31,6 +31,8 @@ import MeuTerritorio from './pages/MeuTerritorio'
 import ParadasCarro from './pages/ParadasCarro'
 import SupervisorTerritorio from './supervisor/SupervisorTerritorio'
 import SupervisorMissoes from './supervisor/SupervisorMissoes'
+import SupervisorQuests from './supervisor/SupervisorQuests'
+import Quests from './pages/Quests'
 import ResumoSemana from './pages/ResumoSemana'
 import Perfil from './pages/Perfil'
 import Menu from './pages/Menu'
@@ -149,6 +151,8 @@ export default function App() {
         <Route path="visitas/mapa" element={<VisitasMapa />} />
         <Route path="completar-visita/:id" element={<CompletarVisita />} />
         <Route path="garagem" element={<Garagem />} />
+        <Route path="quests" element={<Quests />} />
+        <Route path="quests/:id" element={<Quests />} />
         <Route path="territorio" element={<MeuTerritorio />} />
         <Route path="paradas" element={<ParadasCarro />} />
         <Route path="resumo-semana" element={<ResumoSemana />} />
@@ -205,6 +209,7 @@ export default function App() {
         <Route path="completude" element={<SupervisorCompletude />} />
         <Route path="territorio" element={<SupervisorTerritorio />} />
         <Route path="missoes" element={<SupervisorMissoes />} />
+        <Route path="quests" element={<SupervisorQuests />} />
         <Route path="semana" element={<SupervisorSemana />} />
         <Route path="propostas" element={<SupervisorPropostas />} />
         <Route path="pos-vendas" element={<SupervisorPosVendas />} />

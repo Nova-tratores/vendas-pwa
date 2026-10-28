@@ -53,6 +53,16 @@ export async function carregarPerfil(hoje = new Date()) {
       perfil.tratoresLocalizados = n
     }
   } catch { /* sem confirmações */ }
+  // quests concluídas (e as que esperam internet na fila) valem o XP de cada uma
+  try {
+    const { xpQuestsDoVendedor } = await import('./questsLocal')
+    const xpq = await xpQuestsDoVendedor()
+    if (xpq) {
+      perfil.xp += xpq
+      perfil.nivel = nivelDe(perfil.xp)
+      perfil.xpQuests = xpq
+    }
+  } catch { /* sem quests */ }
   return perfil
 }
 

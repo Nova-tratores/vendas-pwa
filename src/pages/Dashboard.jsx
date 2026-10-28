@@ -9,6 +9,7 @@ import Icone from '../components/Icone'
 import { Calendar, ClipboardList, Clock, Hourglass, MapPin, Plus, TriangleAlert, Users, Wallet } from 'lucide-react'
 import RotaHoje from '../components/inicio/RotaHoje'
 import SurpresasInicio from '../components/gamificacao/SurpresasInicio'
+import QuestsInicio from '../components/inicio/QuestsInicio'
 import { Atalhos, FeedHoje, NoticiasHoje, ParadasAExplicar, ResumoSemanaChamada, TituloBloco } from '../components/inicio/blocos'
 import { contatoVigentePorPropriedade } from '../lib/agenda'
 
@@ -191,6 +192,7 @@ export default function Dashboard() {
 
       <Atalhos />
       <div className="mt-3" data-atalho="inicio:surpresas"><SurpresasInicio /></div>
+      <div className="mt-3" data-atalho="inicio:quests"><QuestsInicio /></div>
       <div className="mt-3" data-atalho="inicio:paradas"><ParadasAExplicar /></div>
       <div className="mt-3" data-atalho="inicio:resumo-semana"><ResumoSemanaChamada /></div>
 
