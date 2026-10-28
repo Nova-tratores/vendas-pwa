@@ -7,6 +7,7 @@ import { contatoVigentePorPropriedade, alterarDataProximoContato } from '../lib/
 import PullToRefresh from '../components/PullToRefresh'
 import SemanaPortal from '../components/agenda/SemanaPortal'
 import { Calendar, Compass, MapPin } from 'lucide-react'
+import { mensagemErroGPS } from '../lib/gps'
 
 // Fix do icone padrao do leaflet (Vite bundling quebra as URLs default)
 delete L.Icon.Default.prototype._getIconUrl
@@ -96,7 +97,7 @@ export default function Agenda() {
         lng: pos.coords.longitude,
         accuracy: pos.coords.accuracy,
       }),
-      (err) => setOrigemErro(err.message || 'GPS bloqueado'),
+      (err) => setOrigemErro(mensagemErroGPS(err)),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     )
   }

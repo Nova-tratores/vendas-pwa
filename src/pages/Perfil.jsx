@@ -283,16 +283,17 @@ export default function Perfil() {
         <p className={`text-sm rounded-xl px-3 py-2 mb-3 ${aviso.tipo === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>{aviso.texto}</p>
       )}
 
-      {/* Salvar fixo embaixo, acima da barra de navegação */}
-      <div className="fixed left-0 right-0 bottom-16 px-4 pb-2 z-40">
+      {/* Salvar fixo embaixo, acima da barra de navegação — só quando há o que salvar
+          (apagado, ficava transparente por cima dos campos no celular) */}
+      {(mudou || salvando) && <div className="fixed left-0 right-0 bottom-16 px-4 pb-2 z-40">
         <button
           onClick={salvar}
           disabled={!mudou || salvando}
           className="w-full inline-flex items-center justify-center gap-2 bg-blue-700 text-white py-3 rounded-2xl font-semibold text-sm shadow-lg disabled:opacity-40 active:bg-blue-800"
         >
-          <Save size={18} aria-hidden="true" /> {salvando ? 'Salvando…' : mudou ? 'Salvar alterações' : 'Nada para salvar'}
+          <Save size={18} aria-hidden="true" /> {salvando ? 'Salvando…' : 'Salvar alterações'}
         </button>
-      </div>
+      </div>}
     </div>
   )
 }

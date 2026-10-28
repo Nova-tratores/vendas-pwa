@@ -223,11 +223,14 @@ export default function MinhaRota({ abaInicial = 'hoje' }) {
         <div className="flex items-center gap-3">
           <span className="shrink-0">{P ? <Icone nome={P.icone} size={38} /> : <Compass size={38} />}</span>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-80">Minha rota {P ? `· perfil ${P.nome}` : ''}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 min-w-0 leading-snug">Minha rota {P ? `· perfil ${P.nome}` : ''}</p>
+              {/* botão na linha de cima: ao lado do texto ele espremia o título no celular */}
+              <button onClick={() => navigate('/perfil-teste')} className="shrink-0 whitespace-nowrap text-[11px] font-bold bg-white/20 rounded-lg px-2.5 py-1.5">{P ? 'Refazer teste' : 'Fazer o teste'}</button>
+            </div>
             <p className="font-black text-lg leading-tight">{doDia.length} contatos {diaVer != null ? `na ${DIAS_SEMANA[diaVer].toLowerCase()}` : 'para hoje'}</p>
             <p className="text-xs opacity-80">{feitosHoje} feito(s) · {pool.cidades?.length || cidades.length} cidades na sua área</p>
           </div>
-          <button onClick={() => navigate('/perfil-teste')} className="text-xs font-bold bg-white/20 rounded-xl px-3 py-2">{P ? 'Refazer teste' : 'Fazer o teste'}</button>
         </div>
         <div className="flex h-2 rounded-full overflow-hidden mt-3 bg-white/20">
           {['carteira', 'recuperar', 'novos'].map((t) => <div key={t} style={{ width: `${(mix[t] || 0) * 100}%`, background: TIPOS[t].cor }} />)}

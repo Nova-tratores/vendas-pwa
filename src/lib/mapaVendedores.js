@@ -36,10 +36,15 @@ async function chamarTerritorio(query = '') {
   const { data } = await supabase.auth.getSession()
   const t = data?.session?.access_token
   if (!t) throw new Error('Sessão expirada. Entre de novo.')
-  const res = await fetch(`${PORTAL}/api/crm-vendas/territorio${query}`, { headers: { Authorization: `Bearer ${t}` } })
-  const json = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(json.error || `Falha (${res.status})`)
-  return json
+  // banco lento às vezes estoura o tempo (500): tenta mais uma vez antes de avisar,
+  // e nunca mostra o erro cru do banco ("canceling statement…") ao vendedor
+  for (let tentativa = 1; ; tentativa++) {
+    const res = await fetch(`${PORTAL}/api/crm-vendas/territorio${query}`, { headers: { Authorization: `Bearer ${t}` } })
+    const json = await res.json().catch(() => ({}))
+    if (res.ok) return json
+    if (res.status >= 500 && tentativa < 2) { await new Promise((r) => setTimeout(r, 2000)); continue }
+    throw new Error(res.status >= 500 ? 'O mapa demorou para responder. Tente de novo em instantes.' : (json.error || `Falha (${res.status})`))
+  }
 }
 export const municipiosTerritorio = () => chamarTerritorio()
 export const territorioDoMunicipio = (ibge, vendedorId) =>

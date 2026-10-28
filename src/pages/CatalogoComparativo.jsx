@@ -151,7 +151,7 @@ export default function CatalogoComparativo() {
                   disabled={bloqueado}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium border ${sel ? 'bg-emerald-700 text-white border-emerald-700' : bloqueado ? 'bg-slate-50 text-slate-300 border-slate-200' : 'bg-white text-slate-700 border-slate-300'}`}
                 >
-                  {p.marca?.nome ? `${p.marca.nome} ` : ''}{p.titulo}
+                  {p.marca?.nome && !String(p.titulo || '').toLowerCase().startsWith(p.marca.nome.toLowerCase()) ? `${p.marca.nome} ` : ''}{p.titulo}
                 </button>
               )
             })}

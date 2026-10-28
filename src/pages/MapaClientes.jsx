@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } fro
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/sync'
-import { capturarGPS } from '../lib/gps'
+import { capturarGPS, mensagemErroGPS } from '../lib/gps'
 import ConfirmModal from '../components/ConfirmModal'
 import { Car, Compass, MapPin, RefreshCw, Search } from 'lucide-react'
 
@@ -137,7 +137,7 @@ export default function MapaClientes() {
         })
         setOrigemErro(null)
       },
-      (err) => setOrigemErro(err.message || 'GPS bloqueado'),
+      (err) => setOrigemErro(mensagemErroGPS(err)),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     )
   }

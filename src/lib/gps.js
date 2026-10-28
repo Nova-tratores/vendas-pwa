@@ -1,3 +1,13 @@
+// Erro do navegador vem em inglês ("User denied Geolocation"): mostra em português
+export function mensagemErroGPS(err) {
+  const msgs = {
+    1: 'Permissão de localização negada.',
+    2: 'Posição indisponível.',
+    3: 'Tempo esgotado ao obter GPS.',
+  }
+  return msgs[err?.code] || 'Erro GPS'
+}
+
 // Captura a posição atual. maximumAge reaproveita um fix recente em vez de
 // forçar leitura fria toda vez (no campo, sem A-GPS, o fix frio demora ou estoura).
 export function capturarGPS({ highAccuracy = true, timeout = 12000, maxAge = 60000 } = {}) {
@@ -12,14 +22,7 @@ export function capturarGPS({ highAccuracy = true, timeout = 12000, maxAge = 600
         longitude: pos.coords.longitude,
         gps_accuracy: pos.coords.accuracy,
       }),
-      (err) => {
-        const msgs = {
-          1: 'Permissão de localização negada.',
-          2: 'Posição indisponível.',
-          3: 'Tempo esgotado ao obter GPS.',
-        }
-        reject(new Error(msgs[err.code] || 'Erro GPS'))
-      },
+      (err) => reject(new Error(mensagemErroGPS(err))),
       { enableHighAccuracy: highAccuracy, timeout, maximumAge: maxAge }
     )
   })
