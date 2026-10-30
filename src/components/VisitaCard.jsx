@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getRecord } from '../lib/db'
 import { Car, Tractor, User } from 'lucide-react'
+import { rotuloLocal } from '../lib/localVisita'
 
 export const TIPO_LABELS = {
   presencial: 'Presencial',
@@ -90,6 +91,9 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         <p className="text-xs text-slate-500">{dataStr}</p>
+        {rotuloLocal(visita) && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">{rotuloLocal(visita)}</span>
+        )}
         {visita.primeira_visita && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Primeira Visita</span>
         )}

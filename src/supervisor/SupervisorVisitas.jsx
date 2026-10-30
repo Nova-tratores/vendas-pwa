@@ -11,6 +11,7 @@ import MiniMapaModal from './MiniMapaModal'
 import IconesCompletude, { SeloNota } from './IconesCompletude'
 import FichaPropriedadeModal from './FichaPropriedadeModal'
 import { notaVisita, passaFiltroNota, completadaDepois } from '../lib/completudeVisita'
+import { foraDaPropriedade, rotuloLocal } from '../lib/localVisita'
 
 const TIPOS = [
   { key: '', label: 'Todos' },
@@ -59,6 +60,7 @@ export default function SupervisorVisitas() {
     dateFrom: '',
     dateTo: '',
     retroativa: false,
+    local: '',
     primeira: false,
   })
 
@@ -80,6 +82,8 @@ export default function SupervisorVisitas() {
       let vis = await getVisitas(params)
       // Client-side: não quebra se a coluna primeira_visita ainda não existir.
       if (filtros.primeira) vis = vis.filter((v) => v.primeira_visita)
+      if (filtros.local === 'campo') vis = vis.filter((v) => !foraDaPropriedade(v))
+      if (filtros.local === 'fora') vis = vis.filter(foraDaPropriedade)
       setVisitas(vis)
       setComentCount(await getComentariosCount('visita', vis.map((v) => v.id)))
       setEdicoes(await getEdicoesVisitas(vis.map((v) => v.id)).catch(() => ({})))
@@ -229,6 +233,11 @@ export default function SupervisorVisitas() {
           />
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
+          <select value={filtros.local} onChange={(e) => updateFiltro('local', e.target.value)} className="border border-slate-300 rounded-lg px-2 py-2 text-sm">
+            <option value="">Todos os locais</option>
+            <option value="campo">Em campo</option>
+            <option value="fora">Fora da propriedade</option>
+          </select>
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={filtros.retroativa} onChange={(e) => updateFiltro('retroativa', e.target.checked)} className="rounded" />
             Apenas retroativas
@@ -302,6 +311,7 @@ export default function SupervisorVisitas() {
                   <div className="flex items-center gap-1 shrink-0">
                     <SeloNota v={v} nota={nota} />
                     <span className={`text-xs px-2 py-0.5 rounded-full ${TIPO_COLORS[v.tipo] || 'bg-slate-100 text-slate-700'}`}>{v.tipo}</span>
+                    {(rotuloLocal(v) || v.parceiro) && <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{rotuloLocal(v) || 'Parceiro'}</span>}
                     {v.primeira_visita && <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700" title="Primeira visita nesta propriedade">1ª</span>}
                     {v.retroativa && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Retro</span>}
                     {completadaDepois(v, edicoes[v.id]) && (

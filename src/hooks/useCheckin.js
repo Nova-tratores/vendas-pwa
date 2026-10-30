@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { capturarGPSComFallback } from '../lib/gps'
 import { capturarFoto } from '../lib/camera'
+import { camposLocal, gravaCoordenadaNaPropriedade, localValido } from '../lib/localVisita'
 import { saveRecord, saveFotoPendente, registrarLog, getRecord, getByIndex } from '../lib/db'
 
 export function useCheckin() {
@@ -37,6 +38,7 @@ export function useCheckin() {
     if (!form.propriedade_id) throw new Error('Selecione a propriedade / cliente')
     if (!form.pessoa_ids?.length) throw new Error('Selecione ou cadastre pelo menos uma pessoa')
     if (!form.resumo?.trim()) throw new Error('Adicione um resumo da visita (o que foi conversado)')
+    if (!localValido(form)) throw new Error('Diga onde foi o atendimento')
     // GPS não bloqueia mais o registro: no campo, sem sinal, o fix pode estourar.
     // Salvamos com o que houver (coords podem ficar nulas) pra não travar o vendedor.
     const vendedor = JSON.parse(localStorage.getItem('vendedor'))
@@ -73,6 +75,7 @@ export function useCheckin() {
       data_proximo_contato: form.data_proximo_contato || null,
       acionar_pos_vendas: form.acionar_pos_vendas || false,
       veiculo: form.veiculo || null,
+      ...camposLocal(form),
       created_at: new Date().toISOString(),
     }
 
@@ -82,7 +85,7 @@ export function useCheckin() {
     // Só grava se ainda não tiver coordenada — não sobrescreve depois.
     if (visita.tipo === 'presencial' && gpsData?.latitude != null && visita.propriedade_id) {
       const prop = await getRecord('propriedades', visita.propriedade_id)
-      if (prop && prop.latitude == null && prop.longitude == null) {
+      if (prop && gravaCoordenadaNaPropriedade(visita, prop) && prop.latitude == null && prop.longitude == null) {
         await saveRecord('propriedades', {
           ...prop,
           latitude: gpsData.latitude,

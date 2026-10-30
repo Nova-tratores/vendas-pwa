@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllRecords, saveRecord, deleteRecord, getByIndex, registrarLog } from '../lib/db'
 import { unirCopias, ondeCasou } from '../lib/propriedadesUnicas'
+import { semParceiros } from '../lib/localVisita'
 import { maskCPFouCNPJ, maskTelefone } from '../lib/masks'
 import { CULTURAS } from '../lib/constants'
 import { completudePropriedade } from '../lib/completude'
@@ -33,7 +34,7 @@ export default function Clientes() {
   useEffect(() => { carregar() }, [])
 
   async function carregar() {
-    const props = await getAllRecords('propriedades')
+    const props = semParceiros(await getAllRecords('propriedades'))
     const cls = await getAllRecords('clientes')
     // Contagem de pessoas/máquinas por propriedade (1 leitura cada, sem N queries)
     const pessoas = await getAllRecords('pessoas')

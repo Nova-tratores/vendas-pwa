@@ -25,10 +25,15 @@ import MarcaSelect from '../components/MarcaSelect'
 import { ESTADOS_MAQUINA, ESTADO_LABELS, FREQUENCIAS_USO, getMarcasPorTipo, marcasDoTipo } from '../lib/maquinaOpcoes'
 import { getMarcasDropdown } from '../lib/catalogoSupabase'
 import { Map as MapIcon, MapPin, TriangleAlert, User, Wrench } from 'lucide-react'
+import { LOCAIS_FORA, localValido, semParceiros, soParceiros } from '../lib/localVisita'
 
 const EMPTY_FORM = {
   propriedade_id: '',
   tipo: '',
+  onde: 'propriedade',
+  local_tipo: '',
+  local_nome: '',
+  sem_cliente: false,
   negocio_id: '',
   pessoa_ids: [],
   maquina_ids: [],
@@ -51,6 +56,7 @@ export default function Visitas() {
   const [clientes, setClientes] = useState([])
   const [propriedadesAll, setPropriedadesAll] = useState([])
   const [propriedadesBusca, setPropriedadesBusca] = useState([]) // sem as cópias Nova × Castro
+  const [parceiros, setParceiros] = useState([]) // banco, cartório etc. (fora da carteira)
   const [pessoasAll, setPessoasAll] = useState([])
   const [buscaProp, setBuscaProp] = useState('')
   const [pessoasDisp, setPessoasDisp] = useState([])
@@ -174,7 +180,8 @@ export default function Visitas() {
       for (const x of [...vs, ...ns]) if (x.propriedade_id != null) usos[x.propriedade_id] = (usos[x.propriedade_id] || 0) + 1
       const todas = await getAllRecords('propriedades')
       setPropriedadesAll(todas) // por id (pré-preenchimento, visita antiga) continua achando qualquer cópia
-      setPropriedadesBusca(unirCopias(todas, (p) => usos[p.id] || 0))
+      setPropriedadesBusca(unirCopias(semParceiros(todas), (p) => usos[p.id] || 0))
+      setParceiros(soParceiros(todas))
     }
     setPessoasAll(await getAllRecords('pessoas'))
     setNegocios(await getAllRecords('negocios'))
@@ -323,6 +330,24 @@ export default function Visitas() {
   }
 
   const tipoPresencial = form.tipo === 'presencial'
+  const foraDaProp = tipoPresencial && form.onde === 'outro'
+  const contatoParceiro = foraDaProp && form.sem_cliente
+
+  // Parceiro novo (banco, cartório…) entra sem dono, só para registrar o contato.
+  async function novoParceiro() {
+    const nome = window.prompt('Nome do parceiro (ex.: Sicredi Taguaí)', form.local_nome || '')
+    if (!nome || !nome.trim()) return
+    const cidade = window.prompt('Cidade do parceiro', '')
+    if (!cidade || !cidade.trim()) return
+    const id = await saveRecord('propriedades', {
+      nome: nome.trim(), nome_fantasia: nome.trim(), cidade: cidade.trim(), tipo_cadastro: 'parceiro', created_at: new Date().toISOString(),
+    })
+    await registrarLog('criar', 'propriedades', id, `Parceiro: ${nome.trim()}`)
+    await carregar()
+    const p = await getRecord('propriedades', id)
+    if (p) await selecionarPropriedade(p)
+    setForm((f) => ({ ...f, local_nome: f.local_nome || nome.trim() }))
+  }
 
   // Propriedade atualmente selecionada e seu dono (se houver)
   const propSelecionada = form.propriedade_id
@@ -341,6 +366,8 @@ export default function Visitas() {
     pessoas: pessoasDisp.filter((p) => form.pessoa_ids.map(String).includes(String(p.id))),
     maquina_ids: form.maquina_ids,
     culturas: propSelecionada?.culturas,
+    local_tipo: foraDaProp ? form.local_tipo : null,
+    parceiro: propSelecionada?.tipo_cadastro === 'parceiro',
   })
   // "Da última vez faltou: …" — o que dá para coletar hoje neste cliente
   const faltouAntes = propSelecionada
@@ -406,14 +433,15 @@ export default function Visitas() {
   // vendedor provavelmente está NA propriedade; sugere antes de digitar.
   // Só entram propriedades já geolocalizadas (1º check-in presencial grava a coordenada).
   const sugestoesProximas = useMemo(() => {
-    if (!gpsData?.latitude) return []
+    // fora da propriedade, o GPS diz onde o vendedor está, não quem é o cliente
+    if (!gpsData?.latitude || form.onde === 'outro') return []
     const out = []
     for (const p of propriedadesBusca) {
       const d = distanciaKm(gpsData.latitude, gpsData.longitude, p.latitude, p.longitude)
       if (d <= 1) out.push({ p, d })
     }
     return out.sort((a, b) => a.d - b.d).slice(0, 5)
-  }, [gpsData, propriedadesBusca])
+  }, [gpsData, propriedadesBusca, form.onde])
 
   // Resultados da busca de propriedade (limita a 50 pra não pesar no mobile).
   // Casa por dados da propriedade E pelo nome do contato/pessoa cadastrada
@@ -432,7 +460,7 @@ export default function Visitas() {
       }
     }
     const out = []
-    for (const p of propriedadesBusca) {
+    for (const p of (form.sem_cliente ? parceiros : propriedadesBusca)) {
       const campos = [p.nome, p.nome_fantasia, p.razao_social, p.cidade, p.cnpj_cpf]
         .filter(Boolean).map((s) => String(s).toLowerCase())
       const matchProp = campos.some((s) => s.includes(t))
@@ -672,12 +700,70 @@ export default function Visitas() {
             </div>
           ))}
 
+          {/* Onde foi: o cliente é para quem foi o trabalho; o local é só onde o vendedor estava */}
+          {tipoPresencial && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-slate-600">Onde foi?</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[{ key: 'propriedade', label: 'Na propriedade do cliente' }, { key: 'outro', label: 'Em outro local' }].map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, onde: o.key, ...(o.key === 'propriedade' ? { local_tipo: '', local_nome: '', sem_cliente: false } : {}) }))}
+                    className={`py-2 px-1 rounded-lg text-sm font-medium border ${form.onde === o.key ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-300'}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              {foraDaProp && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 space-y-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {LOCAIS_FORA.map((l) => (
+                      <button
+                        key={l.key}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, local_tipo: l.key }))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border ${form.local_tipo === l.key ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-slate-600 border-slate-300'}`}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                  {form.local_tipo && (
+                    <input
+                      type="text"
+                      list="parceiros-local"
+                      value={form.local_nome}
+                      onChange={(e) => setForm((f) => ({ ...f, local_nome: e.target.value }))}
+                      placeholder={LOCAIS_FORA.find((l) => l.key === form.local_tipo)?.dica}
+                      className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm"
+                    />
+                  )}
+                  <datalist id="parceiros-local">
+                    {parceiros.map((p) => <option key={p.id} value={p.nome_fantasia || p.nome} />)}
+                  </datalist>
+                  <label className="flex items-start gap-2 text-xs text-indigo-900">
+                    <input
+                      type="checkbox"
+                      checked={form.sem_cliente}
+                      onChange={(e) => { const marcado = e.target.checked; limparPropriedade(); setBuscaProp(''); setForm((f) => ({ ...f, sem_cliente: marcado })) }}
+                      className="mt-0.5"
+                    />
+                    Sem cliente específico: contato com o parceiro (gerente, indicações)
+                  </label>
+                  <p className="text-xs text-indigo-700">{form.sem_cliente ? 'Escolha o parceiro abaixo e anote as indicações no resumo.' : 'Escolha abaixo o cliente para quem foi este trabalho. Se foram vários, faça um registro por cliente.'}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Propriedade / Cliente — busca direta (aparece após escolher o tipo) */}
           {form.tipo && (<>
           {propSelecionada ? (
             <div className="space-y-2">
               {/* na visita presencial: trator nosso deste cliente — onde está? */}
-              {tipoPresencial && <TratoresDaPropriedade propriedade={propSelecionada} nomeDono={donoNome} gpsVisita={gpsData} />}
+              {tipoPresencial && !foraDaProp && <TratoresDaPropriedade propriedade={propSelecionada} nomeDono={donoNome} gpsVisita={gpsData} />}
               {faltouAntes && (
                 <p className="text-xs bg-amber-50 text-amber-800 border border-amber-200 rounded-lg px-3 py-2">
                   Da última vez ({new Date(faltouAntes.visita.data_visita).toLocaleDateString('pt-BR')}) faltou: <b>{faltouAntes.faltam.join(', ')}</b>. Repare nisso hoje.
@@ -785,18 +871,29 @@ export default function Visitas() {
                 <input
                   value={buscaProp}
                   onChange={(e) => setBuscaProp(e.target.value)}
-                  placeholder="Buscar cliente / propriedade *"
+                  placeholder={contatoParceiro ? 'Buscar parceiro *' : 'Buscar cliente / propriedade *'}
                   disabled={showNovoCliente}
                   className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:bg-slate-50"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowNovoCliente(!showNovoCliente)}
+                  onClick={() => (contatoParceiro ? novoParceiro() : setShowNovoCliente(!showNovoCliente))}
                   className={`shrink-0 px-3 py-2 rounded-lg text-sm font-medium border ${showNovoCliente ? 'bg-slate-100 text-slate-600 border-slate-300' : 'bg-blue-50 text-blue-700 border-blue-200'}`}
                 >
                   {showNovoCliente ? 'Cancelar' : '+ Novo'}
                 </button>
               </div>
+
+              {contatoParceiro && !buscaProp.trim() && parceiros.length > 0 && (
+                <div className="mt-1 border border-slate-200 rounded-lg max-h-48 overflow-y-auto divide-y divide-slate-100">
+                  {parceiros.map((p) => (
+                    <button key={p.id} type="button" onClick={() => selecionarPropriedade(p)} className="w-full text-left px-3 py-2.5 text-sm active:bg-slate-50">
+                      <span className="font-medium">{p.nome_fantasia || p.nome}</span>
+                      {p.cidade && <span className="block text-xs text-slate-500">{p.cidade}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {!showNovoCliente && buscaProp.trim() && (
                 <div className="mt-1 border border-slate-200 rounded-lg max-h-72 overflow-y-auto divide-y divide-slate-100">
@@ -1459,7 +1556,7 @@ export default function Visitas() {
             </button>
             <button
               type="submit"
-              disabled={salvando || !form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || faltaRetorno || (negocioAbertoVinculado && !negUpdate.temperatura)}
+              disabled={salvando || !localValido(form) || !form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || faltaRetorno || (negocioAbertoVinculado && !negUpdate.temperatura)}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
               {salvando ? 'Salvando...' : tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}

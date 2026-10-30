@@ -5,6 +5,7 @@
 // Sequência = dias úteis seguidos com pelo menos 1 visita completa (nota ≥ 80),
 // com 1 proteção automática por mês (chuva, doença, estrada fechada).
 import { notaVisita, visitaParaNota } from './completudeVisita'
+import { foraDaPropriedade } from './localVisita'
 
 export const NIVEIS = [
   { cv: 25, xp: 0 }, // começa no Jivo (José, 22/10/2026)
@@ -139,9 +140,9 @@ export function resumoDisponivel(agora = new Date()) {
 
 const SELOS = [
   { key: 'semana_verde', nome: 'Semana verde', icone: '🟢', desc: 'todas as visitas da semana completas', teste: (s) => s.feitas >= 3 && s.completas === s.feitas },
-  { key: 'maratona', nome: 'Maratona', icone: '🏃', desc: '10 ou mais visitas na semana', teste: (s) => s.feitas >= 10 },
+  { key: 'maratona', nome: 'Maratona', icone: '🏃', desc: '10 ou mais visitas na semana', teste: (s) => s.campo >= 10 },
   { key: 'desbravador', nome: 'Desbravador', icone: '🧭', desc: '3 ou mais primeiras visitas', teste: (s) => s.primeiras >= 3 },
-  { key: 'olho_na_maquina', nome: 'Olho na máquina', icone: '🚜', desc: 'máquina registrada em todas as visitas', teste: (s) => s.feitas >= 3 && s.comMaquina === s.feitas },
+  { key: 'olho_na_maquina', nome: 'Olho na máquina', icone: '🚜', desc: 'máquina registrada em todas as visitas', teste: (s) => s.campo >= 3 && s.comMaquina === s.campo },
   { key: 'agenda_cheia', nome: 'Agenda cheia', icone: '📅', desc: 'retorno marcado em todas as visitas', teste: (s) => s.feitas >= 3 && s.comRetorno === s.feitas },
   { key: 'chama_5', nome: 'Chama acesa', icone: '🔥', desc: '5 dias úteis seguidos com visita completa', teste: (s) => s.sequencia >= 5 },
 ]
@@ -172,11 +173,14 @@ export function resumoSemana(visitas, ctx, hoje = new Date(), missoes = []) {
 
   const perfil = perfilVendedor(visitas, ctx, hoje, missoes)
   const xpSemana = daSemana.reduce((s, x) => s + x.n.nota * multiplicadorVisita(x.v, x.n, missoes).mult, 0)
+  // banco, cartório etc. dão XP, mas os selos de campo contam só a propriedade
+  const emCampo = daSemana.filter((x) => !foraDaPropriedade(visitaParaNota(x.v, ctx)))
   const stats = {
     feitas: daSemana.length,
+    campo: emCampo.length,
     completas: daSemana.filter((x) => x.n.nota >= 80).length,
-    primeiras: daSemana.filter((x) => x.v.primeira_visita).length,
-    comMaquina: daSemana.filter((x) => (x.v.maquina_ids || []).length > 0).length,
+    primeiras: emCampo.filter((x) => x.v.primeira_visita).length,
+    comMaquina: emCampo.filter((x) => (x.v.maquina_ids || []).length > 0).length,
     comRetorno: daSemana.filter((x) => x.n.itens.find((i) => i.key === 'retorno').ok).length,
     sequencia: perfil.sequencia.dias,
   }

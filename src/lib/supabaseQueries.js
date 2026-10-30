@@ -42,7 +42,7 @@ async function enriquecerVisitas(visitas) {
   const maquinaIds = [...new Set(visitas.flatMap((v) => v.maquina_ids || []))]
   const propIds = [...new Set(visitas.map((v) => v.propriedade_id).filter(Boolean))]
 
-  const [pessoasRes, maquinasRes, propsRes] = await Promise.all([
+  const [pessoasRes, maquinasRes, propsRes, locaisRes, parceirosRes] = await Promise.all([
     pessoaIds.length
       ? supabase.from('pessoas').select('id, nome, cargo').in('id', pessoaIds)
       : Promise.resolve({ data: [] }),
@@ -55,17 +55,27 @@ async function enriquecerVisitas(visitas) {
       // a tabela "propriedades" não existe e a cultura saía sempre como "falta"
       ? supabase.from('portal_nt_clientes_PRINCIPAL').select('id, culturas').in('id', propIds)
       : Promise.resolve({ data: [] }),
+    // a view fixa as colunas de quando foi criada: o local vem da própria tabela
+    supabase.from('visitas').select('id, local_tipo, local_nome').in('id', visitas.map((v) => v.id)),
+    propIds.length
+      ? supabase.from('portal_nt_clientes_PRINCIPAL').select('id').eq('tipo_cadastro', 'parceiro').in('id', propIds)
+      : Promise.resolve({ data: [] }),
   ])
 
   const pessoasMap = new Map((pessoasRes.data || []).map((p) => [p.id, p]))
   const maquinasMap = new Map((maquinasRes.data || []).map((m) => [m.id, m]))
   const culturasMap = new Map((propsRes.data || []).map((p) => [p.id, p.culturas || []]))
+  const locaisMap = new Map((locaisRes.data || []).map((l) => [l.id, l]))
+  const parceiros = new Set((parceirosRes.data || []).map((p) => p.id))
 
   return visitas.map((v) => ({
     ...v,
     pessoas: (v.pessoa_ids || []).map((id) => pessoasMap.get(id)).filter(Boolean),
     maquinas: (v.maquina_ids || []).map((id) => maquinasMap.get(id)).filter(Boolean),
     culturas: culturasMap.get(v.propriedade_id) || [],
+    local_tipo: locaisMap.get(v.id)?.local_tipo || null,
+    local_nome: locaisMap.get(v.id)?.local_nome || null,
+    parceiro: parceiros.has(v.propriedade_id),
   }))
 }
 

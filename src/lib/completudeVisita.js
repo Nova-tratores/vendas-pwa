@@ -12,6 +12,8 @@
 //
 //   🟢 completa ≥ 80 · 🟡 parcial 50–79 · 🔴 incompleta < 50
 
+import { ehParceiro, foraDaPropriedade } from './localVisita'
+
 // "Sem retorno" é escolha válida, mas justificada: o motivo vai no começo dos
 // próximos passos ("Sem retorno: cliente vendeu a fazenda").
 export const PREFIXO_SEM_RETORNO = 'Sem retorno:'
@@ -60,17 +62,19 @@ export const ITENS_NOTA = [
  */
 export function notaVisita(v) {
   const interesse = indicaInteresse(v.resumo)
+  // fora da propriedade o vendedor não vê a lavoura nem as máquinas: não cobra
+  const fora = foraDaPropriedade(v)
   const ok = {
     resumo: resumoReal(v.resumo),
     pessoa: (v.pessoas || []).some((p) => String(p?.cargo || '').trim()),
-    cultura: Array.isArray(v.culturas) && v.culturas.length > 0,
-    maquina: ((v.maquinas || v.maquina_ids || []).length) > 0,
+    cultura: fora || (Array.isArray(v.culturas) && v.culturas.length > 0),
+    maquina: fora || ((v.maquinas || v.maquina_ids || []).length) > 0,
     passos: String(v.proximos_passos || '').trim().length > 0,
     retorno: !!v.data_proximo_contato || semRetornoJustificado(v.proximos_passos),
     // sem sinal de interesse, negócio não se aplica (conta como cumprido)
     negocio: !interesse || !!v.negocio_id,
   }
-  const itens = ITENS_NOTA.map((i) => ({ ...i, ok: ok[i.key], naoSeAplica: i.key === 'negocio' && !interesse }))
+  const itens = ITENS_NOTA.map((i) => ({ ...i, ok: ok[i.key], naoSeAplica: (i.key === 'negocio' && !interesse) || (fora && (i.key === 'cultura' || i.key === 'maquina')) }))
   const nota = itens.reduce((s, i) => s + (i.ok ? i.pontos : 0), 0)
   return {
     nota,
@@ -112,6 +116,7 @@ export function visitaParaNota(v, { pessoasById = {}, propById = {} } = {}) {
     ...v,
     pessoas: (v.pessoa_ids || []).map((id) => pessoasById[id]).filter(Boolean),
     culturas: propById[v.propriedade_id]?.culturas || [],
+    parceiro: ehParceiro(propById[v.propriedade_id]),
   }
 }
 
@@ -176,10 +181,12 @@ export function resumoPorVendedor(visitas) {
   const por = new Map()
   for (const v of visitas) {
     const k = v.vendedor_id
-    if (!por.has(k)) por.set(k, { vendedor_id: k, nome: v.vendedor_nome || '—', feitas: 0, completas: 0, falta: {}, aplica: {} })
+    if (!por.has(k)) por.set(k, { vendedor_id: k, nome: v.vendedor_nome || '—', feitas: 0, campo: 0, atendimentos: 0, completas: 0, falta: {}, aplica: {} })
     const r = por.get(k)
     const n = notaVisita(v)
     r.feitas++
+    if (foraDaPropriedade(v)) r.atendimentos++
+    else r.campo++
     if (n.nota >= 80) r.completas++
     for (const i of n.itens) {
       if (i.naoSeAplica) continue
@@ -205,7 +212,7 @@ export function resumoPorVendedor(visitas) {
 export function alertasCompletude(visitas, todas = visitas, hoje = dataMaisDias(0)) {
   // 📍 GPS repetido: mesmo vendedor, propriedades diferentes, < 100 m e < 60 min
   const gps = []
-  const comGps = visitas.filter((v) => v.latitude != null && v.longitude != null)
+  const comGps = visitas.filter((v) => v.latitude != null && v.longitude != null && !foraDaPropriedade(v))
     .sort((a, b) => String(a.data_visita).localeCompare(String(b.data_visita)))
   for (let i = 0; i < comGps.length; i++) {
     for (let j = i + 1; j < comGps.length; j++) {

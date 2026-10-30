@@ -98,6 +98,7 @@ export default function SupervisorCompletude() {
                   </div>
                   <p className="text-3xl font-extrabold" style={{ color: f.cor }}>{r.pct}%</p>
                   <p className="text-xs text-slate-500">{r.completas} de {r.feitas} · {f.label.toLowerCase()}</p>
+                  <p className="text-xs text-slate-500">{r.campo} em campo · {r.atendimentos} fora da propriedade</p>
                 </div>
               )
             })}

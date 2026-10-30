@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { semParceiros } from '../lib/localVisita'
 import { Sprout, Users, Tractor } from 'lucide-react'
 import {
   getClientes, getPropriedades, getPessoas, getMaquinas, getVisitas, getVendedores,
@@ -25,7 +26,7 @@ export default function SupervisorClientes() {
     setLoading(true)
     try {
       const [clientes, propriedades, pessoas, maquinas, visitas, vendedores] = await Promise.all([
-        getClientes(), getPropriedades(), getPessoas(), getMaquinas(), getVisitas({}), getVendedores(),
+        getClientes(), getPropriedades().then(semParceiros), getPessoas(), getMaquinas(), getVisitas({}), getVendedores(),
       ])
       setDados({ clientes, propriedades, pessoas, maquinas, visitas, vendedores })
     } catch (err) {
