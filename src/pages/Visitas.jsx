@@ -1556,7 +1556,7 @@ export default function Visitas() {
             </button>
             <button
               type="submit"
-              disabled={salvando || !localValido(form) || !form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || faltaRetorno || (negocioAbertoVinculado && !negUpdate.temperatura)}
+              disabled={salvando || !form.tipo || !localValido(form) || !form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || faltaRetorno || (negocioAbertoVinculado && !negUpdate.temperatura)}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
               {salvando ? 'Salvando...' : tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { estaEmbutido } from './embed'
 import { buscarTodas } from './paginar'
+import { normalizarVisitaPush } from './visitaPush'
 import {
   getAllRecords, getPendingRecords, markAsSynced, saveRecord, deleteRecord,
   getFotosPendentes, deleteFotoPendente, updateFotoPath, getLogs, registrarLog,
@@ -77,6 +78,8 @@ function mapForPush(store, record) {
     }
     return mapped
   }
+
+  if (store === 'visitas') return normalizarVisitaPush(clean)
 
   return clean
 }
