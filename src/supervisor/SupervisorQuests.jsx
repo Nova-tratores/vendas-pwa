@@ -4,7 +4,8 @@
 //                escolhendo vendedor/prazo/XP, ou descartar (não volta por 6 meses).
 //   Em andamento / Concluídas — acompanhar; ver as respostas (fotos, horímetro,
 //                relatos, GPS) e devolver para refazer.
-//   Nova quest — manual: escolhe o trator (ou alvo livre), os itens e o vendedor.
+//   Nova quest — manual: escolhe o trator (ou alvo livre), os itens e o vendedor;
+//                ou "em lote": escolhe cidades e sai uma quest por trator vendido nelas.
 // Grava direto em vendas_quests (RLS: só supervisor ativo). supabase-quests.sql.
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/sync'
@@ -12,6 +13,9 @@ import { getVendedores, enviarMensagem } from '../lib/supabaseQueries'
 import { PORTAL } from '../lib/checklistVeiculo'
 import { ITENS_PRONTOS, ROTULO_REGRA, chaveDePergunta, rotuloAlvo, situacaoPrazo } from '../lib/quests'
 import { tabelaFaltando, urlFoto } from '../lib/questsLocal'
+import { buscarTodas } from '../lib/paginar'
+import { cidadeCanonica } from '../lib/cidadesCanon'
+import { indexarClientesOmie, cidadeDoTrator, limparCidadeDigitada, tituloQuestTrator } from '../lib/tratoresCidade'
 
 const ABAS = [
   ['sugerida', 'Sugeridas'],
@@ -93,7 +97,7 @@ export default function SupervisorQuests() {
         ))}
       </div>
 
-      {nova && <NovaQuest vendedores={vendedores} onFechar={() => setNova(false)} onCriada={() => { setNova(false); setAba('aberta'); carregar() }} />}
+      {nova && <NovaQuest vendedores={vendedores} quests={quests} onFechar={() => setNova(false)} onCriada={() => { setNova(false); setAba('aberta'); carregar() }} />}
     </div>
   )
 }
@@ -238,20 +242,43 @@ function CartaoAndamento({ q, nomeVend, onFeito }) {
   )
 }
 
-// cache da tabela de tratores vendidos (310 linhas) enquanto a tela está aberta
+// cache da tabela de tratores vendidos (310 linhas) enquanto a tela está aberta.
+// Cada trator ganha `cid`: a cidade do cliente no Omie quando ele é achado (a
+// digitada no controle erra muito), senão a digitada (lib/tratoresCidade).
 let cacheTratores = null
 async function tratoresVendidos() {
   if (cacheTratores) return cacheTratores
-  const { data } = await supabase.from('tratores').select('Chassis, Modelo, Cliente, Cidade, Entrega').not('Chassis', 'is', null).limit(2000)
-  cacheTratores = (data || []).map((t) => ({ ...t, Modelo: String(t.Modelo ?? '').replace(/\.0$/, '') }))
+  const [{ data }, omie] = await Promise.all([
+    supabase.from('tratores').select('Chassis, Modelo, Cliente, Cidade, Entrega').not('Chassis', 'is', null).limit(2000),
+    buscarTodas(() => supabase.from('Clientes_Omie').select('nome, cidade').order('id')).catch(() => []),
+  ])
+  const clientes = indexarClientesOmie(omie)
+  cacheTratores = (data || []).map((t) => ({ ...t, Modelo: String(t.Modelo ?? '').replace(/\.0$/, ''), cid: cidadeDoTrator(t, clientes) }))
   return cacheTratores
 }
 const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const nomeCidade = (c) => (c?.nome ? `${c.nome}${c.uf ? ` (${c.uf})` : ''}` : '—')
 
-function NovaQuest({ vendedores, onFechar, onCriada }) {
+// "Carlópolis (PR)" e, quando veio do Omie e o controle diz outra coisa, a digitada em cinza
+function CidadeTrator({ t }) {
+  const outra = t.cid.origem === 'omie' && t.cid.digitada && cidadeCanonica(limparCidadeDigitada(t.cid.digitada)).chave !== t.cid.chave
+  return (
+    <>
+      {nomeCidade(t.cid)}
+      {outra && <span className="text-xs text-slate-400" title="cidade do cliente no Omie; no controle de revisões está outra"> (controle: {t.cid.digitada})</span>}
+    </>
+  )
+}
+
+function NovaQuest({ vendedores, quests, onFechar, onCriada }) {
+  const [modo, setModo] = useState('um') // 'um' trator | 'lote' por cidade
   const [busca, setBusca] = useState('')
   const [tratores, setTratores] = useState([])
+  const [carregandoTratores, setCarregandoTratores] = useState(true)
   const [trator, setTrator] = useState(null)
+  const [buscaCidade, setBuscaCidade] = useState('')
+  const [cidadesSel, setCidadesSel] = useState([]) // chaves de cidadeCanonica
+  const [fora, setFora] = useState(() => new Set()) // chassis desmarcados no lote
   const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [itens, setItens] = useState(() => ITENS_PRONTOS.slice(0, 4).map((i) => ({ ...i })))
@@ -261,16 +288,46 @@ function NovaQuest({ vendedores, onFechar, onCriada }) {
   const [xp, setXp] = useState(50)
   const [salvando, setSalvando] = useState(false)
 
-  useEffect(() => { tratoresVendidos().then(setTratores) }, [])
+  useEffect(() => { tratoresVendidos().then(setTratores).finally(() => setCarregandoTratores(false)) }, [])
+  // busca acha pela cidade do Omie E pela digitada no controle
   const achados = useMemo(() => {
     const q = semAcento(busca.trim())
     if (q.length < 2) return []
-    return tratores.filter((t) => semAcento(`${t.Chassis} ${t.Cliente} ${t.Cidade} ${t.Modelo}`).includes(q)).slice(0, 8)
+    return tratores.filter((t) => semAcento(`${t.Chassis} ${t.Cliente} ${t.Cidade} ${t.cid.nome} ${t.Modelo}`).includes(q)).slice(0, 8)
   }, [busca, tratores])
+
+  // ----- lote -----
+  // chassi que já tem quest sugerida/em andamento: entra desmarcado no lote
+  const comQuest = useMemo(() => new Set((quests || []).filter((q) => q.chassis && (q.status === 'aberta' || q.status === 'sugerida')).map((q) => q.chassis)), [quests])
+  const cidades = useMemo(() => {
+    const m = new Map()
+    for (const t of tratores) {
+      if (!t.cid.chave) continue
+      const g = m.get(t.cid.chave) || { chave: t.cid.chave, nome: t.cid.nome, uf: t.cid.uf, total: 0 }
+      g.total++
+      m.set(t.cid.chave, g)
+    }
+    return [...m.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+  }, [tratores])
+  const cidadesAchadas = useMemo(() => {
+    const q = semAcento(buscaCidade.trim())
+    if (!q) return []
+    return cidades.filter((c) => !cidadesSel.includes(c.chave) && semAcento(c.nome).includes(q)).slice(0, 8)
+  }, [buscaCidade, cidades, cidadesSel])
+  const doLote = useMemo(() => tratores.filter((t) => cidadesSel.includes(t.cid.chave))
+    .sort((a, b) => a.cid.nome.localeCompare(b.cid.nome, 'pt-BR') || String(a.Cliente).localeCompare(String(b.Cliente), 'pt-BR')), [tratores, cidadesSel])
+  const marcado = (t) => !fora.has(t.Chassis)
+  const marcados = doLote.filter(marcado)
+  const addCidade = (c) => {
+    setCidadesSel((l) => [...l, c.chave]); setBuscaCidade('')
+    // quem já tem quest aberta começa desmarcado
+    setFora((f) => { const n = new Set(f); tratores.forEach((t) => { if (t.cid.chave === c.chave && comQuest.has(t.Chassis)) n.add(t.Chassis) }); return n })
+  }
+  const alternarTrator = (t) => setFora((f) => { const n = new Set(f); if (n.has(t.Chassis)) n.delete(t.Chassis); else n.add(t.Chassis); return n })
 
   const escolher = (t) => {
     setTrator(t); setBusca('')
-    if (!titulo) setTitulo(`Visitar ${t.Modelo || 'trator'} …${String(t.Chassis).slice(-6)} — ${t.Cliente || ''}`.trim())
+    if (!titulo) setTitulo(tituloQuestTrator(t))
   }
   const alternar = (pronto) => setItens((lista) => (lista.some((i) => i.chave === pronto.chave) ? lista.filter((i) => i.chave !== pronto.chave) : [...lista, { ...pronto }]))
   const mudarItem = (chave, campo, valor) => setItens((lista) => lista.map((i) => (i.chave === chave ? { ...i, [campo]: valor } : i)))
@@ -280,22 +337,51 @@ function NovaQuest({ vendedores, onFechar, onCriada }) {
     setPergunta('')
   }
 
+  const comum = () => ({
+    descricao: descricao.trim() || null, origem: 'manual',
+    itens, xp: Number(xp) || 0, vendedor_id: Number(vend), prazo: prazo || null, status: 'aberta',
+    criado_por: supervisorNome(), aprovado_por: supervisorNome(), aprovado_em: new Date().toISOString(),
+  })
+  const doTrator = (t) => ({ alvo_tipo: 'trator', chassis: t.Chassis, modelo: t.Modelo || null, cliente_nome: t.Cliente || null, cidade: t.cid.nome || t.Cidade || null })
+
   async function criar() {
+    if (modo === 'lote') return criarLote()
     if (!titulo.trim()) { alert('Dê um título para a quest.'); return }
     if (!itens.length) { alert('Escolha pelo menos um item.'); return }
     if (!vend) { alert('Escolha o vendedor.'); return }
     setSalvando(true)
     const linha = {
-      titulo: titulo.trim(), descricao: descricao.trim() || null, origem: 'manual',
-      alvo_tipo: trator ? 'trator' : 'livre', chassis: trator?.Chassis || null, modelo: trator?.Modelo || null,
-      cliente_nome: trator?.Cliente || null, cidade: trator?.Cidade || null,
-      itens, xp: Number(xp) || 0, vendedor_id: Number(vend), prazo: prazo || null, status: 'aberta',
-      criado_por: supervisorNome(), aprovado_por: supervisorNome(), aprovado_em: new Date().toISOString(),
+      titulo: titulo.trim(), ...comum(),
+      ...(trator ? doTrator(trator) : { alvo_tipo: 'livre', chassis: null, modelo: null, cliente_nome: null, cidade: null }),
     }
     const { data, error } = await supabase.from('vendas_quests').insert(linha).select('id').single()
     setSalvando(false)
     if (error) { alert('Não foi possível criar: ' + error.message); return }
     await avisarVendedor({ ...linha, id: data.id }, Number(vend))
+    onCriada()
+  }
+
+  // uma quest por trator marcado, todas de uma vez; o vendedor recebe UM aviso só
+  async function criarLote() {
+    if (!marcados.length) { alert('Escolha a cidade e deixe pelo menos um trator marcado.'); return }
+    if (!itens.length) { alert('Escolha pelo menos um item.'); return }
+    if (!vend) { alert('Escolha o vendedor.'); return }
+    const nomeV = vendedores.find((v) => String(v.id) === String(vend))?.nome || 'o vendedor'
+    if (!confirm(`Criar ${marcados.length} quest(s) para ${nomeV}, uma por trator?`)) return
+    setSalvando(true)
+    const base = comum()
+    const linhas = marcados.map((t) => ({ titulo: tituloQuestTrator(t), ...base, ...doTrator(t) }))
+    const { error } = await supabase.from('vendas_quests').insert(linhas)
+    setSalvando(false)
+    if (error) { alert('Não foi possível criar: ' + error.message); return }
+    const nomesCid = [...new Set(marcados.map((t) => t.cid.nome))]
+    try {
+      await enviarMensagem({
+        vendedorId: Number(vend), titulo: `${linhas.length} quests novas`,
+        corpo: `Visitar tratores vendidos em ${nomesCid.join(', ')} — +${base.xp} XP cada${base.prazo ? `, até ${fmtDia(base.prazo)}` : ''}.`,
+        autorNome: supervisorNome(), link: '/quests',
+      })
+    } catch { /* o aviso é extra: as quests já aparecem no Início do vendedor */ }
     onCriada()
   }
 
@@ -307,29 +393,86 @@ function NovaQuest({ vendedores, onFechar, onCriada }) {
           <button type="button" onClick={onFechar} className="text-slate-400 text-xl leading-none">×</button>
         </div>
 
-        <div>
-          <p className="text-xs font-bold text-slate-500 mb-1">Trator (opcional)</p>
-          {trator ? (
-            <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2 text-sm">
-              <span className="flex-1">{trator.Modelo} …{String(trator.Chassis).slice(-6)} · {trator.Cliente} · {trator.Cidade}</span>
-              <button type="button" onClick={() => setTrator(null)} className="text-xs text-blue-700">trocar</button>
-            </div>
-          ) : (
-            <>
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por chassi, cliente ou cidade (ex.: Carlópolis)"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-              {achados.map((t) => (
-                <button key={t.Chassis} type="button" onClick={() => escolher(t)} className="block w-full text-left text-sm px-2 py-1.5 hover:bg-slate-50 rounded">
-                  <b>{t.Modelo} …{String(t.Chassis).slice(-6)}</b> · {t.Cliente} · {t.Cidade}
-                </button>
-              ))}
-            </>
-          )}
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-1 text-sm">
+          {[['um', 'Um trator'], ['lote', 'Em lote por cidade']].map(([k, rot]) => (
+            <button key={k} type="button" onClick={() => setModo(k)}
+              className={`flex-1 px-3 py-1.5 rounded-md font-semibold ${modo === k ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>{rot}</button>
+          ))}
         </div>
 
-        <label className="block text-xs font-bold text-slate-500">Título
-          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-normal text-slate-800" />
-        </label>
+        {modo === 'um' ? (
+          <>
+            <div>
+              <p className="text-xs font-bold text-slate-500 mb-1">Trator (opcional)</p>
+              {trator ? (
+                <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2 text-sm">
+                  <span className="flex-1">{trator.Modelo} …{String(trator.Chassis).slice(-6)} · {trator.Cliente} · <CidadeTrator t={trator} /></span>
+                  <button type="button" onClick={() => setTrator(null)} className="text-xs text-blue-700">trocar</button>
+                </div>
+              ) : (
+                <>
+                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por chassi, cliente ou cidade (ex.: Carlópolis)"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+                  {achados.map((t) => (
+                    <button key={t.Chassis} type="button" onClick={() => escolher(t)} className="block w-full text-left text-sm px-2 py-1.5 hover:bg-slate-50 rounded">
+                      <b>{t.Modelo} …{String(t.Chassis).slice(-6)}</b> · {t.Cliente} · <CidadeTrator t={t} />
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+
+            <label className="block text-xs font-bold text-slate-500">Título
+              <input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-normal text-slate-800" />
+            </label>
+          </>
+        ) : (
+          <div>
+            <p className="text-xs font-bold text-slate-500 mb-1">Cidades</p>
+            <div className="flex flex-wrap gap-1 mb-1">
+              {cidadesSel.map((ch) => {
+                const c = cidades.find((x) => x.chave === ch)
+                return (
+                  <span key={ch} className="inline-flex items-center gap-1 bg-slate-900 text-white rounded-full px-2.5 py-1 text-xs font-semibold">
+                    {nomeCidade(c)} · {c?.total}
+                    <button type="button" onClick={() => setCidadesSel((l) => l.filter((x) => x !== ch))} className="text-slate-300 leading-none" title="tirar">×</button>
+                  </span>
+                )
+              })}
+            </div>
+            <input value={buscaCidade} onChange={(e) => setBuscaCidade(e.target.value)} placeholder={carregandoTratores ? 'Carregando tratores…' : 'Digite a cidade (ex.: Fartura)'}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            {cidadesAchadas.map((c) => (
+              <button key={c.chave} type="button" onClick={() => addCidade(c)} className="block w-full text-left text-sm px-2 py-1.5 hover:bg-slate-50 rounded">
+                <b>{nomeCidade(c)}</b> · {c.total} trator{c.total === 1 ? '' : 'es'}
+              </button>
+            ))}
+            <p className="text-xs text-slate-500 mt-1">Cidade do cliente no Omie quando ele é achado; senão, a do controle de revisões.</p>
+
+            {doLote.length > 0 && (
+              <div className="mt-2 border border-slate-200 rounded-lg">
+                <div className="flex items-center gap-2 px-2 py-1.5 border-b border-slate-100 text-xs text-slate-500">
+                  <span className="flex-1"><b className="text-slate-800">{marcados.length}</b> de {doLote.length} marcados — uma quest por trator</span>
+                  <button type="button" onClick={() => setFora(new Set())} className="text-blue-700">marcar todos</button>
+                  <button type="button" onClick={() => setFora(new Set(doLote.map((t) => t.Chassis)))} className="text-blue-700">desmarcar</button>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {doLote.map((t) => (
+                    <label key={t.Chassis} className="flex items-start gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 cursor-pointer">
+                      <input type="checkbox" className="mt-1" checked={marcado(t)} onChange={() => alternarTrator(t)} />
+                      <span className="flex-1 min-w-0">
+                        <b>{t.Cliente}</b> · {t.Modelo} …{String(t.Chassis).slice(-6)}
+                        <span className="block text-xs text-slate-500"><CidadeTrator t={t} />{t.Entrega ? ` · entrega ${t.Entrega}` : ''}</span>
+                        {comQuest.has(t.Chassis) && <span className="block text-xs text-amber-700 font-semibold">já tem quest em andamento</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-slate-500 mt-2">Título de cada uma: "Visitar &lt;modelo&gt; …&lt;chassi&gt; — &lt;cliente&gt;". O resto abaixo vale para todas.</p>
+          </div>
+        )}
         <label className="block text-xs font-bold text-slate-500">Orientação para o vendedor (opcional)
           <textarea rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-normal text-slate-800" />
         </label>
@@ -381,7 +524,7 @@ function NovaQuest({ vendedores, onFechar, onCriada }) {
 
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onFechar} className="px-4 py-2 rounded-lg border border-slate-300 text-sm">Cancelar</button>
-          <button type="button" disabled={salvando} onClick={criar} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-bold">{salvando ? 'Criando…' : 'Criar e enviar ao vendedor'}</button>
+          <button type="button" disabled={salvando} onClick={criar} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-bold">{salvando ? 'Criando…' : modo === 'lote' ? `Criar ${marcados.length} quest${marcados.length === 1 ? '' : 's'} e enviar` : 'Criar e enviar ao vendedor'}</button>
         </div>
       </div>
     </div>
