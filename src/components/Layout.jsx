@@ -40,6 +40,17 @@ export default function Layout() {
   // Tour abre sozinho no 1º acesso de cada vendedor neste aparelho.
   const [tourAberto, setTourAberto] = useState(() => !tourJaVisto('vendedor', vendedor.id))
   const [navDestaque, setNavDestaque] = useState(null)
+  // Versão nova do app baixada por trás (o service worker novo assumiu): avisa em vez de
+  // esperar a próxima abertura. Não recarrega sozinho — poderia perder o que está sendo digitado.
+  const [versaoNova, setVersaoNova] = useState(false)
+  useEffect(() => {
+    const sw = navigator.serviceWorker
+    if (!sw) return
+    const tinhaControle = !!sw.controller // 1ª instalação não é "versão nova"
+    const aoTrocar = () => { if (tinhaControle) setVersaoNova(true) }
+    sw.addEventListener('controllerchange', aoTrocar)
+    return () => sw.removeEventListener('controllerchange', aoTrocar)
+  }, [])
 
   function fimDoTour() {
     marcarTourVisto('vendedor', vendedor.id)
@@ -238,6 +249,12 @@ export default function Layout() {
           Modo offline - dados salvos localmente
           {pending > 0 && ` (${pending} pendente${pending > 1 ? 's' : ''})`}
         </div>
+      )}
+
+      {versaoNova && (
+        <button onClick={() => window.location.reload()} className="w-full bg-emerald-600 text-white text-xs font-semibold py-2 active:bg-emerald-700">
+          Versão nova do app pronta — toque para atualizar
+        </button>
       )}
 
       {isSyncing && (
