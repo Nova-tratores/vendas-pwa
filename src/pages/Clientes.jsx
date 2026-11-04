@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllRecords, saveRecord, deleteRecord, getByIndex, registrarLog } from '../lib/db'
-import { unirCopias, ondeCasou } from '../lib/propriedadesUnicas'
+import { unirCopias, ondeCasou, semAcento } from '../lib/propriedadesUnicas'
 import { semParceiros } from '../lib/localVisita'
 import { maskCPFouCNPJ, maskTelefone } from '../lib/masks'
 import { CULTURAS } from '../lib/constants'
@@ -112,11 +112,11 @@ export default function Clientes() {
   // A busca casa também pelo nome das pessoas/contatos da propriedade
   // (ex.: "Pedro Bergamo" acha a fazenda onde o Pedro é contato) — mesmo
   // comportamento da busca do check-in. O nome que casou vai pro card.
-  const termo = busca.trim().toLowerCase()
+  const termo = semAcento(busca.trim())
   const contatoPorProp = new Map()
   if (termo) {
     for (const ps of pessoasAll) {
-      if (ps.nome && String(ps.nome).toLowerCase().includes(termo) && !contatoPorProp.has(ps.propriedade_id)) {
+      if (ps.nome && semAcento(ps.nome).includes(termo) && !contatoPorProp.has(ps.propriedade_id)) {
         contatoPorProp.set(ps.propriedade_id, ps.nome)
       }
     }

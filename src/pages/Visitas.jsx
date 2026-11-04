@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getAllRecords, getByIndex, getRecord, deleteRecord, saveRecord, registrarLog, getServerId } from '../lib/db'
-import { unirCopias } from '../lib/propriedadesUnicas'
+import { unirCopias, semAcento } from '../lib/propriedadesUnicas'
 import { useCheckin } from '../hooks/useCheckin'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
@@ -449,26 +449,26 @@ export default function Visitas() {
   // Ordem: (1º) quem já tem visita/negócio do vendedor, (2º) nome que começa
   // com o termo, (3º) demais matches.
   const resultadosBusca = (() => {
-    const t = buscaProp.trim().toLowerCase()
+    const t = semAcento(buscaProp.trim())
     if (!t) return []
     // Mapa propriedade_id -> nome do contato que casou com a busca
     const contatoPorProp = new Map()
     for (const ps of pessoasAll) {
       if (!ps.nome) continue
-      if (String(ps.nome).toLowerCase().includes(t) && !contatoPorProp.has(ps.propriedade_id)) {
+      if (semAcento(ps.nome).includes(t) && !contatoPorProp.has(ps.propriedade_id)) {
         contatoPorProp.set(ps.propriedade_id, ps.nome)
       }
     }
     const out = []
     for (const p of (form.sem_cliente ? parceiros : propriedadesBusca)) {
       const campos = [p.nome, p.nome_fantasia, p.razao_social, p.cidade, p.cnpj_cpf]
-        .filter(Boolean).map((s) => String(s).toLowerCase())
+        .filter(Boolean).map((s) => semAcento(s))
       const matchProp = campos.some((s) => s.includes(t))
       const contato = contatoPorProp.get(p.id)
       if (!matchProp && !contato) continue
       const interacoes = interacaoPorProp.get(p.id) || 0
       const comecaCom = [p.nome, p.nome_fantasia]
-        .filter(Boolean).some((s) => String(s).toLowerCase().startsWith(t))
+        .filter(Boolean).some((s) => semAcento(s).startsWith(t))
       // Só anota o contato quando o match veio dele (não polui quando o nome
       // da própria propriedade já bateu).
       out.push({

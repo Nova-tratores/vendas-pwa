@@ -2,6 +2,9 @@
 // CPF/CNPJ, ids diferentes): no celular do Márcio eram 880 de 1.783 propriedades
 // (28/10/2026). Aqui fica uma cópia por documento — a que já foi trabalhada.
 
+/** Para comparar textos: minúsculo e sem acento ("Avaré" acha "AVARE"). */
+export const semAcento = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
 export const docDigitos = (p) => String(p?.cnpj_cpf || '').replace(/\D/g, '')
 
 const preenchidos = (p) =>
@@ -37,9 +40,9 @@ export function unirCopias(propriedades, peso = () => 0) {
  * quem é da cidade ou tem o nome, e marcar quem só aparece por causa da rua.
  */
 export function ondeCasou(p, termo, { dono = '', contato = '' } = {}) {
-  const t = termo.trim().toLowerCase()
+  const t = semAcento(termo.trim())
   if (!t) return null
-  const tem = (...xs) => xs.filter(Boolean).some((x) => String(x).toLowerCase().includes(t))
+  const tem = (...xs) => xs.filter(Boolean).some((x) => semAcento(x).includes(t))
   if (tem(p.nome, p.nome_fantasia, p.razao_social, dono, contato, p.cnpj_cpf)) return 'nome'
   if (tem(p.cidade, p.estado)) return 'cidade'
   if (tem(p.endereco, p.bairro)) return 'endereco'

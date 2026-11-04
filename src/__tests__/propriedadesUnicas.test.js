@@ -32,5 +32,7 @@ describe('onde a busca casou', () => {
     expect(ondeCasou(p, 'piraju')).toBe('nome')
     expect(ondeCasou({ ...p, nome_fantasia: 'X' }, 'piraju')).toBe('cidade')
     expect(ondeCasou(p, 'avare')).toBeNull()
+    expect(ondeCasou({ cidade: 'AVARE (SP)' }, 'Avaré')).toBe('cidade')
+    expect(ondeCasou({ nome: 'Sítio São João' }, 'sitio sao')).toBe('nome')
   })
 })
