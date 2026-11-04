@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bell, Calculator, Calendar, Car, ChevronRight, CircleHelp, ClipboardCheck, Compass, DoorOpen, Handshake,
-  Lightbulb, MapPin, Map as IconeMapa, Package, Plus, Repeat, Settings, Sprout, Tractor, Trophy, User, UserCircle, Users, Wallet,
+  Lightbulb, MapPin, Map as IconeMapa, Package, PiggyBank, Plus, Repeat, Settings, Sprout, Tractor, Trophy, User, UserCircle, Users, Wallet,
 } from 'lucide-react'
 import { carregarContatos } from '../lib/contatosVendedor'
 
@@ -33,6 +33,7 @@ const MODULOS = [
       { to: '/clientes', rotulo: 'Clientes', icone: User },
       { to: '/negocios', rotulo: 'Negócios', icone: Wallet },
       { to: '/catalogo', rotulo: 'Catálogo', icone: Package },
+      { to: '/consorcio', rotulo: 'Consórcio', icone: PiggyBank },
       { to: '/inteligencia/calculadora', rotulo: 'Calculadora', icone: Calculator },
     ],
   },

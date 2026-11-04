@@ -37,6 +37,7 @@ import ResumoSemana from './pages/ResumoSemana'
 import Perfil from './pages/Perfil'
 import Menu from './pages/Menu'
 import ContatosTipo from './pages/ContatosTipo'
+const Consorcio = lazy(() => import('./pages/Consorcio'))
 const IVLayout = lazy(() => import('./pages/iv/IVLayout'))
 const IVNoticias = lazy(() => import('./pages/iv/Noticias'))
 const IVOportunidades = lazy(() => import('./pages/iv/Oportunidades'))
@@ -171,6 +172,7 @@ export default function App() {
         <Route path="perfil" element={<Perfil />} />
         <Route path="menu" element={<Menu />} />
         <Route path="menu/:tipo" element={<ContatosTipo />} />
+        <Route path="consorcio" element={<Suspense fallback={<div className="py-16 text-center text-sm text-slate-400">Carregando…</div>}><Consorcio /></Suspense>} />
         {/* Inteligência de Vendas (mesmas telas do Portal) — abas em lib/iv/telas.js */}
         <Route path="inteligencia" element={<Suspense fallback={<div className="py-16 text-center text-sm text-slate-400">Carregando…</div>}><IVLayout /></Suspense>}>
           <Route index element={<Navigate to="retorno" replace />} />
