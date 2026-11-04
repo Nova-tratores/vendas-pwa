@@ -2,7 +2,12 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Versão do app = data/hora do build (horário de Brasília). Aparece no Menu para
+// saber se o celular já está com a versão nova.
+const VERSAO_APP = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 16).replace('T', ' ')
+
 export default defineConfig({
+  define: { __VERSAO_APP__: JSON.stringify(VERSAO_APP) },
   server: {
     host: true,
   },

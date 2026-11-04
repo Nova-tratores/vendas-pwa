@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bell, Calculator, Calendar, Car, ChevronRight, CircleHelp, ClipboardCheck, Compass, DoorOpen, Handshake,
-  Lightbulb, MapPin, Map as IconeMapa, Package, PiggyBank, Plus, Repeat, Settings, Sprout, Tractor, Trophy, User, UserCircle, Users, Wallet,
+  Lightbulb, MapPin, Map as IconeMapa, Package, PiggyBank, Plus, RefreshCw, Repeat, Settings, Sprout, Tractor, Trophy, User, UserCircle, Users, Wallet,
 } from 'lucide-react'
 import { carregarContatos } from '../lib/contatosVendedor'
 
@@ -61,6 +61,24 @@ export default function Menu() {
   const navigate = useNavigate()
   const [contagem, setContagem] = useState(null)
   const [exemplo, setExemplo] = useState(false)
+  const [atualizando, setAtualizando] = useState(false)
+
+  // Busca a versão nova do app: atualiza o service worker, limpa só os arquivos do
+  // app guardados pelo navegador (visitas e dados do vendedor ficam no IndexedDB,
+  // não são tocados) e recarrega.
+  async function atualizarApp() {
+    setAtualizando(true)
+    try {
+      const regs = (await navigator.serviceWorker?.getRegistrations?.()) || []
+      await Promise.all(regs.map((r) => r.update().catch(() => {})))
+      if (window.caches) {
+        const nomes = await caches.keys()
+        await Promise.all(nomes.filter((n) => /workbox-precache|precache/i.test(n)).map((n) => caches.delete(n)))
+      }
+      await Promise.all(regs.map((r) => r.unregister().catch(() => {})))
+    } catch { /* recarrega mesmo assim */ }
+    window.location.reload()
+  }
 
   useEffect(() => {
     let vivo = true
@@ -150,6 +168,14 @@ export default function Menu() {
           </button>
           <button onClick={() => window.dispatchEvent(new Event('sair-app'))} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold border border-red-200 text-red-700 bg-white rounded-xl py-2.5 active:bg-red-50">
             <DoorOpen size={16} /> Sair
+          </button>
+        </section>
+
+        {/* versão instalada neste aparelho + forçar a versão nova (não apaga nada guardado) */}
+        <section className="text-center space-y-2 pb-2">
+          <p className="text-[11px] text-slate-400">Versão do app: {typeof __VERSAO_APP__ !== 'undefined' ? __VERSAO_APP__ : '—'}</p>
+          <button onClick={atualizarApp} disabled={atualizando} className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 border border-blue-200 bg-white rounded-xl px-3 py-2 active:bg-blue-50 disabled:opacity-50">
+            <RefreshCw size={14} className={atualizando ? 'animate-spin' : ''} /> {atualizando ? 'Atualizando…' : 'Atualizar o app'}
           </button>
         </section>
       </div>
