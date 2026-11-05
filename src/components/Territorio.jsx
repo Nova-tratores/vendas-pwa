@@ -28,6 +28,14 @@ const ICONE_TRATOR = L.divIcon({
   iconSize: [22, 22], iconAnchor: [11, 11],
 })
 
+// trator ainda não localizado em campo: lugar PROVÁVEL (fazenda do técnico ou visita ao dono)
+const ICONE_TRATOR_PROVAVEL = L.divIcon({
+  className: '',
+  html: '<div style="width:26px;height:26px;border-radius:50%;border:2px dashed #64748b;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;font-size:14px;filter:grayscale(1);opacity:.9">🚜</div>',
+  iconSize: [26, 26], iconAnchor: [13, 13],
+})
+const ORIGEM_PROVAVEL = { fazenda: 'fazenda marcada pelo GPS do carro do técnico', visita: 'onde o dono foi visitado' }
+
 // município já carregado nesta sessão volta na hora (10 min)
 const CACHE_SESSAO = new Map()
 async function territorioComCache(ibge, vendedorId) {
@@ -158,12 +166,13 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
           <summary className="text-sm cursor-pointer">
             🚜 <b>{dados.tratores.vendidos}</b> trator{dados.tratores.vendidos > 1 ? 'es' : ''} nosso{dados.tratores.vendidos > 1 ? 's' : ''} vendido{dados.tratores.vendidos > 1 ? 's' : ''} aqui
             <span className="text-slate-500"> · {dados.tratores.localizados} localizado{dados.tratores.localizados === 1 ? '' : 's'} no mapa</span>
+            {dados.tratores.provaveis?.length > 0 && <span className="text-slate-500"> · {dados.tratores.provaveis.length} com lugar provável</span>}
           </summary>
-          <p className="text-[11px] text-slate-500 mt-1 mb-2">Na visita ao dono, o app pergunta onde o trator está. Cada confirmação põe o trator no mapa e vale XP.</p>
+          <p className="text-[11px] text-slate-500 mt-1 mb-2">Na visita ao dono, o app pergunta onde o trator está. Cada confirmação põe o trator no mapa e vale XP. O 🚜 cinza no círculo tracejado é o lugar <b>provável</b> (fazenda do dono marcada pelo técnico ou onde ele foi visitado) — confirme na visita.</p>
           <ul className="space-y-1 max-h-60 overflow-y-auto">
             {dados.tratores.lista.map((t, i) => (
               <li key={i} className="text-xs text-slate-700">
-                {t.localizado ? '📍' : '❔'} Mahindra {t.modelo} · {t.cliente}{t.entrega ? <span className="text-slate-400"> · {t.entrega}</span> : null}
+                {t.localizado ? '📍' : (dados.tratores.provaveis || []).some((p) => p.chassis_fim === t.chassis_fim) ? '◌' : '❔'} Mahindra {t.modelo} · {t.cliente}{t.entrega ? <span className="text-slate-400"> · {t.entrega}</span> : null}
               </li>
             ))}
           </ul>
@@ -190,6 +199,19 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
               })}
             />
           )}
+          {(dados?.tratores?.provaveis || []).map((t, i) => (
+            <Marker key={`p${i}`} position={[t.lat, t.lng]} icon={ICONE_TRATOR_PROVAVEL} zIndexOffset={3000}>
+              <Popup>
+                <b>Mahindra {t.modelo || ''}</b> · chassi …{t.chassis_fim}<br />
+                {t.cliente}<br />
+                <span style={{ fontSize: 11, color: '#64748b' }}>
+                  Lugar provável: {ORIGEM_PROVAVEL[t.origem] || t.origem}
+                  {t.detalhe ? ` (${t.detalhe})` : ''}{t.quando ? ` · ${new Date(t.quando).toLocaleDateString('pt-BR')}` : ''}.<br />
+                  Ainda não confirmado — na visita, responda "Está aqui".
+                </span>
+              </Popup>
+            </Marker>
+          ))}
           {(dados?.tratores?.pinos || []).map((t, i) => (
             <Marker key={`t${i}`} position={[t.lat, t.lng]} icon={ICONE_TRATOR} zIndexOffset={4000}>
               <Popup>
