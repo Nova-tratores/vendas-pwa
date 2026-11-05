@@ -1,8 +1,11 @@
 // Tratores vendidos + confirmações de localização (rede e cache no aparelho).
 // Regras de casamento em ./tratoresCliente.
 import { supabase } from './sync'
+import { buscarTodas } from './paginar'
+import { cidadeDoTrator, indexarClientesOmie } from './tratoresCidade'
 
-const CHAVE_TRATORES = 'nt-tratores'
+// v2: tratores já com a cidade do cliente no Omie (CidadeOmie); a v1 não tinha
+const CHAVE_TRATORES = 'nt-tratores-v2'
 const CHAVE_CONFIRMACOES = 'nt-trator-confirmacoes'
 const CHAVE_FILA = 'nt-trator-fila'
 const DIA_MS = 24 * 3600000
@@ -17,8 +20,17 @@ export async function carregarTratores() {
   if (!navigator.onLine) return cache?.dados || []
   const { data, error } = await supabase.from('tratores').select('Chassis, Modelo, Cliente, Cidade, Entrega').limit(5000)
   if (error) return cache?.dados || []
-  gravar(CHAVE_TRATORES, { at: Date.now(), dados: data || [] })
-  return data || []
+  // A cidade digitada no controle de revisões erra muito (Uguccione = PIRAJU, é de
+  // Carlópolis): vale a do cliente no Omie quando ele é achado pelo nome. Só os
+  // tratores vão para o cache, não os clientes. Falhou o Omie = a digitada.
+  const omie = await buscarTodas(() => supabase.from('Clientes_Omie').select('nome, cidade').order('id')).catch(() => [])
+  const clientes = indexarClientesOmie(omie)
+  const dados = (data || []).map((t) => {
+    const c = cidadeDoTrator(t, clientes)
+    return c.origem === 'omie' ? { ...t, CidadeOmie: c.nome } : t
+  })
+  gravar(CHAVE_TRATORES, { at: Date.now(), dados })
+  return dados
 }
 
 /** Confirmações já feitas (todas, de todos os vendedores) + as da fila deste aparelho. */

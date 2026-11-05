@@ -19,6 +19,7 @@ import { STATUS_NEGOCIO, STATUS_ABERTOS, isPerdido, isAberto, statusLabel, TEMPE
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
 import { maskTelefone } from '../lib/masks'
+import { contatoRepetido } from '../lib/contatoRepetido'
 import { sugerirPropriedades, normalizar, similaridadeNome, distanciaKm } from '../lib/sugestao'
 import VisitaCard, { TIPO_LABELS } from '../components/VisitaCard'
 import MarcaSelect from '../components/MarcaSelect'
@@ -70,6 +71,9 @@ export default function Visitas() {
   const [dupVisita, setDupVisita] = useState(null)
   const [showNovaPessoa, setShowNovaPessoa] = useState(false)
   const [novaPessoa, setNovaPessoa] = useState({ nome: '', cargo: '', telefone: '' })
+  const [pessoaParecida, setPessoaParecida] = useState(null) // contato com o mesmo 1º nome: perguntar antes de criar
+  const [avisoPessoa, setAvisoPessoa] = useState('')
+  const [salvandoPessoa, setSalvandoPessoa] = useState(false)
   const [showNovaMaquina, setShowNovaMaquina] = useState(false)
   const [novaMaquina, setNovaMaquina] = useState({ tipo: 'Trator Novo', marca: '', modelo: '', tamanho: '', estado: 'bom', frequencia_uso: '' })
   const [showNovoCliente, setShowNovoCliente] = useState(false)
@@ -265,6 +269,53 @@ export default function Visitas() {
     setMaquinasDisp([])
     setShowOutraProp(false)
     setNovaProp({ nome: '', cidade: '', cultura_principal: '', cultura_secundaria: '' })
+  }
+
+  // "Adicionar Pessoa": não duplica quem já está no cliente (lib/contatoRepetido).
+  // Nome igual → seleciona o que existe (e completa o telefone); mesmo 1º nome → pergunta.
+  function selecionarPessoaExistente(p) {
+    setForm((f) => ({ ...f, pessoa_ids: f.pessoa_ids.includes(p.id) ? f.pessoa_ids : [...f.pessoa_ids, p.id] }))
+    setNovaPessoa({ nome: '', cargo: '', telefone: '' })
+    setPessoaParecida(null)
+    setShowNovaPessoa(false)
+    setAvisoPessoa(`${String(p.nome).trim()} já está neste cliente — selecionado`)
+    setTimeout(() => setAvisoPessoa(''), 4000)
+  }
+
+  async function adicionarPessoa(forcar = false) {
+    if (salvandoPessoa || !novaPessoa.nome.trim()) return
+    const rep = forcar ? null : contatoRepetido(novaPessoa.nome, pessoasDisp)
+    if (rep?.tipo === 'parecido') { setPessoaParecida(rep.pessoa); return }
+    setSalvandoPessoa(true)
+    try {
+      if (rep?.tipo === 'igual') {
+        const p = rep.pessoa
+        const tel = novaPessoa.telefone.trim()
+        if ((tel && !p.telefone) || (novaPessoa.cargo && !p.cargo)) {
+          await saveRecord('pessoas', { ...p, telefone: p.telefone || tel, cargo: p.cargo || novaPessoa.cargo, status_sync: 'pending' })
+          setPessoasDisp(await getByIndex('pessoas', 'propriedade_id', parseInt(form.propriedade_id)))
+        }
+        selecionarPessoaExistente(p)
+        return
+      }
+      const pessoaId = await saveRecord('pessoas', {
+        propriedade_id: parseInt(form.propriedade_id),
+        nome: novaPessoa.nome,
+        vinculo: 'outro',
+        cargo: novaPessoa.cargo,
+        telefone: novaPessoa.telefone,
+        observacoes: '',
+        created_at: new Date().toISOString(),
+      })
+      await registrarLog('criar', 'pessoas', pessoaId, `Pessoa: ${novaPessoa.nome} (via visita)`)
+      setPessoasDisp(await getByIndex('pessoas', 'propriedade_id', parseInt(form.propriedade_id)))
+      setForm((f) => ({ ...f, pessoa_ids: [...f.pessoa_ids, pessoaId] }))
+      setNovaPessoa({ nome: '', cargo: '', telefone: '' })
+      setPessoaParecida(null)
+      setShowNovaPessoa(false)
+    } finally {
+      setSalvandoPessoa(false)
+    }
   }
 
   function toggleArray(arr, id) {
@@ -1188,7 +1239,7 @@ export default function Visitas() {
                 <div className="bg-slate-50 rounded-lg p-3 mb-2 space-y-2 animate-slide-up">
                   <input
                     value={novaPessoa.nome}
-                    onChange={(e) => setNovaPessoa({ ...novaPessoa, nome: e.target.value })}
+                    onChange={(e) => { setNovaPessoa({ ...novaPessoa, nome: e.target.value }); setPessoaParecida(null) }}
                     placeholder="Nome *"
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                   />
@@ -1214,31 +1265,24 @@ export default function Visitas() {
                       className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
                     />
                   </div>
+                  {pessoaParecida && (
+                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-2.5 space-y-2">
+                      <p className="text-sm text-amber-800">Já existe <b>{String(pessoaParecida.nome).trim()}</b> neste cliente. É a mesma pessoa?</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => selecionarPessoaExistente(pessoaParecida)}
+                          className="bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">Usar este</button>
+                        <button type="button" onClick={() => adicionarPessoa(true)} disabled={salvandoPessoa}
+                          className="bg-white border border-slate-300 text-slate-700 py-2 rounded-lg text-sm font-medium">Criar novo mesmo assim</button>
+                      </div>
+                    </div>
+                  )}
                   <button
                     type="button"
-                    disabled={!novaPessoa.nome.trim()}
-                    onClick={async () => {
-                      const pessoaId = await saveRecord('pessoas', {
-                        propriedade_id: parseInt(form.propriedade_id),
-                        nome: novaPessoa.nome,
-                        vinculo: 'outro',
-                        cargo: novaPessoa.cargo,
-                        telefone: novaPessoa.telefone,
-                        observacoes: '',
-                        created_at: new Date().toISOString(),
-                      })
-                      await registrarLog('criar', 'pessoas', pessoaId, `Pessoa: ${novaPessoa.nome} (via visita)`)
-                      // Recarregar pessoas da propriedade
-                      const novasPessoas = await getByIndex('pessoas', 'propriedade_id', form.propriedade_id)
-                      setPessoasDisp(novasPessoas)
-                      // Já selecionar a pessoa criada
-                      setForm((f) => ({ ...f, pessoa_ids: [...f.pessoa_ids, pessoaId] }))
-                      setNovaPessoa({ nome: '', cargo: '', telefone: '' })
-                      setShowNovaPessoa(false)
-                    }}
+                    disabled={!novaPessoa.nome.trim() || salvandoPessoa}
+                    onClick={() => adicionarPessoa()}
                     className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   >
-                    Adicionar Pessoa
+                    {salvandoPessoa ? 'Salvando…' : 'Adicionar Pessoa'}
                   </button>
                 </div>
               )}
@@ -1262,6 +1306,7 @@ export default function Visitas() {
                 )
               )}
 
+              {avisoPessoa && <p className="text-xs text-emerald-700 mt-1 font-medium">{avisoPessoa}</p>}
               {form.pessoa_ids.length === 0 && !showNovaPessoa && (
                 <p className="text-xs text-amber-600 mt-1 font-medium">Selecione ou cadastre pelo menos uma pessoa para continuar</p>
               )}
@@ -1565,8 +1610,24 @@ export default function Visitas() {
         </form>
       )}
 
-      {/* Histórico */}
-      {visitasOrdenadas.length === 0 ? (
+      {/* Com o formulário aberto, o histórico geral (visitas a outros clientes) sai:
+          só as últimas visitas a ESTE cliente, para lembrar o que já foi conversado. */}
+      {showForm ? (
+        (() => {
+          const anteriores = form.propriedade_id
+            ? visitasOrdenadas.filter((v) => String(v.propriedade_id) === String(form.propriedade_id)).slice(0, 3)
+            : []
+          if (!anteriores.length) return null
+          return (
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Visitas anteriores a este cliente</p>
+              {anteriores.map((v, i) => (
+                <VisitaCard key={v.id} visita={v} index={i} onDelete={() => setDeleteTarget(v)} onEdit={() => abrirEdicao(v)} editavel={podeEditar(v)} onNovaVisita={() => novaVisitaNeste(v)} />
+              ))}
+            </div>
+          )
+        })()
+      ) : visitasOrdenadas.length === 0 ? (
         <div className="text-center py-12">
           <p className="mb-3 flex justify-center text-slate-300"><MapPin size={40} /></p>
           <p className="text-slate-400">Nenhuma visita registrada</p>

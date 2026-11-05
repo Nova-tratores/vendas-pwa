@@ -50,3 +50,17 @@ describe('auxiliares', () => {
       .toBe('JIVO 2025 …F00710 · PAULO · CARLOPOLIS')
   })
 })
+
+import { telefoneDaQuest } from '../lib/quests'
+describe('telefone na descrição da quest', () => {
+  it('acha o telefone com DDD', () => {
+    expect(telefoneDaQuest('Telefone do cliente (Omie): (43) 99152-7562')).toBe('43991527562')
+    expect(telefoneDaQuest('Telefone: 14 3351-6049')).toBe('1433516049')
+    expect(telefoneDaQuest('Telefone: +55 (14) 99762-7413')).toBe('14997627413')
+  })
+  it('sem telefone ou número incompleto = nada', () => {
+    expect(telefoneDaQuest('Visitar o cliente')).toBeNull()
+    expect(telefoneDaQuest('Telefone: 99152-7562')).toBeNull()
+    expect(telefoneDaQuest(null)).toBeNull()
+  })
+})

@@ -94,3 +94,15 @@ export function rotuloAlvo(q) {
   const trator = q.chassis ? `${q.modelo || 'Trator'} …${String(q.chassis).slice(-6)}` : null
   return [trator, q.cliente_nome, q.cidade].filter(Boolean).join(' · ')
 }
+
+/**
+ * Telefone do cliente escrito na descrição da quest ("Telefone do cliente: (43) 99152-7562").
+ * Devolve só os dígitos com DDD (10 ou 11), ou null.
+ */
+export function telefoneDaQuest(descricao) {
+  const m = String(descricao || '').match(/telefone[^:\n]*:\s*([()\d\s.+-]{8,})/i)
+  if (!m) return null
+  let d = m[1].replace(/\D/g, '')
+  if (d.startsWith('55') && d.length >= 12) d = d.slice(2)
+  return d.length === 10 || d.length === 11 ? d : null
+}

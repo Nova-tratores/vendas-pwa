@@ -22,6 +22,11 @@ describe('tratores do cliente', () => {
     expect(tratoresDoCliente(tratores, { nomes: ['Olinto Rodrigues'], cidade: 'Agudos' }).map((t) => t.Chassis)).toEqual(['A1'])
     expect(tratoresDoCliente([{ ...tratores[2], Cidade: '' }], { nomes: ['Jose Carlos Silva'], cidade: 'Piraju' }).length).toBe(1)
   })
+  it('cidade do Omie (CidadeOmie) vale mais que a digitada no controle', () => {
+    const ug = { Chassis: 'D4', Modelo: '6075E', Cliente: 'LUIZ ROGERIO UGUCCIONE', Cidade: 'PIRAJU', CidadeOmie: 'Carlópolis' }
+    expect(tratoresDoCliente([ug], { nomes: ['Luiz Rogerio Uguccioni'], cidade: 'CARLOPOLIS (PR)' }).length).toBe(1)
+    expect(tratoresDoCliente([ug], { nomes: ['Luiz Rogerio Uguccioni'], cidade: 'Piraju' }).length).toBe(0)
+  })
   it('cidade do trator sem a fazenda', () => {
     expect(cidadeDoTrator('AGUDOS FAZ SÃO DOMINGOS')).toBe('AGUDOS')
   })

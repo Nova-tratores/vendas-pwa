@@ -3,6 +3,7 @@
 // com a propriedade da visita é pelo nome (2+ palavras em comum) e pela cidade
 // (município oficial — lib/cidadesCanon). Regras puras.
 import { cidadeCanonica } from './cidadesCanon'
+import { umaLetraDeDiferenca } from './tratoresCidade'
 
 const PEQUENAS = new Set(['DE', 'DA', 'DO', 'DOS', 'DAS', 'E', 'FAZ', 'FAZENDA', 'SITIO', 'CHACARA', 'ESTANCIA', 'LTDA', 'ME', 'EPP', 'SA', 'OUTROS', 'OUTRO', 'OUTRA'])
 
@@ -21,7 +22,9 @@ export function mesmoDono(a, b) {
   if (!pa.length || !pb.size) return false
   const comuns = pa.filter((p) => pb.has(p)).length
   if (comuns === 1 && (pa.length === 1 || pb.size === 1)) return true
-  const ultimoBate = pb.has(pa[pa.length - 1]) || pa.includes(pbLista[pbLista.length - 1])
+  // sobrenome longo aceita 1 letra de diferença (UGUCCIONE no controle × UGUCCIONI no Omie)
+  const parecida = (p, lista) => lista.some((x) => x === p || (p.length >= 8 && umaLetraDeDiferenca(p, x)))
+  const ultimoBate = parecida(pa[pa.length - 1], pbLista) || parecida(pbLista[pbLista.length - 1], pa)
   return comuns >= 2 && ultimoBate
 }
 
@@ -40,8 +43,9 @@ export function tratoresDoCliente(tratores, { nomes = [], cidade = '' }) {
   const cidadeCli = cidade ? cidadeCanonica(cidade).chave : ''
   return (tratores || []).filter((t) => {
     if (!t.Chassis || !nomes.some((n) => mesmoDono(t.Cliente, n))) return false
-    if (!cidadeCli || !t.Cidade) return true
-    return cidadeCanonica(cidadeDoTrator(t.Cidade)).chave === cidadeCli
+    const cid = t.CidadeOmie || t.Cidade // CidadeOmie: a do cliente no Omie (lib/tratoresLocal)
+    if (!cidadeCli || !cid) return true
+    return cidadeCanonica(cidadeDoTrator(cid)).chave === cidadeCli
   })
 }
 

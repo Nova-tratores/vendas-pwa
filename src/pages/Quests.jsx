@@ -4,11 +4,11 @@
 // internet — a resposta fica na fila do aparelho e sai sozinha depois.
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Camera, CheckCircle2, ChevronRight, Clock, MapPin, Trash2, Trophy, WifiOff } from 'lucide-react'
+import { Camera, CheckCircle2, ChevronRight, Clock, MapPin, MessageCircle, Phone, Trash2, Trophy, WifiOff } from 'lucide-react'
 import { capturarFoto } from '../lib/camera'
 import { capturarGPSComFallback } from '../lib/gps'
 import { carregarMinhasQuests, idsNaFila, responderQuest, urlFoto } from '../lib/questsLocal'
-import { faltando, numeroDigitado, questsAFazer, rotuloAlvo, situacaoPrazo, ROTULO_REGRA } from '../lib/quests'
+import { faltando, numeroDigitado, questsAFazer, rotuloAlvo, situacaoPrazo, telefoneDaQuest, ROTULO_REGRA } from '../lib/quests'
 import { confete, vibrar } from '../lib/recompensas'
 
 export default function Quests() {
@@ -146,6 +146,12 @@ function ResponderQuest({ quest, resposta, naFila, onEnviado }) {
         <h1 className="text-lg font-extrabold leading-tight mt-0.5">{quest.titulo}</h1>
         <p className="text-sm text-slate-600 mt-1 flex items-start gap-1"><MapPin size={14} className="mt-0.5 shrink-0" />{rotuloAlvo(quest) || '—'}</p>
         {quest.descricao && <p className="text-sm mt-2 whitespace-pre-line">{quest.descricao}</p>}
+        {telefoneDaQuest(quest.descricao) && (
+          <div className="flex gap-2 mt-2">
+            <a href={`tel:${telefoneDaQuest(quest.descricao)}`} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700"><Phone size={15} /> Ligar</a>
+            <a href={`https://wa.me/55${telefoneDaQuest(quest.descricao)}`} target="_blank" rel="noreferrer" className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold"><MessageCircle size={15} /> WhatsApp</a>
+          </div>
+        )}
         {quest.motivo && <p className="text-xs text-slate-500 mt-2">{quest.motivo}</p>}
         {prazo && <p className={`text-xs mt-2 font-semibold ${prazo.atrasada ? 'text-red-600' : 'text-slate-500'}`}><Clock size={12} className="inline -mt-0.5" /> Prazo {quest.prazo.split('-').reverse().join('/')} · {prazo.texto}</p>}
         {quest.nota_supervisor && quest.status === 'aberta' && (
