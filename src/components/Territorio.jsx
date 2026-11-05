@@ -34,7 +34,7 @@ const ICONE_TRATOR_PROVAVEL = L.divIcon({
   html: '<div style="width:26px;height:26px;border-radius:50%;border:2px dashed #64748b;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;font-size:14px;filter:grayscale(1);opacity:.9">🚜</div>',
   iconSize: [26, 26], iconAnchor: [13, 13],
 })
-const ORIGEM_PROVAVEL = { fazenda: 'fazenda marcada pelo GPS do carro do técnico', visita: 'onde o dono foi visitado' }
+const ORIGEM_PROVAVEL = { atendimento: 'onde o técnico atendeu este trator', fazenda: 'fazenda do dono marcada pelo GPS do carro do técnico', visita: 'onde o dono foi visitado' }
 
 // município já carregado nesta sessão volta na hora (10 min)
 const CACHE_SESSAO = new Map()
@@ -168,7 +168,7 @@ export default function Territorio({ supervisor = false, vendedores = [] }) {
             <span className="text-slate-500"> · {dados.tratores.localizados} localizado{dados.tratores.localizados === 1 ? '' : 's'} no mapa</span>
             {dados.tratores.provaveis?.length > 0 && <span className="text-slate-500"> · {dados.tratores.provaveis.length} com lugar provável</span>}
           </summary>
-          <p className="text-[11px] text-slate-500 mt-1 mb-2">Na visita ao dono, o app pergunta onde o trator está. Cada confirmação põe o trator no mapa e vale XP. O 🚜 cinza no círculo tracejado é o lugar <b>provável</b> (fazenda do dono marcada pelo técnico ou onde ele foi visitado) — confirme na visita.</p>
+          <p className="text-[11px] text-slate-500 mt-1 mb-2">Na visita ao dono, o app pergunta onde o trator está. Cada confirmação põe o trator no mapa e vale XP. O 🚜 cinza no círculo tracejado é o lugar <b>provável</b> (onde o técnico atendeu o trator, fazenda do dono marcada pelo técnico ou onde ele foi visitado) — confirme na visita.</p>
           <ul className="space-y-1 max-h-60 overflow-y-auto">
             {dados.tratores.lista.map((t, i) => (
               <li key={i} className="text-xs text-slate-700">
