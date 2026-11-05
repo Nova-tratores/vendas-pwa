@@ -454,6 +454,16 @@ export default function Visitas() {
     ? negocios.filter((n) => String(n.propriedade_id) === String(form.propriedade_id) && isAberto(n.status))
     : []
   const negocioAbertoVinculado = negocioVinculado && isAberto(negocioVinculado.status)
+  // O que ainda impede registrar — mostrado embaixo do botão (antes ele só ficava cinza, sem dizer o porquê).
+  const faltasParaRegistrar = [
+    !form.tipo && 'o tipo da visita',
+    !form.propriedade_id && 'o cliente',
+    form.tipo && !localValido(form) && 'onde foi a visita',
+    form.propriedade_id && form.pessoa_ids.length === 0 && 'marcar com quem falou',
+    !form.resumo.trim() && 'o resumo',
+    faltaRetorno && 'o próximo contato (+7, +15, +30 dias ou Sem retorno)',
+    negocioAbertoVinculado && !negUpdate.temperatura && 'a temperatura do negócio',
+  ].filter(Boolean)
 
   // Vincula um negócio aberto e pré-preenche os campos de atualização da visita
   function vincularNegocio(n) {
@@ -1591,6 +1601,12 @@ export default function Visitas() {
             </div>
           )}
 
+          {faltasParaRegistrar.length > 0 && !salvando && (
+            <p className="text-xs text-red-600 font-medium">
+              Para registrar, falta: {faltasParaRegistrar.join(' · ')}
+            </p>
+          )}
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -1601,7 +1617,7 @@ export default function Visitas() {
             </button>
             <button
               type="submit"
-              disabled={salvando || !form.tipo || !localValido(form) || !form.propriedade_id || form.pessoa_ids.length === 0 || !form.resumo.trim() || faltaRetorno || (negocioAbertoVinculado && !negUpdate.temperatura)}
+              disabled={salvando || faltasParaRegistrar.length > 0}
               className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium text-sm disabled:opacity-50"
             >
               {salvando ? 'Salvando...' : tipoPresencial && !gpsData ? 'Registrar sem GPS' : 'Registrar Visita'}
