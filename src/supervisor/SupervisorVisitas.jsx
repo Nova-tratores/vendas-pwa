@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Map as MapIcon, Flag, User, Tractor, Car, ArrowRight, Calendar, MapPin, MessageCircle } from 'lucide-react'
 import { useSearchParams, Link } from 'react-router-dom'
 import {
@@ -12,6 +12,7 @@ import IconesCompletude, { SeloNota } from './IconesCompletude'
 import FichaPropriedadeModal from './FichaPropriedadeModal'
 import { notaVisita, passaFiltroNota, completadaDepois } from '../lib/completudeVisita'
 import { foraDaPropriedade, rotuloLocal } from '../lib/localVisita'
+import { passaBusca } from '../lib/buscaVisita'
 
 const TIPOS = [
   { key: '', label: 'Todos' },
@@ -51,6 +52,7 @@ export default function SupervisorVisitas() {
   const [selecao, setSelecao] = useState([])                 // ids selecionados (juntar)
   const [confirmJuntar, setConfirmJuntar] = useState(null)   // { a, b, principal }
   const [filtroNota, setFiltroNota] = useState('')
+  const [busca, setBusca] = useState(searchParams.get('busca') || '')
   const [edicoes, setEdicoes] = useState({}) // visita_id -> edições (audit_logs_vendas)
   const [curtidas, setCurtidas] = useState(new Set()) // visitas já curtidas
 
@@ -93,6 +95,10 @@ export default function SupervisorVisitas() {
     }
     setLoading(false)
   }
+
+  // Busca por texto (cliente, propriedade, contato, vendedor, resumo) — no
+  // navegador, sobre o que já veio do banco com os outros filtros.
+  const visitasBusca = useMemo(() => visitas.filter((v) => passaBusca(v, busca)), [visitas, busca])
 
   function updateFiltro(key, value) {
     setFiltros((f) => ({ ...f, [key]: value }))
@@ -197,6 +203,19 @@ export default function SupervisorVisitas() {
 
       {/* Filtros */}
       <div className="bg-white rounded-xl shadow p-3 mb-4 space-y-2">
+        <div className="relative">
+          <input
+            type="search"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar cliente, propriedade, contato, vendedor ou o que foi conversado..."
+            className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm"
+          />
+          {busca && (
+            <button type="button" onClick={() => setBusca('')} aria-label="Limpar busca"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-lg px-1">×</button>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <select
             value={filtros.vendedor_id}
@@ -262,7 +281,7 @@ export default function SupervisorVisitas() {
       {/* Completude: todas · incompletas · sem retorno · oportunidade sem negócio */}
       <div className="flex gap-1.5 overflow-x-auto mb-2 pb-1">
         {FILTROS_NOTA.map((f) => {
-          const n = f.key ? visitas.filter((v) => passaFiltroNota(v, f.key)).length : visitas.length
+          const n = f.key ? visitasBusca.filter((v) => passaFiltroNota(v, f.key)).length : visitasBusca.length
           return (
             <button key={f.key} type="button" onClick={() => setFiltroNota(f.key)}
               className={`text-xs px-3 py-1 rounded-full whitespace-nowrap border ${filtroNota === f.key ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-300'}`}>
@@ -272,17 +291,17 @@ export default function SupervisorVisitas() {
         })}
       </div>
 
-      <p className="text-xs text-slate-500 mb-2">{visitas.filter((v) => passaFiltroNota(v, filtroNota)).length} visitas encontradas</p>
+      <p className="text-xs text-slate-500 mb-2">{visitasBusca.filter((v) => passaFiltroNota(v, filtroNota)).length} visitas encontradas{busca.trim() && !filtros.dateFrom && !filtros.dateTo ? ' (em todo o período)' : ''}</p>
 
       {loading ? (
         <div className="flex items-center justify-center py-10">
           <div className="w-6 h-6 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : visitas.length === 0 ? (
-        <p className="text-slate-400 text-center py-10">Nenhuma visita encontrada</p>
+      ) : visitasBusca.length === 0 ? (
+        <p className="text-slate-400 text-center py-10">{busca.trim() ? `Nenhuma visita com "${busca.trim()}"` : 'Nenhuma visita encontrada'}</p>
       ) : (
         <div className="space-y-2">
-          {visitas.filter((v) => passaFiltroNota(v, filtroNota)).map((v) => {
+          {visitasBusca.filter((v) => passaFiltroNota(v, filtroNota)).map((v) => {
             const nota = notaVisita(v)
             const data = new Date(v.data_visita)
             const dataStr = data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
