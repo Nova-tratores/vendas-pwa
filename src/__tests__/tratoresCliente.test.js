@@ -38,3 +38,25 @@ describe('tratores do cliente', () => {
     expect(m.get('A1').resposta).toBe('aqui')
   })
 })
+
+import { tratoresParaApontar } from '../lib/tratoresCliente'
+describe('tratores para apontar na visita (nome não casa)', () => {
+  const lista = [
+    { Chassis: 'C1', Modelo: '6075E', Cliente: 'MARIA PAIVA', Cidade: 'PIRAJU', CidadeOmie: 'Carlópolis' },
+    { Chassis: 'C2', Modelo: 'JIVO', Cliente: 'ANTONIO SOUZA', Cidade: 'CARLOPOLIS' },
+    { Chassis: 'C3', Modelo: '9500', Cliente: 'JOSE FARTURA', Cidade: 'FARTURA' },
+    { Chassis: 'C4', Modelo: '6075', Cliente: 'JA LOCALIZADO', Cidade: 'CARLOPOLIS' },
+  ]
+  const ultima = new Map([['C4', { resposta: 'aqui' }]])
+  it('mesma cidade (a do Omie vale), sem os já localizados e sem os já mostrados', () => {
+    expect(tratoresParaApontar(lista, { cidade: 'CARLOPOLIS (PR)', ultima }).map((t) => t.Chassis)).toEqual(['C2', 'C1'])
+    expect(tratoresParaApontar(lista, { cidade: 'Carlópolis', ultima, excluir: ['C2'] }).map((t) => t.Chassis)).toEqual(['C1'])
+  })
+  it('com busca procura em qualquer cidade, por nome, chassi ou modelo', () => {
+    expect(tratoresParaApontar(lista, { cidade: 'Carlópolis', ultima, busca: 'josé' }).map((t) => t.Chassis)).toEqual(['C3'])
+    expect(tratoresParaApontar(lista, { ultima, busca: 'paiva 6075' }).map((t) => t.Chassis)).toEqual(['C1'])
+  })
+  it('sem cidade e sem busca não lista nada', () => {
+    expect(tratoresParaApontar(lista, { ultima })).toEqual([])
+  })
+})

@@ -3,7 +3,7 @@
 // imóvel do CAR (o banco descobre qual). Cada resposta vale XP.
 import { useEffect, useMemo, useState } from 'react'
 import { carregarTratores, carregarConfirmacoes, confirmarTrator, enviarFilaTratores } from '../lib/tratoresLocal'
-import { tratoresDoCliente, ultimaPorChassi, XP_POR_CONFIRMACAO } from '../lib/tratoresCliente'
+import { tratoresDoCliente, tratoresParaApontar, ultimaPorChassi, XP_POR_CONFIRMACAO } from '../lib/tratoresCliente'
 import { tic, vibrar } from '../lib/recompensas'
 
 const RESPOSTAS = [
@@ -28,6 +28,7 @@ export default function TratoresDaPropriedade({ propriedade, nomeDono, gpsVisita
   const [confirmacoes, setConfirmacoes] = useState([])
   const [salvando, setSalvando] = useState('')
   const [ganho, setGanho] = useState('')
+  const [busca, setBusca] = useState('')
 
   useEffect(() => {
     enviarFilaTratores().catch(() => {})
@@ -40,8 +41,13 @@ export default function TratoresDaPropriedade({ propriedade, nomeDono, gpsVisita
     cidade: propriedade?.cidade,
   }), [tratores, propriedade, nomeDono])
   const ultima = useMemo(() => ultimaPorChassi(confirmacoes), [confirmacoes])
+  // o nome não casou (cliente só com o primeiro nome, trator no nome da filha/pai/sócio):
+  // os da cidade ainda sem localização, para o vendedor apontar qual está aqui
+  const daCidade = useMemo(() => tratoresParaApontar(tratores, {
+    cidade: propriedade?.cidade, ultima, excluir: doCliente.map((t) => t.Chassis), busca,
+  }), [tratores, propriedade, ultima, doCliente, busca])
 
-  if (!doCliente.length) return null
+  if (!doCliente.length && !daCidade.length && !busca && !tratores.length) return null
 
   async function responder(t, resposta) {
     setSalvando(t.Chassis)
@@ -60,35 +66,60 @@ export default function TratoresDaPropriedade({ propriedade, nomeDono, gpsVisita
     }
   }
 
-  return (
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-emerald-900">🚜 Este cliente tem trator nosso</p>
-        {ganho && <span className="text-xs font-bold text-green-700">{ganho}</span>}
+  const cartao = (t, so) => {
+    const u = ultima.get(t.Chassis)
+    return (
+      <div key={t.Chassis} className="bg-white rounded-lg p-2 border border-emerald-100">
+        <p className="text-sm font-medium">Mahindra {t.Modelo} <span className="text-xs text-slate-500">· chassi …{String(t.Chassis).slice(-6)}{t.Entrega ? ` · entregue ${t.Entrega}` : ''}</span></p>
+        <p className="text-[11px] text-slate-500">{t.Cliente}{(t.CidadeOmie || t.Cidade) ? ` · ${t.CidadeOmie || t.Cidade}` : ''}</p>
+        {u && (
+          <p className="text-[11px] text-emerald-700 mt-0.5">
+            Última resposta: {u.resposta === 'aqui' ? 'está aqui' : u.resposta === 'nao_esta' ? 'não estava' : 'não é mais dele'} em {new Date(u.confirmado_em).toLocaleDateString('pt-BR')}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {RESPOSTAS.filter((r) => !so || so.includes(r.key)).map((r) => (
+            <button key={r.key} type="button" disabled={salvando === t.Chassis} onClick={() => responder(t, r.key)}
+              className={`text-xs px-3 py-1.5 rounded-full border ${r.cls} disabled:opacity-50`}>
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <p className="text-[11px] text-emerald-800">Confirme onde está — cada resposta vale {XP_POR_CONFIRMACAO} XP e ajuda o Pós-Vendas a achar o trator.</p>
-      {doCliente.map((t) => {
-        const u = ultima.get(t.Chassis)
-        return (
-          <div key={t.Chassis} className="bg-white rounded-lg p-2 border border-emerald-100">
-            <p className="text-sm font-medium">Mahindra {t.Modelo} <span className="text-xs text-slate-500">· chassi …{String(t.Chassis).slice(-6)}{t.Entrega ? ` · entregue ${t.Entrega}` : ''}</span></p>
-            <p className="text-[11px] text-slate-500">{t.Cliente}{t.Cidade ? ` · ${t.Cidade}` : ''}</p>
-            {u && (
-              <p className="text-[11px] text-emerald-700 mt-0.5">
-                Última resposta: {u.resposta === 'aqui' ? 'está aqui' : u.resposta === 'nao_esta' ? 'não estava' : 'não é mais dele'} em {new Date(u.confirmado_em).toLocaleDateString('pt-BR')}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {RESPOSTAS.map((r) => (
-                <button key={r.key} type="button" disabled={salvando === t.Chassis} onClick={() => responder(t, r.key)}
-                  className={`text-xs px-3 py-1.5 rounded-full border ${r.cls} disabled:opacity-50`}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {doCliente.length > 0 && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-emerald-900">🚜 Este cliente tem trator nosso</p>
+            {ganho && <span className="text-xs font-bold text-green-700">{ganho}</span>}
           </div>
-        )
-      })}
+          <p className="text-[11px] text-emerald-800">Confirme onde está — cada resposta vale {XP_POR_CONFIRMACAO} XP e ajuda o Pós-Vendas a achar o trator.</p>
+          {doCliente.map((t) => cartao(t))}
+        </div>
+      )}
+
+      <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <summary className="text-sm font-semibold text-slate-800 cursor-pointer">
+          🚜 {doCliente.length ? 'Tem outro trator nosso aqui?' : 'Tem trator nosso aqui?'}
+          {!busca && daCidade.length > 0 && <span className="font-normal text-slate-500"> · {daCidade.length} na cidade sem localização</span>}
+          {!doCliente.length && ganho && <span className="text-xs font-bold text-green-700 ml-2">{ganho}</span>}
+        </summary>
+        <p className="text-[11px] text-slate-600 mt-1">O trator pode estar no nome da filha, do pai, de um sócio… Se algum destes estiver aqui, toque em <b>Está aqui</b> ({XP_POR_CONFIRMACAO} XP).</p>
+        <input
+          type="search" value={busca} onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome, chassi ou modelo (qualquer cidade)"
+          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-2 bg-white"
+        />
+        <div className="space-y-2 mt-2 max-h-96 overflow-y-auto">
+          {daCidade.slice(0, 20).map((t) => cartao(t, ['aqui']))}
+          {daCidade.length > 20 && <p className="text-[11px] text-slate-500">Mais {daCidade.length - 20} — refine a busca.</p>}
+          {!daCidade.length && <p className="text-[11px] text-slate-500">{busca ? 'Nenhum trator com essa busca (ou já localizado).' : 'Nenhum trator nosso sem localização nesta cidade. Use a busca.'}</p>}
+        </div>
+      </details>
     </div>
   )
 }

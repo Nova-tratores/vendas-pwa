@@ -59,3 +59,31 @@ export function ultimaPorChassi(confirmacoes) {
 }
 
 export const XP_POR_CONFIRMACAO = 20
+
+/**
+ * Tratores nossos da MESMA CIDADE do cliente que ainda não foram localizados
+ * ("está aqui"), para o vendedor apontar mesmo quando o nome não casa: cliente
+ * cadastrado só pelo primeiro nome, trator em nome da filha, do pai, do sócio.
+ * Com busca (nome, chassi ou modelo), procura em TODOS os não localizados.
+ * @param tratores      [{ Chassis, Modelo, Cliente, Cidade, CidadeOmie }]
+ * @param cidade        cidade da propriedade da visita
+ * @param ultima        Map chassi -> última confirmação (ultimaPorChassi)
+ * @param excluir       chassis já mostrados (os que casaram pelo nome)
+ * @param busca         texto digitado
+ */
+export function tratoresParaApontar(tratores, { cidade = '', ultima = new Map(), excluir = [], busca = '' } = {}) {
+  const fora = new Set(excluir)
+  const cidadeCli = cidade ? cidadeCanonica(cidade).chave : ''
+  const q = String(busca || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  const lista = (tratores || []).filter((t) => {
+    if (!t.Chassis || fora.has(t.Chassis) || ultima.get(t.Chassis)?.resposta === 'aqui') return false
+    if (q) {
+      const txt = `${t.Cliente || ''} ${t.Chassis} ${t.Modelo || ''}`.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+      return q.split(' ').every((p) => txt.includes(p))
+    }
+    if (!cidadeCli) return false
+    const cid = t.CidadeOmie || t.Cidade
+    return !!cid && cidadeCanonica(cidadeDoTrator(cid)).chave === cidadeCli
+  })
+  return lista.sort((a, b) => String(a.Cliente || '').localeCompare(String(b.Cliente || ''), 'pt-BR'))
+}
