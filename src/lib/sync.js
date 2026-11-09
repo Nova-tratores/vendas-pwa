@@ -372,10 +372,21 @@ async function pullRecords() {
   // Se admin pediu force_resync, IDB foi limpo. Pull abaixo re-popula do zero.
   await checarForceResync(vendedorId)
 
+  // Outro vendedor entrou no mesmo aparelho no meio deste pull (o login já
+  // limpou o IDB): para de gravar, senão os dados do anterior voltariam para
+  // a tela do novo. O syncAll guardado roda em seguida para o vendedor novo.
+  const trocouVendedor = () => {
+    try { return JSON.parse(localStorage.getItem('vendedor') || '{}').id !== vendedorId } catch { return true }
+  }
+
   // Grava linhas já carregadas do servidor, reconciliando o "gêmeo" criado
   // offline (id local) com o que voltou do servidor (id novo).
   async function savePulled(store, rows, mapFn = (r) => r) {
     if (!rows || rows.length === 0) return []
+    if (trocouVendedor()) {
+      console.warn(`[Pull] vendedor trocou no meio do pull, ${store} descartado`)
+      return []
+    }
 
     const locais = await getAllRecords(store)
     const idxLocal = new Map()
@@ -422,6 +433,7 @@ async function pullRecords() {
   }
 
   async function pullStore(store, query, mapFn = (r) => r) {
+    if (trocouVendedor()) return []
     notify('pulling', `Baixando ${store}...`)
     const { data, error } = await query
     if (error) {
@@ -561,9 +573,20 @@ async function pullRecords() {
 // ============================================
 
 let isSyncing = false
+// Pedido de sync que chegou enquanto outro rodava (ex.: login de outro
+// vendedor durante o sync inicial da tela de login). Antes era descartado e o
+// vendedor novo ficava com a tela vazia até tocar em sincronizar.
+let syncDeNovo = false
+
+function rodarSyncGuardado() {
+  if (!syncDeNovo) return
+  syncDeNovo = false
+  setTimeout(() => syncAll(), 0)
+}
 
 export async function syncAll() {
-  if (isSyncing || !navigator.onLine) return
+  if (!navigator.onLine) return
+  if (isSyncing) { syncDeNovo = true; return }
 
   // Verificar se tem sessão autenticada
   const { data: { session } } = await supabase.auth.getSession()
@@ -633,6 +656,7 @@ export async function syncAll() {
     isSyncing = false
     // Limpar status após 3 segundos
     setTimeout(() => notify('idle', ''), 3000)
+    rodarSyncGuardado()
   }
 }
 
@@ -665,6 +689,7 @@ export async function pushOnly() {
     notify('error', err.message)
   } finally {
     isSyncing = false
+    rodarSyncGuardado()
   }
 }
 
