@@ -95,6 +95,21 @@ async function traduzFKs(store, record) {
       if (sid != null) out[campo] = sid
     }
   }
+  // Listas de ids (contatos e máquinas da visita): o contato criado na própria
+  // visita sobe ANTES (SYNC_ORDER) e deixa o de->para no id_map. Sem traduzir
+  // aqui a visita subia com o id provisório (negativo) e só um reparo posterior
+  // consertava — que se perdia quando o cache do celular era limpo.
+  if (store === 'visitas') {
+    for (const [campo, pai] of [['pessoa_ids', 'pessoas'], ['maquina_ids', 'maquinas']]) {
+      if (!Array.isArray(out[campo]) || !out[campo].some((x) => x < 0)) continue
+      const novo = []
+      for (const id of out[campo]) {
+        const sid = id < 0 ? await getServerId(pai, id) : null
+        novo.push(sid != null ? sid : id)
+      }
+      out[campo] = novo
+    }
+  }
   return out
 }
 
