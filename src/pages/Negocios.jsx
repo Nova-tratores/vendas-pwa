@@ -7,7 +7,9 @@ import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
 import CidadeSelect from '../components/CidadeSelect'
 import MaquinaSelect from '../components/MaquinaSelect'
-import { MapPin, Thermometer, Wallet } from 'lucide-react'
+import { MapPin, MessageSquarePlus, Thermometer, Wallet } from 'lucide-react'
+import BlocoContato from '../components/contato/BlocoContato'
+import { contatoLocal } from '../lib/questContato'
 
 const STATUS_FUNIL = STATUS_NEGOCIO
 const STATUS_PERDIDO = 'fechamento_negativo'
@@ -31,6 +33,8 @@ export default function Negocios() {
   const navigate = useNavigate()
   const [negocios, setNegocios] = useState([])
   const [clientes, setClientes] = useState([])
+  const [propriedades, setPropriedades] = useState([])
+  const [pessoas, setPessoas] = useState([])
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
@@ -41,6 +45,18 @@ export default function Negocios() {
   async function carregar() {
     setNegocios(await getAllRecords('negocios'))
     setClientes(await getAllRecords('clientes'))
+    // contato do card (Ligar / WhatsApp / mapa) com o que já está no celular
+    setPropriedades(await getAllRecords('propriedades'))
+    setPessoas(await getAllRecords('pessoas'))
+  }
+
+  function alvoContato(n) {
+    const local = contatoLocal({
+      propriedade: propriedades.find((p) => String(p.id) === String(n.propriedade_id)),
+      cliente: clientes.find((c) => String(c.id) === String(n.cliente_id)),
+      pessoas: pessoas.filter((p) => n.propriedade_id != null && String(p.propriedade_id) === String(n.propriedade_id)),
+    })
+    return { tipo: 'negocio', id: n.id, local }
   }
 
   // Atualização rápida da temperatura pelo card. Guarda a anterior pra calcular
@@ -293,15 +309,27 @@ export default function Negocios() {
                   </div>
                 )}
 
-                {/* Registrar visita já vinculada a este negócio */}
+                {/* Contato do cliente: Ligar / WhatsApp / mapa (ou pedir ao suporte) */}
+                {!isPerdido(n.status) && <BlocoContato alvo={alvoContato(n)} compacto />}
+
+                {/* Registrar visita (presencial) ou uma atualização (telefonema/mensagem) já vinculadas a este negócio */}
                 {isAberto(n.status) && (
-                  <button
-                    type="button"
-                    data-atalho="negocios:registrar-visita" onClick={() => navigate('/visitas', { state: { negocioId: n.id, propriedadeId: n.propriedade_id, clienteId: n.cliente_id } })}
-                    className="mt-2 w-full py-2 rounded-lg text-sm font-medium border border-blue-200 bg-blue-50 text-blue-700 active:bg-blue-100 flex items-center justify-center gap-1.5"
-                  >
-                    <MapPin size={16} /> Registrar visita
-                  </button>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      data-atalho="negocios:registrar-visita" onClick={() => navigate('/visitas', { state: { negocioId: n.id, propriedadeId: n.propriedade_id, clienteId: n.cliente_id } })}
+                      className="flex-1 py-2 rounded-lg text-sm font-medium border border-blue-200 bg-blue-50 text-blue-700 active:bg-blue-100 flex items-center justify-center gap-1.5"
+                    >
+                      <MapPin size={16} /> Registrar visita
+                    </button>
+                    <button
+                      type="button"
+                      data-atalho="negocios:criar-atualizacao" onClick={() => navigate('/visitas', { state: { negocioId: n.id, propriedadeId: n.propriedade_id, clienteId: n.cliente_id, tipo: 'telefonema' } })}
+                      className="flex-1 py-2 rounded-lg text-sm font-medium border border-violet-200 bg-violet-50 text-violet-700 active:bg-violet-100 flex items-center justify-center gap-1.5"
+                    >
+                      <MessageSquarePlus size={16} /> Criar atualização
+                    </button>
+                  </div>
                 )}
 
                 {/* Mudança rápida de etapa (select, pois são 11 etapas) */}

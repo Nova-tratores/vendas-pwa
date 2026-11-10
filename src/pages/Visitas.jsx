@@ -101,7 +101,7 @@ export default function Visitas() {
   const [marcasPorTipo, setMarcasPorTipo] = useState([])
   useEffect(() => { getMarcasDropdown().then(setMarcasOpcoes); getMarcasPorTipo().then(setMarcasPorTipo) }, [])
 
-  // Pré-vínculo vindo da aba Negócios ("Registrar visita"): abre o check-in já
+  // Pré-vínculo vindo da aba Negócios ("Registrar visita" / "Criar atualização"): abre o check-in já
   // com a propriedade selecionada e o negócio vinculado, pronto pra atualizar.
   useEffect(() => {
     const st = location.state
@@ -110,7 +110,9 @@ export default function Visitas() {
     if (!neg) return // espera os negócios carregarem
     setShowForm(true)
     iniciarCheckin()
-    setForm((f) => ({ ...f, tipo: 'presencial', data_visita: getLocalDatetime() }))
+    // "Criar atualização" no card vem com tipo telefonema (dá para trocar para mensagem/e-mail)
+    const tipo = ['mensagem', 'telefonema', 'email'].includes(st.tipo) ? st.tipo : 'presencial'
+    setForm((f) => ({ ...f, tipo, data_visita: getLocalDatetime() }))
     if (st.propriedadeId != null) {
       const p = propriedadesAll.find((x) => String(x.id) === String(st.propriedadeId))
       if (p) selecionarPropriedade(p)
