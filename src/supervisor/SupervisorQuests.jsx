@@ -16,6 +16,7 @@ import { tabelaFaltando, urlFoto } from '../lib/questsLocal'
 import { buscarTodas } from '../lib/paginar'
 import { cidadeCanonica } from '../lib/cidadesCanon'
 import { indexarClientesOmie, cidadeDoTrator, limparCidadeDigitada, tituloQuestTrator } from '../lib/tratoresCidade'
+import ContatoSupervisor, { questTemAlvo } from './ContatoSupervisor'
 
 const ABAS = [
   ['sugerida', 'Sugeridas'],
@@ -147,6 +148,7 @@ function CartaoSugerida({ q, vendedores, onFeito }) {
       <p className="text-xs font-bold text-amber-600">{ROTULO_REGRA[q.regra] || 'Sugestão'}</p>
       <p className="font-bold">{q.titulo}</p>
       <p className="text-xs text-slate-500">{rotuloAlvo(q)}</p>
+      {questTemAlvo(q) && <ContatoSupervisor q={q} />}
       {q.motivo && <p className="text-sm text-slate-700 mt-1">{q.motivo}</p>}
       <ListaItens itens={q.itens} />
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 mt-3 items-end">
@@ -212,6 +214,7 @@ function CartaoAndamento({ q, nomeVend, onFeito }) {
             {q.status === 'concluida' && <span className="text-green-700"> · concluída em {fmtDia(q.concluida_em)}</span>}
             {q.status === 'aberta' && q.nota_supervisor && <span className="text-amber-700"> · devolvida: {q.nota_supervisor}</span>}
           </p>
+          {questTemAlvo(q) && <ContatoSupervisor q={q} />}
         </div>
         <button type="button" onClick={abrir} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold">{aberto ? 'Fechar' : q.status === 'concluida' ? 'Ver respostas' : 'Detalhes'}</button>
       </div>

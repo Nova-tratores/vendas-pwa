@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown, LifeBuoy, MapPin, MessageCircle, Navigation, Phone } from 'lucide-react'
 import { buscarContato, contatoGuardado, linkMapa, pedidoFeitoEm, pedirAoSuporte, ROTULO_FALTA } from '../../lib/questContato'
 
-const ORIGEM = { omie: 'cadastro Omie', crm: 'CRM', quest: 'da quest', contato: 'contato' }
+const ORIGEM = { omie: 'cadastro Omie', crm: 'CRM', quest: 'da quest', contato: 'contato', suporte: 'informado pelo suporte' }
 const dataCurta = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 const btn = 'inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold'
 
@@ -52,6 +52,7 @@ export default function BlocoContato({ alvo, compacto = false }) {
         {!telefones.length && carregando && <p className="text-xs text-slate-400">Buscando contato no cadastro…</p>}
         {mais && <ListaTelefones telefones={telefones} />}
         {falta.length > 0 && !carregando && <p className="text-[11px] text-amber-700">Sem no cadastro: {falta.map((f) => ROTULO_FALTA[f]).join(', ')}.</p>}
+        <SituacaoPedido pedido={contato?.pedido} compacto />
         {(falta.length > 0 || pedindo) && !carregando && pedir}
       </div>
     )
@@ -80,9 +81,28 @@ export default function BlocoContato({ alvo, compacto = false }) {
           Não tem no cadastro: <b>{falta.map((f) => ROTULO_FALTA[f]).join(', ')}</b>.
         </div>
       )}
+      <SituacaoPedido pedido={contato?.pedido} />
       {pedir}
     </div>
   )
+}
+
+// Situação do último pedido ao suporte (vem do portal junto com o contato).
+export function SituacaoPedido({ pedido, compacto = false }) {
+  if (!pedido) return null
+  const t = compacto ? 'text-[11px]' : 'text-xs'
+  if (pedido.status === 'respondido') {
+    return (
+      <div className={`bg-green-50 border border-green-200 rounded-lg p-2 ${t} text-green-900`}>
+        <b>{pedido.respondido_por || 'O suporte'}</b> atualizou o contato{pedido.respondido_em ? ` em ${dataCurta(pedido.respondido_em)}` : ''}.
+        {pedido.resposta_obs ? <span className="block">Recado: {pedido.resposta_obs}</span> : null}
+      </div>
+    )
+  }
+  if (pedido.status === 'dispensado') {
+    return <p className={`${t} text-slate-600`}>O suporte não encontrou o contato{pedido.resposta_obs ? `: ${pedido.resposta_obs}` : '.'}</p>
+  }
+  return <p className={`${t} text-amber-700`}>Pedido com o suporte desde {dataCurta(pedido.criado_em)}. Você é avisado quando ele responder.</p>
 }
 
 function ListaTelefones({ telefones }) {
