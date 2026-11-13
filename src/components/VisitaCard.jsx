@@ -1,7 +1,27 @@
 import { useState, useEffect } from 'react'
 import { getRecord } from '../lib/db'
-import { Car, Tractor, User } from 'lucide-react'
+import { Car, Tractor, User, MapPin, Phone, Mail, FileText } from 'lucide-react'
 import { rotuloLocal } from '../lib/localVisita'
+import { foneWhats } from '../lib/whatsVendedor'
+import BotaoWhats from './BotaoWhats'
+import { maskTelefone } from '../lib/masks'
+
+// Junta os telefones da visita: pessoas atendidas primeiro, depois o dono e a
+// propriedade. O mesmo número aparece uma vez só.
+function montarContatos(pessoas, cliente, prop) {
+  const lista = []
+  const vistos = new Set()
+  const add = (nome, cargo, tel) => {
+    const chave = foneWhats(tel) || String(tel || '').replace(/\D/g, '')
+    if (!chave || vistos.has(chave)) return
+    vistos.add(chave)
+    lista.push({ nome: (nome || '').trim(), cargo: (cargo || '').trim(), tel: String(tel) })
+  }
+  for (const p of pessoas) add(p.nome, p.cargo, p.telefone)
+  if (cliente) add(cliente.nome, '', cliente.telefone)
+  if (prop) add(prop.razao_social || prop.nome, '', prop.telefone)
+  return lista
+}
 
 export const TIPO_LABELS = {
   presencial: 'Presencial',
@@ -29,6 +49,7 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
   const [clienteNome, setClienteNome] = useState('')
   const [expandido, setExpandido] = useState(false)
   const [detalhes, setDetalhes] = useState(null)
+  const [info, setInfo] = useState(null)
 
   const temDetalhes = (visita.pessoa_ids?.length || 0) > 0
     || (visita.maquina_ids?.length || 0) > 0
@@ -49,23 +70,32 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
     setExpandido((e) => !e)
   }
 
+  const pessoaIdsChave = (visita.pessoa_ids || []).join(',')
   useEffect(() => {
-    getRecord('propriedades', visita.propriedade_id).then((p) => {
+    let vivo = true
+    ;(async () => {
+      const p = visita.propriedade_id != null ? await getRecord('propriedades', visita.propriedade_id) : null
+      // Cliente = dono (clientes_vendas). Propriedades vindas do ERP não têm
+      // dono (cliente_dono_id nulo), então usamos o nome da própria propriedade
+      // (razão social) pra não exibir "..." no lugar do cliente.
+      const c = p?.cliente_dono_id ? await getRecord('clientes', p.cliente_dono_id) : null
+      const pessoas = (await Promise.all(
+        (visita.pessoa_ids || []).map((id) => getRecord('pessoas', id))
+      )).filter(Boolean)
+      if (!vivo) return
       if (p) {
         setPropNome(p.nome)
-        // Cliente = dono (clientes_vendas). Propriedades vindas do ERP não têm
-        // dono (cliente_dono_id nulo), então usamos o nome da própria propriedade
-        // (razão social) pra não exibir "..." no lugar do cliente.
-        if (p.cliente_dono_id) {
-          getRecord('clientes', p.cliente_dono_id).then((c) => {
-            setClienteNome(c?.nome || p.razao_social || p.nome || '')
-          })
-        } else {
-          setClienteNome(p.razao_social || p.nome || '')
-        }
+        setClienteNome(c?.nome || p.razao_social || p.nome || '')
       }
-    })
-  }, [visita.propriedade_id])
+      setInfo({
+        cidade: [p?.cidade, p?.estado].filter(Boolean).join(' / '),
+        documento: p?.cnpj_cpf || c?.documento || '',
+        email: c?.email || p?.email || '',
+        contatos: montarContatos(pessoas, c, p),
+      })
+    })()
+    return () => { vivo = false }
+  }, [visita.propriedade_id, pessoaIdsChave])
 
   const data = new Date(visita.data_visita)
   const dataStr = data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -89,6 +119,36 @@ export default function VisitaCard({ visita, index = 0, onDelete, onEdit, editav
           )}
         </div>
       </div>
+      {info && (info.cidade || info.documento || info.email) && (
+        <div className="flex items-center gap-x-3 gap-y-0.5 flex-wrap text-xs text-slate-500 mb-1">
+          {info.cidade && <span className="inline-flex items-center gap-1"><MapPin size={12} /> {info.cidade}</span>}
+          {info.documento && <span className="inline-flex items-center gap-1"><FileText size={12} /> {info.documento}</span>}
+          {info.email && <a href={`mailto:${info.email}`} className="inline-flex items-center gap-1 hover:underline break-all"><Mail size={12} /> {info.email}</a>}
+        </div>
+      )}
+      {info?.contatos?.length > 0 && (
+        <div className="my-2 space-y-1.5">
+          {info.contatos.map((ct) => {
+            return (
+              <div key={ct.tel} className="flex items-center gap-2 bg-slate-50 rounded-lg px-2.5 py-1.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-slate-800 truncate">
+                    {ct.nome || 'Telefone'}
+                    {ct.cargo && <span className="text-xs text-slate-500"> · {ct.cargo}</span>}
+                  </p>
+                  <a href={`tel:${ct.tel.replace(/[^\d+]/g, '')}`} className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline">
+                    <Phone size={11} /> {maskTelefone(ct.tel) || ct.tel}
+                  </a>
+                </div>
+                <BotaoWhats telefone={ct.tel} contato={ct.nome} />
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {info && info.contatos.length === 0 && (
+        <p className="text-xs text-slate-400 my-1 inline-flex items-center gap-1"><Phone size={11} /> Sem telefone cadastrado</p>
+      )}
       <div className="flex items-center gap-2 flex-wrap">
         <p className="text-xs text-slate-500">{dataStr}</p>
         {rotuloLocal(visita) && (

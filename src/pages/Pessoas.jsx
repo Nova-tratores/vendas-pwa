@@ -4,6 +4,7 @@ import { getByIndex, saveRecord, getRecord, deleteRecord, registrarLog } from '.
 import { maskTelefone } from '../lib/masks'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
+import BotaoWhats from '../components/BotaoWhats'
 import { MapPin, Users } from 'lucide-react'
 
 const VINCULOS = ['proprietario', 'familiar', 'funcionario', 'gerente', 'outro']
@@ -113,9 +114,12 @@ export default function Pessoas() {
                     {VINCULO_LABEL[p.vinculo] || p.vinculo}
                     {p.cargo ? ` · ${p.cargo}` : ''}
                   </p>
-                  {p.telefone && <p className="text-xs text-blue-600 mt-1">{p.telefone}</p>}
+                  {p.telefone && <a href={`tel:${String(p.telefone).replace(/[^\d+]/g, '')}`} className="text-xs text-blue-600 mt-1 inline-block hover:underline">{p.telefone}</a>}
                 </div>
-                <button onClick={() => setDeleteTarget(p)} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <BotaoWhats telefone={p.telefone} contato={p.nome} />
+                  <button onClick={() => setDeleteTarget(p)} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>
+                </div>
               </div>
             </div>
           ))}

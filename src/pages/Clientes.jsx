@@ -9,6 +9,7 @@ import { completudePropriedade } from '../lib/completude'
 import { contatoVigentePorPropriedade } from '../lib/agenda'
 import PullToRefresh from '../components/PullToRefresh'
 import ConfirmModal from '../components/ConfirmModal'
+import BotaoWhats from '../components/BotaoWhats'
 import { House } from 'lucide-react'
 
 const EMPTY_CLIENTE = { nome: '', documento: '', telefone: '', email: '', observacoes: '' }
@@ -468,6 +469,7 @@ function PropCard({ prop, dono, index, navigate, onDelete, onCultura, nPessoas =
           {prop.telefone && <p className="text-xs text-blue-600 truncate">{prop.telefone}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <BotaoWhats telefone={prop.telefone} contato={contato || dono?.nome || ''} compacto />
           <span className={`w-2 h-2 rounded-full ${prop.status_sync === 'synced' ? 'bg-green-500' : 'bg-yellow-500'}`} />
           <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="text-slate-300 hover:text-red-500 text-lg px-1">&times;</button>
         </div>
